@@ -1,0 +1,28 @@
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "the-reach-02",
+  "main": "src/index.js",
+  "compatibility_date": "2026-09-18",
+  "workers_dev": true,
+  "observability": { "enabled": true },
+  "triggers": { "crons": ["0 */2 * * *"] },
+  "ai": { "binding": "AI" },
+  "d1_databases": [
+    {
+      "binding": "DB",
+      "database_name": "the-reach-02",
+      "database_id": "1e7a426d-7496-4179-b014-c5c764534888"
+    }
+  ],
+  "vars": {
+    "BATCH_SIZE": "2",
+    "BRIEFING_TTL_HOURS": "24",
+    "PING_ALL_ENDPOINTS": "1",
+    "REACH_PUBLIC_URL": "https://reach2.aplusz.app",
+    "INDEXNOW_KEY": "414edb7f774b37ccfd3504951f3566eb",
+    "AI_MODEL": "@cf/meta/llama-3.1-8b-instruct"
+  },
+  "routes": [
+    { "pattern": "reach2.aplusz.app", "custom_domain": true }
+  ]
+}

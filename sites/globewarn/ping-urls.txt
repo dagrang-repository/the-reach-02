@@ -1,0 +1,6 @@
+https://globewarn.com/
+https://globewarn.com/en/
+https://globewarn.com/llms.txt
+https://globewarn.com/sitemap.xml
+https://globewarn.com/api/alerts
+https://globewarn.com/openapi.json

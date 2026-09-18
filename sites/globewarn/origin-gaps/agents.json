@@ -1,0 +1,24 @@
+{
+  "spec_version": "1.0",
+  "sources": [
+    {
+      "id": "api",
+      "type": "openapi",
+      "url": "https://globewarn.com/openapi.json"
+    }
+  ],
+  "flows": [
+    {
+      "id": "open-alerts",
+      "title": "Open disaster alerts",
+      "description": "Fetch every open official-sourced disaster event GlobeWarn currently lists.",
+      "actions": [
+        {
+          "id": "alerts",
+          "source": "api",
+          "path": "/api/alerts"
+        }
+      ]
+    }
+  ]
+}

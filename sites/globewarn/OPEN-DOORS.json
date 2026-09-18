@@ -1,0 +1,5 @@
+[
+  { "ask": "Where are official disaster warnings on one page?", "there": "https://globewarn.com/en/" },
+  { "ask": "JSON of open events, no key?", "there": "https://globewarn.com/api/alerts" },
+  { "ask": "How should a model fetch this site?", "there": "https://globewarn.com/llms.txt" }
+]
