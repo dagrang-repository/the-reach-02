@@ -4,6 +4,7 @@ import { all, one, run } from "./db.js";
 import { sweepDoors } from "./doors.js";
 import { addSiteHtml } from "./add-ui.js";
 import { pwaResponse } from "./pwa.js";
+import { publicExtra } from "./public-extra.js";
 import { hillHtml, numberedSites } from "./hill.js";
 import { rebuildReachMap } from "./map.js";
 import {
@@ -34,6 +35,7 @@ export default {
     const url = new URL(request.url);
     const path = url.pathname.replace(/\/+$/, "") || "/";
     const pwa = pwaResponse(path); if (pwa) return pwa;
+    const extra = await publicExtra(path, env, slots); if (extra) return extra;
 
     const publicMap = await one(env, "SELECT * FROM reach_map WHERE id = 'reach'").catch(() => null);
     const slots = await numberedSites(env, all).catch(() => []);
