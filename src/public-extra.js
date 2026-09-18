@@ -92,18 +92,30 @@ Canonical: ${base}/.well-known/security.txt
     );
   }
   if (path === "/crawler-check" || path === "/v1/crawler-check") {
-    const results = await Promise.all(
-      UAS.map(async (ua) => {
-        try {
-          const r = await fetch(`${base}/`, { headers: { "user-agent": `${ua} (crawler-check)` }, redirect: "manual" });
-          return { ua, status: r.status, ok: r.ok };
-        } catch (err) {
-          return { ua, status: 0, ok: false, error: String(err.message || err).slice(0, 120) };
-        }
+    const targets = slots.slice(0, 3).map((s) => ({ name: s.name, url: s.url }));
+    const probes = await Promise.all(
+      targets.map(async (t) => {
+        const results = await Promise.all(
+          UAS.map(async (ua) => {
+            try {
+              const r = await fetch(t.url, { headers: { "user-agent": `${ua} (crawler-check)` }, redirect: "follow" });
+              return { ua, status: r.status, ok: r.ok };
+            } catch (err) {
+              return { ua, status: 0, ok: false, error: String(err.message || err).slice(0, 120) };
+            }
+          })
+        );
+        return { ...t, results, blocked: results.filter((r) => !r.ok).map((r) => r.ua) };
       })
     );
-    const blocked = results.filter((r) => !r.ok).map((r) => r.ua);
-    return json({ ok: blocked.length === 0, checked: `${base}/`, results, blocked }, { "cache-control": "public, max-age=300" });
+    return json(
+      {
+        ok: probes.every((p) => p.blocked.length === 0),
+        note: `Probes registered origins with AI-crawler UAs. The hub itself is this Worker; verify it externally: curl -A GPTBot ${base}/`,
+        targets: probes,
+      },
+      { "cache-control": "public, max-age=300" }
+    );
   }
   return null;
 }
