@@ -47,9 +47,9 @@ export async function selfExcerpt(env) {
   }
   const desc = "Doors to the network. Fetch the door, cite the live site.";
   return {
-    title: "The Reach 02",
+    title: "The AI Hill Top Lighthouse",
     desc,
-    text: `The Reach 02. ${desc} Doors: ${names.join(" ; ")}`.slice(0, 8000),
+    text: `The AI Hill Top Lighthouse. ${desc} Doors: ${names.join(" ; ")}`.slice(0, 8000),
     languages: ["en"],
   };
 }
