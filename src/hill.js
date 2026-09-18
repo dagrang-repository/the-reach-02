@@ -59,6 +59,7 @@ export function hillHtml(slots) {
 <main>
   <p class="n">The Reach 02</p>
   <h1>Doors</h1>
+  <p><a href="/add" style="display:inline-block;padding:.7rem 1.1rem;border-radius:12px;background:#8dff9a;color:#0f1a12;font-weight:700;text-decoration:none">Add site</a></p>
   <p>Each added site gets the next number. Humans use #1 #2 #3. Crawlers use /1 /2 /3.</p>
   <div id="board"></div>
 </main>
