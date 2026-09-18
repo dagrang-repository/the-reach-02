@@ -1,4 +1,5 @@
 /** Public, no-token hub endpoints. Rule: a path named in llms.txt / robots / sitemap / catalogs never 401s. */
+import { isSelfUrl } from "./self.js";
 
 const UAS = ["GPTBot", "OAI-SearchBot", "ClaudeBot", "PerplexityBot", "Googlebot", "CCBot"];
 
@@ -92,7 +93,7 @@ Canonical: ${base}/.well-known/security.txt
     );
   }
   if (path === "/crawler-check" || path === "/v1/crawler-check") {
-    const targets = slots.slice(0, 3).map((s) => ({ name: s.name, url: s.url }));
+    const targets = slots.filter((s) => !isSelfUrl(s.url, env)).slice(0, 3).map((s) => ({ name: s.name, url: s.url }));
     const probes = await Promise.all(
       targets.map(async (t) => {
         const results = await Promise.all(

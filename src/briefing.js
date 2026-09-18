@@ -2,6 +2,7 @@ import { all, one, run } from "./db.js";
 import { asArray, detectLanguagesFromHtml, nowIso, parseJsonLoose, stripHtml } from "./util.js";
 import { applyFullStack, ensureAnswerChannel } from "./stack.js";
 import { rebuildReachMap } from "./map.js";
+import { isSelfUrl, selfExcerpt } from "./self.js";
 
 const SYSTEM = `You extract product intelligence from a website excerpt.
 Return ONLY a JSON object with keys:
@@ -100,7 +101,7 @@ export async function refreshBriefing(env, site, force = false) {
     const age = Date.now() - new Date(existing.updated_at).getTime();
     if (age < ttlHours * 3600 * 1000) return { briefing: existing, intel: null, refreshed: false };
   }
-  const excerpt = await fetchExcerpt(site.url);
+  const excerpt = isSelfUrl(site.url, env) ? await selfExcerpt(env) : await fetchExcerpt(site.url);
   const intel = await analyzeSite(env, site, excerpt);
   const ts = nowIso();
   await run(

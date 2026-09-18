@@ -10,6 +10,7 @@ import {
   shouldPingUrl,
   watchChallenges,
 } from "./outreach.js";
+import { isSelfUrl, selfDoor } from "./self.js";
 
 /** Official IndexNow endpoints — ping ALL of them every cycle. */
 export const INDEXNOW_ENDPOINTS = [
@@ -174,13 +175,16 @@ export async function pingAllSites(env, runId, onlySites = null) {
 
   for (const site of sites) {
     stats.sites += 1;
+    const selfSite = isSelfUrl(site.url, env);
     await ensureIndexNowKey(env, site);
-    const keyCheck = await verifyOriginKey(site);
+    const keyCheck = selfSite
+      ? { url: keyFileUrl(site), status: 200, ok: true, detail: "self: worker serves its own key file" }
+      : await verifyOriginKey(site);
     if (!keyCheck.ok) {
       stats.key_red += 1;
       await recordChange(env, { kind: "key-red", siteId: site.id, url: keyCheck.url, detail: keyCheck.detail });
     }
-    await watchChallenges(env, site, runId, rec);
+    if (!selfSite) await watchChallenges(env, site, runId, rec);
     const pack = await one(env, "SELECT ping_urls_json, doors_json FROM packs WHERE site_id = ?", site.id);
     let urls = [];
     try {
@@ -194,7 +198,7 @@ export async function pingAllSites(env, runId, onlySites = null) {
     const fetched = {};
     for (const u of urls) {
       try {
-        const got = await fetchDoor(u);
+        const got = selfSite ? selfDoor(u) : await fetchDoor(u);
         fetched[u] = got;
         const gate = await shouldPingUrl(env, u, `${got.status}:${got.body || ""}`.slice(0, 8000));
         if (got.ok && gate.changed) changedUrls.push(u);
@@ -262,7 +266,7 @@ export async function pingAllSites(env, runId, onlySites = null) {
     const doorUrls = [...new Set([site.url, ...doors.map((d) => d.there).filter(Boolean)])].slice(0, 16);
     for (const door of doorUrls) {
       try {
-        const out = await fetchDoor(door);
+        const out = selfSite ? selfDoor(door) : await fetchDoor(door);
         siteReport.doors.push({ url: door, status: out.status, ok: out.ok });
         if (out.ok) stats.doors += 1;
         else stats.failed += 1;
@@ -292,13 +296,15 @@ export async function pingAllSites(env, runId, onlySites = null) {
       }
     }
 
-    const origin = new URL(site.url).origin;
-    for (const feed of [`${origin}/feed`, `${origin}/rss.xml`, `${origin}/atom.xml`]) {
-      try {
-        const res = await fetch(feed, { method: "GET", headers: { "user-agent": "TheReach02-ping/1.1" } });
-        if (res.ok) await pingWebSub(env, site, feed, runId, rec);
-      } catch {
-        /* no feed */
+    if (!selfSite) {
+      const origin = new URL(site.url).origin;
+      for (const feed of [`${origin}/feed`, `${origin}/rss.xml`, `${origin}/atom.xml`]) {
+        try {
+          const res = await fetch(feed, { method: "GET", headers: { "user-agent": "TheReach02-ping/1.1" } });
+          if (res.ok) await pingWebSub(env, site, feed, runId, rec);
+        } catch {
+          /* no feed */
+        }
       }
     }
 

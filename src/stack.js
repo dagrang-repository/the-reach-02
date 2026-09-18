@@ -3,6 +3,7 @@ import { nowIso } from "./util.js";
 import { ensureIndexNowKey, keyFileUrl } from "./ping.js";
 import { buildKeywordPack, scanBacklinks } from "./intel.js";
 import { PLAYBOOK_PATHS, buildPlaybookFiles } from "./playbook.js";
+import { isSelfUrl, selfProbe } from "./self.js";
 
 export const ANSWER_CHANNEL_ID = "ch_answer";
 export const STACK_VERSION = 4;
@@ -163,14 +164,17 @@ export function buildOriginGaps(probe, origin, indexnowKey) {
 export async function persistStack(env, site, briefing, intel) {
   await ensureIndexNowKey(env, site);
   const origin = new URL(site.url).origin;
-  const probe = await probeOrigin(origin);
+  const selfSite = isSelfUrl(site.url, env);
+  const probe = selfSite ? selfProbe(env) : await probeOrigin(origin);
   const used = intel || intelFromBriefing(briefing);
   let html = briefing?.raw_excerpt || "";
-  try {
-    const res = await fetch(site.url, { redirect: "follow", headers: { "user-agent": "TheReach02/1.1" } });
-    if (res.ok) html = await res.text();
-  } catch {
-    /* keep excerpt */
+  if (!selfSite) {
+    try {
+      const res = await fetch(site.url, { redirect: "follow", headers: { "user-agent": "TheReach02/1.1" } });
+      if (res.ok) html = await res.text();
+    } catch {
+      /* keep excerpt */
+    }
   }
   const excerpt = {
     title: used.punch_line,
