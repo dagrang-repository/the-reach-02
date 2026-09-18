@@ -84,7 +84,7 @@ ${sites
 - Fetch: ${s.path}
 - Live: ${s.url}
 - Who: ${s.who_for || "anyone looking for this job"}
-- ${s.summary || ""}`
+- ${(s.summary || "").replace(/\s+/g, " ").slice(0, 160)}`
   )
   .join("\n\n")}
 
