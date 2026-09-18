@@ -69,7 +69,7 @@ ${langs}
 </urlset>
 `;
 
-  const llms = `# The Reach 02
+  const llms = `# The AI Hill Top Lighthouse (The Reach 02)
 
 > Hilltop: ${base}
 > Human doors: ${base}/#1 ${base}/#2 ${base}/#3 …
@@ -92,7 +92,7 @@ ${sites
 ${doors.map((d) => `- ${d.ask} → ${d.hash} → ${d.there}`).join("\n")}
 `;
 
-  const structure = `# The Reach 02 site structure
+  const structure = `# The AI Hill Top Lighthouse (The Reach 02) site structure
 Grows when a site is added. Separate from robots.txt.
 
 ## Numbers

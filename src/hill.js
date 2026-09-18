@@ -37,7 +37,7 @@ export function hillHtml(slots) {
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>The Reach 02</title>
+  <title>The AI Hill Top Lighthouse</title>
   <link rel="canonical" href="${BASE}/">
   <link rel="manifest" href="/manifest.json">
   <meta name="theme-color" content="#0f1a12">
@@ -72,7 +72,7 @@ export function hillHtml(slots) {
 </head>
 <body>
 <main>
-  <div class="top"><span class="n">The Reach 02</span><h1>Doors</h1><a href="/add" class="btn">Add site</a></div>
+  <div class="top"><span class="n">The Reach 02</span><h1>The AI Hill Top Lighthouse</h1><a href="/add" class="btn">Add site</a></div>
   <div id="board"></div>
 </main>
 <div id="pwa"><span>Install The Reach 02 as an app?</span><button id="pwaGo" class="btn">Install App</button></div>

@@ -134,7 +134,7 @@ export async function status(env) {
   const lastPings = await all(env, "SELECT kind, ok, COUNT(*) AS c FROM pings GROUP BY kind, ok");
   return {
     ok: sites.length > 0,
-    cron: "0 */2 * * * UTC",
+    cron: "0 * * * * UTC",
     must: "outward IndexNow + door pings every cycle, every site",
     sites,
     last_run: lastRun,

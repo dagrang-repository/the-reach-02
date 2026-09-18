@@ -130,7 +130,7 @@ export default {
       return json({
         ok: true,
         service: "the-reach-02",
-        cron: "0 */2 * * * UTC",
+        cron: "0 * * * * UTC",
         must: "outward pings every cycle",
         stack_version: STACK_VERSION,
         features: SITE_FEATURES.map((f) => f.id),
