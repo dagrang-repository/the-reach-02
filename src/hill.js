@@ -41,7 +41,6 @@ export function hillHtml(slots) {
   <link rel="canonical" href="${BASE}/">
   <link rel="manifest" href="/manifest.json">
   <meta name="theme-color" content="#0f1a12">
-  <meta name="yandex-verification" content="6d4fd28174977af5">
   <link rel="icon" href="/icon-192.png">
   <link rel="apple-touch-icon" href="/icon-192.png">
   <link rel="alternate" type="application/rss+xml" href="/feed.xml">
@@ -56,7 +55,11 @@ export function hillHtml(slots) {
     body{margin:0;font:16px/1.45 system-ui,sans-serif;background:#0f1a12;color:#e8f6e4}
     main{max-width:44rem;margin:0 auto;padding:2.5rem 1.25rem}
     a{color:#8dff9a}
-    .slot{border:1px solid #2d5a34;border-radius:16px;padding:1.25rem 1.4rem;margin:1rem 0;background:#15241a}
+    .slot{border:1px solid #2d5a34;border-radius:16px;padding:1rem 1.4rem;margin:.7rem 0;background:#15241a;cursor:pointer;transition:background .15s}
+    .slot:hover{background:#1a2c20}
+    .slot h2{margin:.1rem 0;font-size:1.15rem}
+    .slot .more{display:none;margin-top:.5rem}
+    .slot.open .more{display:block}
     .n{font-size:.8rem;letter-spacing:.12em;text-transform:uppercase;color:#8dff9a}
     .btn{display:inline-block;padding:.7rem 1.1rem;border-radius:12px;background:#8dff9a;color:#0f1a12;font-weight:700;text-decoration:none;border:0;font-size:1rem;cursor:pointer}
     #pwa{position:fixed;left:50%;bottom:1.25rem;transform:translateX(-50%);display:none;align-items:center;gap:.9rem;background:#15241a;border:1px solid #2d5a34;border-radius:16px;padding:.9rem 1.1rem;box-shadow:0 8px 30px rgba(0,0,0,.45);z-index:9}
@@ -74,26 +77,41 @@ export function hillHtml(slots) {
 <div id="pwa"><span>Install The Reach 02 as an app?</span><button id="pwaGo" class="btn">Install App</button></div>
 <script>
 const SLOTS = ${data};
-function show() {
-  const raw = (location.hash || "").replace("#","");
-  const n = raw ? Number(raw) : 0;
+const SHRINK_MS = 16000;
+const timers = {};
+function render() {
   const board = document.getElementById("board");
-  const list = n ? SLOTS.filter(s => s.n === n) : SLOTS;
-  if (!list.length) {
-    board.innerHTML = "<p>No door at #" + raw + ".</p>";
-    return;
-  }
-  board.innerHTML = list.map(s => (
-    '<article class="slot">' +
-      '<div class="n">#' + s.n + ' &middot; ' + s.hash + '</div>' +
+  if (!SLOTS.length) { board.innerHTML = "<p>No doors yet.</p>"; return; }
+  board.innerHTML = SLOTS.map(s => (
+    '<article class="slot" id="door-' + s.n + '" data-n="' + s.n + '">' +
       '<h2>' + s.name + '</h2>' +
-      '<p>' + (s.punch || "") + '</p>' +
-      '<p><a href="' + s.url + '">Open live site</a> &middot; <a href="/' + s.n + '">/' + s.n + '</a></p>' +
+      '<div class="more">' +
+        '<div class="n">#' + s.n + ' &middot; ' + s.hash + '</div>' +
+        '<p>' + (s.punch || "") + '</p>' +
+        '<p><a href="' + s.url + '">Open live site</a> &middot; <a href="/' + s.n + '">/' + s.n + '</a></p>' +
+      '</div>' +
     '</article>'
   )).join("");
+  for (const el of board.querySelectorAll(".slot")) {
+    el.addEventListener("click", (e) => { if (e.target.tagName === "A") return; el.classList.contains("open") ? collapse(el) : expand(el); });
+    el.addEventListener("mouseenter", () => expand(el));
+  }
 }
-show();
-addEventListener("hashchange", show);
+function expand(el) {
+  for (const other of document.querySelectorAll(".slot.open")) if (other !== el) collapse(other);
+  el.classList.add("open");
+  clearTimeout(timers[el.id]);
+  timers[el.id] = setTimeout(() => collapse(el), SHRINK_MS);
+}
+function collapse(el) { el.classList.remove("open"); clearTimeout(timers[el.id]); }
+function openHash() {
+  const raw = (location.hash || "").replace("#","");
+  const el = raw ? document.getElementById("door-" + Number(raw)) : null;
+  if (el) { expand(el); el.scrollIntoView({ block: "center" }); }
+}
+render();
+openHash();
+addEventListener("hashchange", openHash);
 
 if ("serviceWorker" in navigator) navigator.serviceWorker.register("/sw.js");
 let deferred = null, pwaTimer = null;
