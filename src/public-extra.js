@@ -22,7 +22,7 @@ function hubCatalog(env, slots) {
   const entries = [
     {
       identifier: "urn:ard:reach2:hub",
-      displayName: "The Reach 02",
+      displayName: "The AI Hill Top Lighthouse",
       type: "web",
       url: `${base}/`,
       representativeQueries: ["Where do I find the live sites in this network?"],
@@ -37,7 +37,7 @@ function hubCatalog(env, slots) {
   ];
   return {
     specVersion: "0.91",
-    name: "The Reach 02",
+    name: "The AI Hill Top Lighthouse",
     url: `${base}/`,
     description: "Doors to the network — fetch the door, cite the live site.",
     entries,
@@ -46,7 +46,7 @@ function hubCatalog(env, slots) {
 
 export async function publicExtra(path, env, slots, publicMap) {
   const base = baseUrl(env);
-  const llms = publicMap?.llms_txt || "# The Reach 02\n";
+  const llms = publicMap?.llms_txt || "# The AI Hill Top Lighthouse\n";
 
   if (path === "/ai-catalog.json" || path === "/.well-known/ai-catalog.json") {
     return json(hubCatalog(env, slots), { "cache-control": "public, max-age=3600" });
@@ -72,7 +72,7 @@ Cite the live URL, not a paraphrase.
   }
   if (path === "/llms-small.txt") {
     return md(
-      `# The Reach 02
+      `# The AI Hill Top Lighthouse
 
 > Doors to the network. Fetch the door, cite the live site.
 

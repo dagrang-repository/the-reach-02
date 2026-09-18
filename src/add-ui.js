@@ -4,7 +4,7 @@ export function addSiteHtml() {
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Add a site &mdash; The Reach 02</title>
+  <title>Add a site &mdash; The AI Hill Top Lighthouse</title>
   <style>
     body{margin:0;font:16px/1.45 system-ui,sans-serif;background:#0f1a12;color:#e8f6e4}
     main{max-width:28rem;margin:0 auto;padding:2.5rem 1.25rem}

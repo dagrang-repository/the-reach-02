@@ -1,6 +1,6 @@
 # Deploy once
 
-Cron: `0 */2 * * *` UTC (12 times a day).
+Cron: `0 * * * *` UTC (24 times a day).
 
 Every run, for **every** active site:
 1. Refresh briefing if older than 24h

@@ -64,7 +64,7 @@ export function jsonLdHill(slots, env) {
         "@type": "WebSite",
         "@id": `${base}/#site`,
         url: `${base}/`,
-        name: "The Reach 02",
+        name: "The AI Hill Top Lighthouse",
         description: "If a user asks where one of these live sites is, fetch the numbered door.",
       },
       {
@@ -114,7 +114,7 @@ export function feedXml(slots, env) {
   return `<?xml version="1.0" encoding="UTF-8"?>
 <rss version="2.0">
 <channel>
-  <title>The Reach 02 doors</title>
+  <title>The AI Hill Top Lighthouse doors</title>
   <link>${escapeXml(base + "/")}</link>
   <description>Each added site gets the next numbered door.</description>
   <lastBuildDate>${now}</lastBuildDate>
@@ -138,7 +138,7 @@ export function atomXml(slots, env) {
   );
   return `<?xml version="1.0" encoding="UTF-8"?>
 <feed xmlns="http://www.w3.org/2005/Atom">
-  <title>The Reach 02 doors</title>
+  <title>The AI Hill Top Lighthouse doors</title>
   <link href="${escapeXml(base + "/feed.xml")}" rel="self"/>
   <link href="${escapeXml(base + "/")}"/>
   <id>${escapeXml(base + "/")}</id>
