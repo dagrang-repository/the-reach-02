@@ -63,23 +63,21 @@ export function hillHtml(slots) {
     .slot.open .more{display:block}
     .n{font-size:.8rem;letter-spacing:.12em;text-transform:uppercase;color:#8dff9a}
     .btn{display:inline-block;padding:.7rem 1.1rem;border-radius:12px;background:#8dff9a;color:#0f1a12;font-weight:700;text-decoration:none;border:0;font-size:1rem;cursor:pointer}
+    .top{display:flex;align-items:center;gap:1rem;flex-wrap:nowrap;white-space:nowrap;margin-bottom:1.2rem}
+    .top h1{margin:0;font-size:1.5rem}
+    .top .btn{padding:.45rem .9rem;font-size:.95rem}
     #pwa{position:fixed;left:50%;bottom:1.25rem;transform:translateX(-50%);display:none;align-items:center;gap:.9rem;background:#15241a;border:1px solid #2d5a34;border-radius:16px;padding:.9rem 1.1rem;box-shadow:0 8px 30px rgba(0,0,0,.45);z-index:9}
     #pwa.on{display:flex}
   </style>
 </head>
 <body>
 <main>
-  <p class="n">The Reach 02</p>
-  <h1>Doors</h1>
-  <p><a href="/add" class="btn">Add site</a></p>
-  <p>Each added site gets the next number. Humans use #1 #2 #3. Crawlers use /1 /2 /3.</p>
+  <div class="top"><span class="n">The Reach 02</span><h1>Doors</h1><a href="/add" class="btn">Add site</a></div>
   <div id="board"></div>
 </main>
 <div id="pwa"><span>Install The Reach 02 as an app?</span><button id="pwaGo" class="btn">Install App</button></div>
 <script>
 const SLOTS = ${data};
-const SHRINK_MS = 16000;
-const timers = {};
 function render() {
   const board = document.getElementById("board");
   if (!SLOTS.length) { board.innerHTML = "<p>No doors yet.</p>"; return; }
@@ -98,16 +96,13 @@ function render() {
   if (w) { board.style.setProperty("--card-w", w + "px"); board.style.maxWidth = (w * 3 + 24) + "px"; }
   for (const el of board.querySelectorAll(".slot")) {
     el.addEventListener("click", (e) => { if (e.target.tagName === "A") return; el.classList.contains("open") ? collapse(el) : expand(el); });
-    el.addEventListener("mouseenter", () => expand(el));
   }
 }
 function expand(el) {
   for (const other of document.querySelectorAll(".slot.open")) if (other !== el) collapse(other);
   el.classList.add("open");
-  clearTimeout(timers[el.id]);
-  timers[el.id] = setTimeout(() => collapse(el), SHRINK_MS);
 }
-function collapse(el) { el.classList.remove("open"); clearTimeout(timers[el.id]); }
+function collapse(el) { el.classList.remove("open"); }
 function openHash() {
   const raw = (location.hash || "").replace("#","");
   const el = raw ? document.getElementById("door-" + Number(raw)) : null;
