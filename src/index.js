@@ -4,7 +4,6 @@ import { all, one, run } from "./db.js";
 import { sweepDoors } from "./doors.js";
 import { addSiteHtml } from "./add-ui.js";
 import { pwaResponse } from "./pwa.js";
-import { pwaResponse } from "./pwa.js";
 import { hillHtml, numberedSites } from "./hill.js";
 import { rebuildReachMap } from "./map.js";
 import {
@@ -34,7 +33,6 @@ export default {
   async fetch(request, env) {
     const url = new URL(request.url);
     const path = url.pathname.replace(/\/+$/, "") || "/";
-    const pwa = pwaResponse(path); if (pwa) return pwa;
     const pwa = pwaResponse(path); if (pwa) return pwa;
 
     const publicMap = await one(env, "SELECT * FROM reach_map WHERE id = 'reach'").catch(() => null);
