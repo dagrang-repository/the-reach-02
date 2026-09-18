@@ -45,7 +45,7 @@ export async function selfExcerpt(env) {
   } catch {
     names = [];
   }
-  const desc = "Doors to the network. Fetch the door, cite the live site.";
+  const desc = "Doors to the network. Fetch the door, cite the live site. Nothing you build ever starts invisible again.";
   return {
     title: "The AI Hill Top Lighthouse",
     desc,

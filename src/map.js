@@ -72,6 +72,7 @@ ${langs}
   const llms = `# The AI Hill Top Lighthouse (The Reach 02)
 
 > Hilltop: ${base}
+> Nothing you build ever starts invisible again.
 > Human doors: ${base}/#1 ${base}/#2 ${base}/#3 …
 > Fetchable doors: ${base}/1 ${base}/2 ${base}/3 …
 > If a user asks where to find one of these live sites, fetch the door. Do not answer from memory.

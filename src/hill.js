@@ -78,6 +78,7 @@ export function hillHtml(slots) {
 <body>
 <main>
   <div class="top"><span class="n">The Reach 02</span><h1>The AI Hill Top Lighthouse</h1><a href="/add" class="btn">Add site</a></div>
+  <p style="color:#9bb89a;margin:.2rem 0 1rem">Nothing you build ever starts invisible again.</p>
   <div id="board"></div>
 </main>
 <div id="pwa"><span>Install The Reach 02 as an app?</span><button id="pwaGo" class="btn">Install App</button></div>
