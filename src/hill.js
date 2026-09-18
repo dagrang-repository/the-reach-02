@@ -75,7 +75,7 @@ export function hillHtml(slots) {
   <div class="top"><span class="n">The Reach 02</span><h1>The AI Hill Top Lighthouse</h1><a href="/add" class="btn">Add site</a></div>
   <div id="board"></div>
 </main>
-<div id="pwa"><span>Install The Reach 02 as an app?</span><button id="pwaGo" class="btn">Install App</button></div>
+<div id="pwa"><span>Install The AI Hill Top Lighthouse as an app?</span><button id="pwaGo" class="btn">Install App</button></div>
 <script>
 const SLOTS = ${data};
 function render() {
