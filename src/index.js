@@ -35,10 +35,10 @@ export default {
     const url = new URL(request.url);
     const path = url.pathname.replace(/\/+$/, "") || "/";
     const pwa = pwaResponse(path); if (pwa) return pwa;
-    const extra = await publicExtra(path, env, slots); if (extra) return extra;
 
     const publicMap = await one(env, "SELECT * FROM reach_map WHERE id = 'reach'").catch(() => null);
     const slots = await numberedSites(env, all).catch(() => []);
+    const extra = await publicExtra(path, env, slots, publicMap); if (extra) return extra;
 
     const rk = reachKey(env);
     if (path === `/${rk}.txt` && request.method === "GET") {

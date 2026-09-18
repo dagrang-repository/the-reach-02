@@ -1,4 +1,4 @@
-/** Public, no-token hub endpoints: /ai-catalog.json (ARD) and /crawler-check (live bot-UA probe). */
+/** Public, no-token hub endpoints. Rule: a path named in llms.txt / robots / sitemap / catalogs never 401s. */
 
 const UAS = ["GPTBot", "OAI-SearchBot", "ClaudeBot", "PerplexityBot", "Googlebot", "CCBot"];
 
@@ -8,8 +8,16 @@ function json(body, extra = {}) {
   });
 }
 
+function md(body, extra = {}) {
+  return new Response(body, { headers: { "content-type": "text/markdown; charset=utf-8", ...extra } });
+}
+
+function baseUrl(env) {
+  return String(env?.REACH_PUBLIC_URL || "https://reach2.aplusz.app").replace(/\/+$/, "");
+}
+
 function hubCatalog(env, slots) {
-  const base = String(env?.REACH_PUBLIC_URL || "https://reach2.aplusz.app").replace(/\/+$/, "");
+  const base = baseUrl(env);
   const entries = [
     {
       identifier: "urn:ard:reach2:hub",
@@ -35,12 +43,55 @@ function hubCatalog(env, slots) {
   };
 }
 
-export async function publicExtra(path, env, slots) {
+export async function publicExtra(path, env, slots, publicMap) {
+  const base = baseUrl(env);
+  const llms = publicMap?.llms_txt || "# The Reach 02\n";
+
   if (path === "/ai-catalog.json" || path === "/.well-known/ai-catalog.json") {
     return json(hubCatalog(env, slots), { "cache-control": "public, max-age=3600" });
   }
-  if (path === "/crawler-check") {
-    const base = String(env?.REACH_PUBLIC_URL || "https://reach2.aplusz.app").replace(/\/+$/, "");
+  if (path === "/.well-known/llms.txt") {
+    return md(llms, { "cache-control": "public, max-age=3600" });
+  }
+  if (path === "/llms-full.txt") {
+    return md(
+      `${llms}
+## Machine surfaces
+- Catalog: ${base}/catalog.json
+- ARD: ${base}/ai-catalog.json
+- Doors JSON: ${base}/OPEN-DOORS.json
+- Sitemap: ${base}/sitemap.xml
+- Feed: ${base}/feed.xml
+- Crawler check: ${base}/crawler-check
+
+Cite the live URL, not a paraphrase.
+`,
+      { "cache-control": "public, max-age=3600" }
+    );
+  }
+  if (path === "/llms-small.txt") {
+    return md(
+      `# The Reach 02
+
+> Doors to the network. Fetch the door, cite the live site.
+
+${slots.map((s) => `- [#${s.n} ${s.name}](${s.path})`).join("\n") || "- (no doors yet)"}
+`,
+      { "cache-control": "public, max-age=3600" }
+    );
+  }
+  if (path === "/.well-known/security.txt") {
+    const exp = new Date(Date.now() + 365 * 24 * 3600 * 1000).toISOString();
+    return new Response(
+      `Contact: mailto:dagrang@gmail.com
+Expires: ${exp}
+Preferred-Languages: en
+Canonical: ${base}/.well-known/security.txt
+`,
+      { headers: { "content-type": "text/plain; charset=utf-8", "cache-control": "public, max-age=3600" } }
+    );
+  }
+  if (path === "/crawler-check" || path === "/v1/crawler-check") {
     const results = await Promise.all(
       UAS.map(async (ua) => {
         try {
@@ -52,10 +103,7 @@ export async function publicExtra(path, env, slots) {
       })
     );
     const blocked = results.filter((r) => !r.ok).map((r) => r.ua);
-    return json(
-      { ok: blocked.length === 0, checked: `${base}/`, results, blocked },
-      { "cache-control": "public, max-age=300" }
-    );
+    return json({ ok: blocked.length === 0, checked: `${base}/`, results, blocked }, { "cache-control": "public, max-age=300" });
   }
   return null;
 }
