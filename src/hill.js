@@ -41,6 +41,7 @@ export function hillHtml(slots) {
   <link rel="canonical" href="${BASE}/">
   <link rel="manifest" href="/manifest.json">
   <meta name="theme-color" content="#0f1a12">
+  <meta name="yandex-verification" content="6d4fd28174977af5">
   <link rel="icon" href="/icon-192.png">
   <link rel="apple-touch-icon" href="/icon-192.png">
   <link rel="alternate" type="application/rss+xml" href="/feed.xml">
