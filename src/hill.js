@@ -61,6 +61,11 @@ export function hillHtml(slots) {
     .slot h2{margin:.1rem 0;font-size:1.05rem;white-space:nowrap}
     .slot .more{display:none;margin-top:.5rem;overflow-wrap:anywhere}
     .slot.open .more{display:block}
+    @media (max-width:640px){
+      #board{max-width:100% !important}
+      .slot{width:calc(50% - .35rem)}
+      .slot h2{overflow:hidden;text-overflow:ellipsis}
+    }
     .n{font-size:.8rem;letter-spacing:.12em;text-transform:uppercase;color:#8dff9a}
     .btn{display:inline-block;padding:.7rem 1.1rem;border-radius:12px;background:#8dff9a;color:#0f1a12;font-weight:700;text-decoration:none;border:0;font-size:1rem;cursor:pointer}
     .top{display:flex;align-items:center;gap:1rem;flex-wrap:nowrap;white-space:nowrap;margin-bottom:1.2rem}
@@ -75,7 +80,7 @@ export function hillHtml(slots) {
   <div class="top"><span class="n">The Reach 02</span><h1>The AI Hill Top Lighthouse</h1><a href="/add" class="btn">Add site</a></div>
   <div id="board"></div>
 </main>
-<div id="pwa"><span>Install The AI Hill Top Lighthouse as an app?</span><button id="pwaGo" class="btn">Install App</button></div>
+<div id="pwa"><span>Install The Reach 02 as an app?</span><button id="pwaGo" class="btn">Install App</button></div>
 <script>
 const SLOTS = ${data};
 function render() {
