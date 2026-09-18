@@ -5,7 +5,7 @@
   "compatibility_date": "2026-09-18",
   "workers_dev": true,
   "observability": { "enabled": true },
-  "triggers": { "crons": ["0 */2 * * *"] },
+  "triggers": { "crons": ["0 * * * *"] },
   "ai": { "binding": "AI" },
   "d1_databases": [
     {
