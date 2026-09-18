@@ -22,7 +22,7 @@ export const SITE_FEATURES = [
   { id: "doors", label: "Open doors (ask X, fetch Y)" },
   { id: "asker", label: "Asker-first llms.txt" },
   { id: "gaps", label: "Origin-gap file pack" },
-  { id: "pings", label: "Outward IndexNow + door pings every 2h" },
+  { id: "pings", label: "Outward IndexNow + door pings every hour" },
   { id: "change_only", label: "Ping only doors whose hash changed" },
   { id: "ua_watch", label: "GPTBot/OAI-SearchBot/Googlebot challenge watch" },
   { id: "websub", label: "WebSub publish when a feed exists" },
