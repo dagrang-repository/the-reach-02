@@ -5,6 +5,7 @@ import { sweepDoors } from "./doors.js";
 import { addSiteHtml } from "./add-ui.js";
 import { pwaResponse } from "./pwa.js";
 import { publicExtra } from "./public-extra.js";
+import { isSelfUrl } from "./self.js";
 import { hillHtml, numberedSites } from "./hill.js";
 import { rebuildReachMap } from "./map.js";
 import {
@@ -230,7 +231,7 @@ export default {
         try {
           const out = await runFullStack(env, site, true);
           const keyCheck = site.indexnow_key
-            ? await verifyOriginKey(site)
+            ? (isSelfUrl(site.url, env) ? { url: "", status: 200, ok: true, detail: "self: worker serves its own key file" } : await verifyOriginKey(site))
             : { ok: false, detail: "no key on add and no indexnow-key meta on the page" };
           const afterSlots = await numberedSites(env, all);
           const announced = await pingReachMesh(env, reachAnnounceUrls(env, afterSlots), uid("add"));
