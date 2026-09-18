@@ -55,10 +55,11 @@ export function hillHtml(slots) {
     body{margin:0;font:16px/1.45 system-ui,sans-serif;background:#0f1a12;color:#e8f6e4}
     main{max-width:44rem;margin:0 auto;padding:2.5rem 1.25rem}
     a{color:#8dff9a}
-    .slot{border:1px solid #2d5a34;border-radius:16px;padding:1rem 1.4rem;margin:.7rem 0;background:#15241a;cursor:pointer;transition:background .15s}
+    #board{display:flex;flex-wrap:wrap;gap:.7rem}
+    .slot{border:1px solid #2d5a34;border-radius:16px;padding:.8rem 1.1rem;background:#15241a;cursor:pointer;transition:background .15s;width:var(--card-w,max-content);box-sizing:border-box}
     .slot:hover{background:#1a2c20}
-    .slot h2{margin:.1rem 0;font-size:1.15rem}
-    .slot .more{display:none;margin-top:.5rem}
+    .slot h2{margin:.1rem 0;font-size:1.05rem;white-space:nowrap}
+    .slot .more{display:none;margin-top:.5rem;overflow-wrap:anywhere}
     .slot.open .more{display:block}
     .n{font-size:.8rem;letter-spacing:.12em;text-transform:uppercase;color:#8dff9a}
     .btn{display:inline-block;padding:.7rem 1.1rem;border-radius:12px;background:#8dff9a;color:#0f1a12;font-weight:700;text-decoration:none;border:0;font-size:1rem;cursor:pointer}
@@ -92,6 +93,9 @@ function render() {
       '</div>' +
     '</article>'
   )).join("");
+  let w = 0;
+  for (const el of board.querySelectorAll(".slot")) w = Math.max(w, el.offsetWidth);
+  if (w) { board.style.setProperty("--card-w", w + "px"); board.style.maxWidth = (w * 3 + 24) + "px"; }
   for (const el of board.querySelectorAll(".slot")) {
     el.addEventListener("click", (e) => { if (e.target.tagName === "A") return; el.classList.contains("open") ? collapse(el) : expand(el); });
     el.addEventListener("mouseenter", () => expand(el));
