@@ -81,7 +81,7 @@ export function hillHtml(slots) {
   <p style="color:#9bb89a;margin:.2rem 0 1rem">Nothing you build ever starts invisible again.</p>
   <div id="board"></div>
 </main>
-<div id="pwa"><span>Install The Reach 02 as an app?</span><button id="pwaGo" class="btn">Install App</button></div>
+<div id="pwa"><span>Install The AI Hill Top Lighthouse as an app?</span><button id="pwaGo" class="btn">Install App</button></div>
 <script>
 const SLOTS = ${data};
 function render() {
