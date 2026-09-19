@@ -68,7 +68,7 @@ export function hillHtml(slots) {
     }
     .n{font-size:.8rem;letter-spacing:.12em;text-transform:uppercase;color:#8dff9a}
     .btn{display:inline-block;padding:.7rem 1.1rem;border-radius:12px;background:#8dff9a;color:#0f1a12;font-weight:700;text-decoration:none;border:0;font-size:1rem;cursor:pointer}
-    .top{display:flex;align-items:center;gap:1rem;flex-wrap:nowrap;white-space:nowrap;margin-bottom:1.2rem}
+    .top{display:flex;justify-content:center;margin-bottom:1.2rem}
     .top h1{margin:0;font-size:1.5rem}
     .top .btn{padding:.45rem .9rem;font-size:.95rem}
     .foot{margin-top:2.5rem;padding:1.2rem 0;border-top:1px solid #2d5a34;display:flex;justify-content:center;align-items:center;gap:1rem}
@@ -77,10 +77,10 @@ export function hillHtml(slots) {
 </head>
 <body>
 <main>
-  <div class="top"><h1>The AI Hill Top Lighthouse</h1><a href="/add" class="btn">Add site</a></div>
+  <div class="top"><h1>The AI Hill Top Lighthouse</h1></div>
   <p style="color:#9bb89a;margin:.2rem 0 1rem">Nothing you build ever starts invisible again.</p>
   <div id="board"></div>
-  <footer class="foot"><a href="/">The Reach 02</a><button id="pwaGo" class="btn">Install App</button></footer>
+  <footer class="foot"><a href="/add" class="btn">Add site</a><a href="/">The Reach 02</a><button id="pwaGo" class="btn">Install App</button></footer>
 </main>
 <script>
 const SLOTS = ${data};
