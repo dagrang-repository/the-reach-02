@@ -25,13 +25,13 @@ export function addSiteHtml() {
   <p class="hint" id="intro">Name and URL. Key is optional &mdash; paste only the key string.</p>
   <form id="f">
     <label for="name">Name</label>
-    <input id="name" name="name" required placeholder="Globe Warn">
+    <input id="name" name="name" required placeholder="Site name">
     <label for="url">URL</label>
-    <input id="url" name="url" required placeholder="https://globewarn.com/">
+    <input id="url" name="url" required placeholder="https://example.com/">
     <label for="key">Origin key (optional)</label>
-    <input id="key" name="key" placeholder="paste key only">
+    <input id="key" name="key" placeholder="Origin key">
     <label for="token">Admin</label>
-    <input id="token" name="token" required placeholder="your admin email">
+    <input id="token" name="token" required placeholder="Your admin token">
     <button type="submit">Add</button>
   </form>
   <div id="done">
