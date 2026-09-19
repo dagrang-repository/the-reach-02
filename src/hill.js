@@ -71,7 +71,7 @@ export function hillHtml(slots) {
     .top{display:flex;justify-content:center;margin-bottom:1.2rem}
     .top h1{margin:0;font-size:1.5rem}
     .top .btn{padding:.45rem .9rem;font-size:.95rem}
-    .foot{margin-top:2.5rem;padding:1.2rem 0;border-top:1px solid #2d5a34;display:flex;justify-content:center;align-items:center;gap:1rem}
+    .foot{margin-top:2.5rem;padding:1.2rem 0;display:flex;justify-content:center;align-items:center;gap:1rem}
     .foot a{font-weight:700}
   </style>
 </head>
