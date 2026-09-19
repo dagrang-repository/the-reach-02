@@ -71,17 +71,17 @@ export function hillHtml(slots) {
     .top{display:flex;align-items:center;gap:1rem;flex-wrap:nowrap;white-space:nowrap;margin-bottom:1.2rem}
     .top h1{margin:0;font-size:1.5rem}
     .top .btn{padding:.45rem .9rem;font-size:.95rem}
-    #pwa{position:fixed;left:50%;bottom:1.25rem;transform:translateX(-50%);display:none;align-items:center;gap:.9rem;background:#15241a;border:1px solid #2d5a34;border-radius:16px;padding:.9rem 1.1rem;box-shadow:0 8px 30px rgba(0,0,0,.45);z-index:9}
-    #pwa.on{display:flex}
+    .foot{margin-top:2.5rem;padding:1.2rem 0;border-top:1px solid #2d5a34;display:flex;justify-content:center;align-items:center;gap:1rem}
+    .foot a{font-weight:700}
   </style>
 </head>
 <body>
 <main>
-  <div class="top"><span class="n">The Reach 02</span><h1>The AI Hill Top Lighthouse</h1><a href="/add" class="btn">Add site</a></div>
+  <div class="top"><h1>The AI Hill Top Lighthouse</h1><a href="/add" class="btn">Add site</a></div>
   <p style="color:#9bb89a;margin:.2rem 0 1rem">Nothing you build ever starts invisible again.</p>
   <div id="board"></div>
+  <footer class="foot"><a href="/">The Reach 02</a><button id="pwaGo" class="btn">Install App</button></footer>
 </main>
-<div id="pwa"><span>Install The AI Hill Top Lighthouse as an app?</span><button id="pwaGo" class="btn">Install App</button></div>
 <script>
 const SLOTS = ${data};
 function render() {
@@ -119,23 +119,14 @@ openHash();
 addEventListener("hashchange", openHash);
 
 if ("serviceWorker" in navigator) navigator.serviceWorker.register("/sw.js");
-let deferred = null, pwaTimer = null;
-const pop = document.getElementById("pwa");
-addEventListener("beforeinstallprompt", (e) => {
-  e.preventDefault();
-  deferred = e;
-  pop.classList.add("on");
-  pwaTimer = setTimeout(() => pop.classList.remove("on"), 12000);
-});
+let deferred = null;
+addEventListener("beforeinstallprompt", (e) => { e.preventDefault(); deferred = e; });
 document.getElementById("pwaGo").addEventListener("click", async () => {
   if (!deferred) return;
-  clearTimeout(pwaTimer);
-  pop.classList.remove("on");
   deferred.prompt();
   await deferred.userChoice;
   deferred = null;
 });
-addEventListener("appinstalled", () => { clearTimeout(pwaTimer); pop.classList.remove("on"); });
 </script>
 </body>
 </html>`;
