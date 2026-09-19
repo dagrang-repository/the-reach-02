@@ -55,7 +55,7 @@ export function hillHtml(slots) {
     body{margin:0;font:16px/1.45 system-ui,sans-serif;background:#0f1a12;color:#e8f6e4}
     main{max-width:44rem;margin:0 auto;padding:2.5rem 1.25rem}
     a{color:#8dff9a}
-    #board{display:flex;flex-wrap:wrap;gap:.7rem}
+    #board{display:flex;flex-wrap:wrap;gap:.7rem;justify-content:center;margin:0 auto}
     .slot{border:1px solid #2d5a34;border-radius:16px;padding:.8rem 1.1rem;background:#15241a;cursor:pointer;transition:background .15s;width:var(--card-w,max-content);box-sizing:border-box}
     .slot:hover{background:#1a2c20}
     .slot h2{margin:.1rem 0;font-size:1.05rem;white-space:nowrap}
@@ -78,7 +78,7 @@ export function hillHtml(slots) {
 <body>
 <main>
   <div class="top"><h1>The AI Hill Top Lighthouse</h1></div>
-  <p style="color:#9bb89a;margin:.2rem 0 1rem">Nothing you build ever starts invisible again.</p>
+  <p style="color:#9bb89a;margin:.2rem 0 1rem;text-align:center">Nothing you build ever starts invisible again.</p>
   <div id="board"></div>
   <footer class="foot"><a href="/add" class="btn">Add site</a><a href="/">The Reach 02</a><button id="pwaGo" class="btn">Install App</button></footer>
 </main>
