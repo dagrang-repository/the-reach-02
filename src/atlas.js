@@ -464,6 +464,7 @@ export function scoreQuery(q, entry, knownTokens = null, df = null) {
   const qn = String(q).toLowerCase().replace(/\s+/g, " ").trim();
   const qTokens = knownTokens && knownTokens.length ? knownTokens : tokens(qn);
   const p = entry.profile || entry;
+  const qAll = tokens(qn).length;
   const why = [];
   let score = 0;
   let specificity = 0;
@@ -505,7 +506,8 @@ export function scoreQuery(q, entry, knownTokens = null, df = null) {
   for (const intent of p.intents || []) {
     if (intent.length > 3 && (intent.includes(qn) || qn.includes(intent))) { bestIntent = Math.max(bestIntent, 9); why.push(`intent:${intent.slice(0, 40)}`); break; }
     const o = overlap(qTokens, intent);
-    const hit = (o.matched >= 2 && o.cov >= 0.6) || (qTokens.length === 1 && o.matched === 1 && o.len <= 3);
+    // a lone matched token only counts as an intent hit when the query really is that one word
+    const hit = (o.matched >= 2 && o.cov >= 0.6) || (qAll === 1 && o.matched === 1 && o.len <= 3);
     if (hit && o.cov * 6 > bestIntent) { bestIntent = o.cov * 6; why.push(`intent~:${intent.slice(0, 40)}`); }
   }
   if (bestIntent) { score += bestIntent; specificity += 1; }
@@ -532,6 +534,7 @@ const VALUE_WORDS = new Set(["cheap", "cost", "best", "good", "new", "find", "bu
 export function rankQuery(q, rows, base) {
   // tokens no site knows (proper nouns, arbitrary words) are slot fillers: they never count against a match
   const vocab = new Set(rows.flatMap((r) => tokens(`${r.name} ${r.profile.punch || ""} ${(r.profile.keywords || []).join(" ")} ${(r.profile.intents || []).join(" ")}`)));
+  const allTokens = tokens(q);
   const known = tokens(q).filter((t) => vocab.has(t));
   const df = new Map();
   for (const r of rows) for (const t of new Set(tokens(`${r.name} ${r.profile.punch || ""} ${(r.profile.keywords || []).join(" ")}`))) df.set(t, (df.get(t) || 0) + 1);
@@ -569,7 +572,9 @@ export function rankQuery(q, rows, base) {
     const dist = Number((w.find((x) => x.startsWith("distinct:")) || "distinct:0").split(":")[1]);
     const nameFrag = w.includes("name~") || w.includes("punch~");
     if (kw >= 3) return true;
-    // two independent signals are needed when nothing solid matched
+    // a one-word query IS its subject: a distinctive keyword hit is enough ("earthquake")
+    if (dist >= 1 && allTokens.length === 1) return true;
+    // otherwise two independent signals are needed when nothing solid matched
     return (nameFrag && kw >= 2) || (dist >= 1 && kw >= 2) || (nameFrag && dist >= 1 && known.length >= 2);
   };
   let pool = scored.filter((m) => !m.blocked && m.score >= 3 && m.why.length && strong(m));
