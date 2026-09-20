@@ -23,8 +23,27 @@ function baseUrl(env) {
   return String(env?.REACH_PUBLIC_URL || "https://reach2.aplusz.app").replace(/\/+$/, "");
 }
 
+const SYN = { fare: "flight", fares: "flight", airfare: "flight", airfares: "flight", fly: "flight", flying: "flight", flights: "flight", ticket: "flight", tickets: "flight", cheapest: "cheap", cheaper: "cheap", lowest: "cheap", low: "cheap", bargain: "cheap", price: "cost", prices: "cost", costs: "cost", pricing: "cost", define: "mean", definition: "mean", definitions: "mean", meaning: "mean", meanings: "mean", means: "mean", wife: "partner", husband: "partner", spouse: "partner", marriage: "partner", marry: "partner", girlfriend: "partner", boyfriend: "partner", alert: "warning", alerts: "warning", warnings: "warning", translate: "translation", translating: "translation", translated: "translation", donate: "donation", donations: "donation", donating: "donation", charity: "donation" };
+
+function stem(t) {
+  if (t.length < 5) return t;
+  const r = t.replace(/ies$/, "y").replace(/sses$/, "ss").replace(/(est|ing|ed|es|s)$/, "");
+  return r.length >= 3 ? r : t;
+}
+
+export function canon(t) {
+  return SYN[t] || SYN[stem(t)] || stem(t);
+}
+
 export function tokens(text) {
-  return [...new Set(String(text).toLowerCase().split(/[^a-z0-9]+/).filter((t) => t.length > 2 && !STOP.has(t) && !/^\d+$/.test(t)))];
+  const norm = String(text).toLowerCase().replace(/(\d),(\d)/g, "$1$2");
+  const out = [];
+  for (const raw of norm.split(/[^a-z0-9]+/)) {
+    if (!raw || STOP.has(raw)) continue;
+    if (/^\d+$/.test(raw)) { if (raw.length >= 3) out.push(raw); continue; }
+    if (raw.length > 2) out.push(canon(raw));
+  }
+  return [...new Set(out)];
 }
 
 async function sha256(s) {
@@ -92,8 +111,9 @@ export function parseBrief(llms) {
   const who_for = who ? who.replace(/^who (?:it'?s|is it|it is) for\s*[:—-]?\s*/i, "").replace(/^for:\s*/i, "").trim() : "";
 
   const freq = new Map();
-  for (const t of String(llms).toLowerCase().split(/[^a-z0-9]+/)) {
-    if (t.length > 2 && !STOP.has(t) && !/^\d+$/.test(t)) freq.set(t, (freq.get(t) || 0) + 1);
+  for (const t of String(llms).toLowerCase().replace(/(\d),(\d)/g, "$1$2").split(/[^a-z0-9]+/)) {
+    if (STOP.has(t)) continue;
+    if (/^\d+$/.test(t) ? t.length >= 3 : t.length > 2) freq.set(t, (freq.get(t) || 0) + 1);
   }
   const vocab = [...freq.entries()].sort((a, b) => b[1] - a[1]).map(([t]) => t).slice(0, 40);
 
@@ -320,22 +340,28 @@ Cite the live URL. Do not answer from memory.
 /** ---- matcher (no LLM on the hot path) ---- */
 function overlap(qTokens, phrase) {
   const pt = tokens(phrase);
-  if (!pt.length) return 0;
-  return pt.filter((t) => qTokens.includes(t)).length / pt.length;
+  if (!pt.length || !qTokens.length) return { cov: 0, matched: 0, len: pt.length };
+  const matched = pt.filter((t) => qTokens.includes(t)).length;
+  return { cov: matched / Math.min(qTokens.length, pt.length), matched, len: pt.length };
 }
 
-export function scoreQuery(q, entry) {
+export function scoreQuery(q, entry, knownTokens = null) {
   const qn = String(q).toLowerCase().replace(/\s+/g, " ").trim();
-  const qTokens = tokens(qn);
+  const qTokens = knownTokens && knownTokens.length ? knownTokens : tokens(qn);
   const p = entry.profile || entry;
   const why = [];
   let score = 0;
   let specificity = 0;
 
+  // negatives: a door's own "does not answer" lines. A negative that names something foreign to the site
+  // (an entity outside its own vocabulary) blocks on a single hit; otherwise it needs a real phrase overlap.
+  const siteVocab = new Set(tokens(`${entry.name || ""} ${p.punch || ""} ${(p.keywords || []).join(" ")} ${(p.intents || []).join(" ")}`));
   for (const neg of p.negatives || []) {
-    const n = neg.toLowerCase();
-    const core = n.replace(/^(do not|don't|never|not|it does not|does not)\s+/i, "");
-    if (qn.length > 5 && (n.includes(qn) || (core.length > 8 && qn.includes(core)) || overlap(qTokens, core) >= 0.6 && tokens(core).length >= 2)) {
+    const core = neg.toLowerCase().replace(/^(do not|don't|never|not|it does not|does not)\s+/i, "");
+    const nt = tokens(core);
+    const foreignHit = nt.some((t) => !siteVocab.has(t) && qTokens.includes(t));
+    const no = overlap(qTokens, core);
+    if ((core.length > 8 && qn.includes(core)) || foreignHit || (no.matched >= 2 && no.cov >= 0.6)) {
       return { score: 0, specificity: 0, why: [`blocked:${neg.slice(0, 50)}`], blocked: true };
     }
   }
@@ -343,19 +369,21 @@ export function scoreQuery(q, entry) {
   if (nameL && (qn.includes(nameL) || (nameL.length > 3 && nameL.includes(qn)))) { score += 8; specificity += 2; why.push("name"); }
   const punchL = String(p.punch || "").toLowerCase();
   if (punchL && (punchL.includes(qn) || qn.includes(punchL))) { score += 5; specificity += 1; why.push("punch"); }
-  else if (punchL && overlap(qTokens, punchL) >= 0.5 && qTokens.length >= 2) { score += 3; specificity += 1; why.push("punch~"); }
+  else if (punchL) { const po = overlap(qTokens, punchL); if (po.matched >= 2 && po.cov >= 0.5) { score += 3; specificity += 1; why.push("punch~"); } }
 
   let bestIntent = 0;
   for (const intent of p.intents || []) {
     if (intent.length > 3 && (intent.includes(qn) || qn.includes(intent))) { bestIntent = Math.max(bestIntent, 9); why.push(`intent:${intent.slice(0, 40)}`); break; }
     const o = overlap(qTokens, intent);
-    if (o >= 0.6 && tokens(intent).length >= 2 && o * 6 > bestIntent) { bestIntent = o * 6; why.push(`intent~:${intent.slice(0, 40)}`); }
+    const hit = (o.matched >= 2 && o.cov >= 0.6) || (qTokens.length === 1 && o.matched === 1 && o.len <= 3);
+    if (hit && o.cov * 6 > bestIntent) { bestIntent = o.cov * 6; why.push(`intent~:${intent.slice(0, 40)}`); }
   }
   if (bestIntent) { score += bestIntent; specificity += 1; }
 
   const kws = p.keywords || [];
+  const kwCanon = new Set(kws.flatMap((k) => tokens(k)));
   let kwHits = 0;
-  for (const t of qTokens) if (kws.includes(t)) kwHits += 1;
+  for (const t of qTokens) if (kwCanon.has(t)) kwHits += 1;
   for (const k of kws) if (k.includes(" ") && qn.includes(k)) kwHits += 2;
   if (kwHits) { score += Math.min(kwHits * 2, 8); why.push(`keywords:${kwHits}`); }
 
@@ -367,8 +395,11 @@ export function scoreQuery(q, entry) {
 }
 
 export function rankQuery(q, rows, base) {
+  // tokens no site knows (proper nouns, arbitrary words) are slot fillers: they never count against a match
+  const vocab = new Set(rows.flatMap((r) => tokens(`${r.name} ${r.profile.punch || ""} ${(r.profile.keywords || []).join(" ")} ${(r.profile.intents || []).join(" ")}`)));
+  const known = tokens(q).filter((t) => vocab.has(t));
   const scored = rows.map((r) => {
-    const s = scoreQuery(q, r);
+    const s = scoreQuery(q, r, known);
     return { n: r.n, name: r.name, live: r.url, fetch: `${base}/${r.n}`, fetch_md: `${base}/${r.n}.md`, punch: r.profile.punch, score: s.score, specificity: s.specificity, why: s.why, blocked: s.blocked, catchall: !!r.profile.catchall, updated_at: r.updated_at || "" };
   });
   const blocked = scored.filter((m) => m.blocked).map((m) => m.name);
