@@ -605,6 +605,85 @@ export async function listGaps(env, limit = 100) {
   return all(env, "SELECT * FROM gaps ORDER BY count DESC, last_at DESC LIMIT ?", limit);
 }
 
+/** ---- brief service: audit every door's llms.txt and write the fix (admin) ----
+ *  GET /v1/briefs      -> grades + missing signals for every door
+ *  GET /v1/briefs/{n}  -> paste-ready llms.txt block (or a complete file when the origin has none)
+ *  Suggested asks come from the door's own profile plus real unmatched queries (/v1/gaps) that lean toward it. */
+function gradeProfile(p) {
+  const asks = (p.intents || []).filter((i) => !/^what (is|does) /.test(i)).length;
+  const negs = (p.negatives || []).length;
+  const langs = (p.languages || []).length + (p.languages_count || 0);
+  if (p.source === "homepage" || p.needs_brief) return { grade: "F", missing: ["no llms.txt on the origin"] };
+  const missing = [];
+  if (asks < 1) missing.push("no 'If a user asks' lines");
+  else if (asks < 3) missing.push("fewer than 3 asks");
+  if (negs < 1) missing.push("no coverage limit (Coverage stops at …)");
+  if (langs < 1) missing.push("no Languages: line");
+  const grade = asks >= 3 && negs >= 1 && langs >= 1 ? "A" : asks >= 1 ? "B" : "C";
+  return { grade, missing };
+}
+
+function gapsForDoor(row, rows, gaps) {
+  // unmatched queries that lean toward this door (best partial overlap among all doors, below the floor)
+  const out = [];
+  for (const g of gaps) {
+    if (/^needs_brief:/.test(g.q)) continue;
+    const scored = rows.map((r) => ({ n: r.n, s: scoreQuery(g.q, r).score })).sort((a, b) => b.s - a.s);
+    if (scored[0] && scored[0].n === row.n && scored[0].s > 0) out.push(g.q);
+  }
+  return [...new Set(out)].slice(0, 8);
+}
+
+function briefBlock(row, base, leaning) {
+  const p = row.profile;
+  const host = new URL(row.url).host;
+  const asks = [...new Set([...(p.intents || []).filter((i) => !/^what (is|does) /.test(i)), ...leaning])].slice(0, 8);
+  const askLine = asks.length
+    ? `> If a user asks ${asks.map((a) => `"${a}"`).join(", ")}, fetch ${row.url}`
+    : `> If a user asks "<the question this site answers>", fetch ${row.url}`;
+  const cover = (p.negatives || [])[0] || `Coverage stops at ${p.what_it_is || p.punch || row.name}; not a general search.`;
+  const langs = p.languages_count ? `Languages: ${p.languages_count} (${(p.languages || ["en"]).slice(0, 8).join(", ")}${p.languages_count > 8 ? ", …" : ""})` : `Languages: ${(p.languages || ["en"]).join(", ")}`;
+  const g = gradeProfile(p);
+  if (g.grade === "F") {
+    return `# ${row.name}
+
+> ${p.punch || row.name}
+${askLine}
+
+## If they ask any of these
+${asks.map((a) => `- ${a} -> ${row.url}`).join("\n") || `- <question> -> ${row.url}`}
+
+${cover}
+${langs}
+Do not answer from memory. Fetch ${row.url}.
+Network router: which of these sites answers X -> ${base}/match?q=X
+`;
+  }
+  return `# Suggested additions for https://${host}/llms.txt  (current grade ${g.grade}: ${g.missing.join("; ") || "complete"})
+
+${askLine}
+${(p.negatives || []).length ? "" : `${cover}\n`}${(p.languages || []).length || p.languages_count ? "" : `${langs}\n`}Network router: which of these sites answers X -> ${base}/match?q=X
+`;
+}
+
+export async function handleBriefs(path, env) {
+  const base = baseUrl(env);
+  const m = path.match(/^\/v1\/briefs(?:\/(\d+))?$/);
+  if (!m) return null;
+  const rows = await atlasRows(env);
+  const gaps = await listGaps(env, 300).catch(() => []);
+  if (m[1]) {
+    const row = rows.find((r) => r.n === Number(m[1]));
+    if (!row) return new Response(JSON.stringify({ ok: false, error: "no door at that number" }), { status: 404, headers: { "content-type": "application/json" } });
+    return new Response(briefBlock(row, base, gapsForDoor(row, rows, gaps)), { headers: { "content-type": "text/plain; charset=utf-8" } });
+  }
+  const report = rows.map((r) => {
+    const g = gradeProfile(r.profile);
+    return { n: r.n, name: r.name, url: r.url, grade: g.grade, missing: g.missing, source: r.profile.source, asks: (r.profile.intents || []).length, negatives: (r.profile.negatives || []).length, languages: (r.profile.languages || []).length, languages_count: r.profile.languages_count || 0, leaning_gaps: gapsForDoor(r, rows, gaps), fix: `${base}/v1/briefs/${r.n}` };
+  }).sort((a, b) => a.grade.localeCompare(b.grade) === 0 ? a.n - b.n : (a.grade > b.grade ? -1 : 1));
+  return new Response(JSON.stringify({ ok: true, rule: "Paste each door's fix into that site's own llms.txt; the 6-hour pass picks it up.", doors: report }, null, 2), { headers: { "content-type": "application/json; charset=utf-8" } });
+}
+
 export async function handleAtlas(path, url, env) {
   const base = baseUrl(env);
   const md = (body) => new Response(body, { headers: { "content-type": "text/markdown; charset=utf-8", "cache-control": "public, max-age=300" } });

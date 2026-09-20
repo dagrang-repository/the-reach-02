@@ -6,7 +6,7 @@ import { addSiteHtml } from "./add-ui.js";
 import { pwaResponse } from "./pwa.js";
 import { publicExtra } from "./public-extra.js";
 import { isSelfUrl } from "./self.js";
-import { handleAtlas, listGaps, rebuildAtlas } from "./atlas.js";
+import { handleAtlas, handleBriefs, listGaps, rebuildAtlas } from "./atlas.js";
 import { hillHtml, numberedSites } from "./hill.js";
 import { rebuildReachMap } from "./map.js";
 import {
@@ -174,6 +174,11 @@ export default {
 
       if (path === "/v1/gaps" && request.method === "GET") {
         return json({ ok: true, gaps: await listGaps(env) });
+      }
+
+      if (path.startsWith("/v1/briefs") && request.method === "GET") {
+        const briefs = await handleBriefs(path, env);
+        if (briefs) return briefs;
       }
 
       if (path === "/v1/ping" && request.method === "POST") {
