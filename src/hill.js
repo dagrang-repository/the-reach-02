@@ -45,6 +45,8 @@ export function hillHtml(slots) {
   <link rel="apple-touch-icon" href="/icon-192.png">
   <link rel="alternate" type="application/rss+xml" href="/feed.xml">
   <link rel="alternate" type="text/markdown" href="/llms.txt">
+  <link rel="alternate" type="text/markdown" href="/atlas.md">
+  <link rel="alternate" type="application/json" href="/atlas.json">
   <script type="application/ld+json">${JSON.stringify({
     "@context": "https://schema.org",
     "@type": "ItemList",

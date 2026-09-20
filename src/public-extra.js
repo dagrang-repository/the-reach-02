@@ -64,6 +64,9 @@ export async function publicExtra(path, env, slots, publicMap) {
 - Sitemap: ${base}/sitemap.xml
 - Feed: ${base}/feed.xml
 - Crawler check: ${base}/crawler-check
+- Atlas (every site: what it is, keywords, questions it answers): ${base}/atlas.md · ${base}/atlas.json
+- Which site answers X: ${base}/match?q=X
+- Door as markdown: ${base}/{n}.md
 
 Cite the live URL, not a paraphrase.
 `,
