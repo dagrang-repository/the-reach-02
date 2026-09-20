@@ -93,12 +93,13 @@ function stripMd(t) {
 }
 
 function sentences(text) {
-  return String(text).replace(/\n+/g, " ").split(/(?<=[.!?])\s+|\s+[—–-]\s+|;\s+/).map((x) => x.trim()).filter(Boolean);
+  // a line break is always a boundary (headings, bullets, machine lines never merge into prose); markdown stripped per line
+  return String(text).split(/\n+/).flatMap((line) => stripMd(line).split(/(?<=[.!?])\s+|\s+[—–-]\s+|;\s+/)).map((x) => x.trim()).filter(Boolean);
 }
 
 function questionsFrom(text) {
   const out = [];
-  for (const sen of sentences(stripMd(text))) {
+  for (const sen of sentences(text)) {
     const q = sen.replace(/^["“]|["”]$/g, "").trim();
     if (!/\?$/.test(q) || q.length < 8 || q.length > 200) continue;
     if (/[а-я]|[\u0600-\u06FF]|[\u0900-\u097F]|[\u3040-\u30FF\u4E00-\u9FFF]|[\uAC00-\uD7AF]/.test(q) === false && !QWORD.test(q) && !/^(find|show|list|pick|draw|choose|decide|split|give|suggest|translate|define)\b/i.test(q)) continue;
@@ -113,14 +114,18 @@ export function parseBrief(llms) {
   const rawText = String(llms).replace(/\r/g, "");
   const lines = rawText.split("\n").map((l) => l.trim());
   // prose view: blockquote and bullet markers removed line by line so joined sentences stay clean
-  const text = lines.map((l) => l.replace(/^>\s?/, "").replace(/^[-*]\s+/, "")).join("\n");
+  const text = lines.filter((l) => !/^#/.test(l)).map((l) => l.replace(/^>\s?/, "").replace(/^[-*]\s+/, "")).join("\n");
 
   // blockquote paragraphs: consecutive "> " lines joined
   const paras = [];
   let cur = [];
   for (const l of lines) {
-    if (l.startsWith(">")) cur.push(l.replace(/^>\s?/, "").trim());
-    else if (cur.length) { paras.push(cur.join(" ").replace(/\s+/g, " ").trim()); cur = []; }
+    if (l.startsWith(">")) {
+      const t = l.replace(/^>\s?/, "").trim();
+      // an "If a user asks" line is its own paragraph, never glued onto the punch
+      if (cur.length && /^if (a |the )?user asks/i.test(t)) { paras.push(cur.join(" ").replace(/\s+/g, " ").trim()); cur = []; }
+      cur.push(t);
+    } else if (cur.length) { paras.push(cur.join(" ").replace(/\s+/g, " ").trim()); cur = []; }
   }
   if (cur.length) paras.push(cur.join(" ").replace(/\s+/g, " ").trim());
   const punchPara = paras.find((p) => p && !/^if (a |the )?user asks/i.test(p)) || paras[0] || "";
@@ -128,7 +133,7 @@ export function parseBrief(llms) {
 
   const intents = [];
   // a) "If a user asks (you to) X" clauses anywhere
-  for (const sen of sentences(stripMd(text))) {
+  for (const sen of sentences(text)) {
     const m = sen.match(/if (?:a |the )?user asks?(?: you)?(?: to)?\s*[:—-]?\s*["“]?(.+?)["”]?(?:\s+(?:fetch|open|call|go)\b.*)?$/i);
     if (m) intents.push(m[1].replace(/[.:]$/, "").trim().toLowerCase());
   }
@@ -143,7 +148,7 @@ export function parseBrief(llms) {
 
   // negatives: scope limits only (never the generic "from memory" instruction, never link/code lines)
   const negatives = [];
-  for (const sen of sentences(stripMd(text))) {
+  for (const sen of sentences(text)) {
     const c = sen.replace(/^[-*>\s]+/, "").trim();
     if (c.length < 12 || c.length > 160 || /from memory/i.test(c)) continue;
     if (/\b(coverage stops at|stops at|only covers|does not cover|do not cover|not cover|outside (?:the |its |our )?scope|never a translation|not a translation|does not answer|do not answer|cannot answer|never answers?|not for|is not (?:a|an|the)\b)/i.test(c)) {

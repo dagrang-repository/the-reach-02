@@ -4,17 +4,27 @@ export function publicBase(env) {
   return String(env?.REACH_PUBLIC_URL || BASE).replace(/\/+$/, "");
 }
 
+/** One truth for punch/languages: the atlas (origin llms.txt) when present, else the briefing. */
 export async function numberedSites(env, allFn) {
-  const rows = await allFn(
-    env,
-    `SELECT s.id, s.name, s.url, s.indexnow_key, s.languages_wanted, b.punch_line, b.summary, b.who_for
+  const base = `SELECT s.id, s.name, s.url, s.indexnow_key, s.languages_wanted, b.punch_line, b.summary, b.who_for
      FROM sites s
-     LEFT JOIN briefings b ON b.site_id = s.id
+     LEFT JOIN briefings b ON b.site_id = s.id`;
+  let rows;
+  try {
+    rows = await allFn(env, `${base.replace("b.who_for", "b.who_for, a.profile_json")}
+     LEFT JOIN atlas a ON a.site_id = s.id
      WHERE s.active = 1
-     ORDER BY s.created_at ASC`
-  );
+     ORDER BY s.created_at ASC`);
+  } catch {
+    rows = await allFn(env, `${base}
+     WHERE s.active = 1
+     ORDER BY s.created_at ASC`);
+  }
   return rows.map((s, i) => {
     const n = i + 1;
+    let atlas = {};
+    try { atlas = JSON.parse(s.profile_json || "{}"); } catch { atlas = {}; }
+    const langs = atlas.languages && atlas.languages.length ? atlas.languages : JSON.parse(s.languages_wanted || "[]");
     return {
       n,
       hash: `${publicBase(env)}/#${n}`,
@@ -22,10 +32,10 @@ export async function numberedSites(env, allFn) {
       id: s.id,
       name: s.name,
       url: s.url,
-      punch: s.punch_line || s.name,
+      punch: atlas.punch || s.punch_line || s.name,
       summary: s.summary || "",
-      who_for: s.who_for || "",
-      languages: JSON.parse(s.languages_wanted || "[]"),
+      who_for: atlas.who_for || s.who_for || "",
+      languages: langs.map((l) => (l === "ce" ? "ceb" : l)),
     };
   });
 }
