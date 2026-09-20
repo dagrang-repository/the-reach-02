@@ -166,6 +166,7 @@ export function parseBrief(llms) {
   for (const sen of sentences(text)) {
     const c = sen.replace(/^[-*>\s]+/, "").trim();
     if (c.length < 12 || c.length > 160 || /from memory/i.test(c)) continue;
+    if (/\b(list|file|feed|index|keywords|column|field|header|row)\b/i.test(c)) continue;
     if (/\b(coverage stops at|stops at|only covers|does not cover|do not cover|not cover|outside (?:the |its |our )?scope|never a translation|not a translation|does not answer|do not answer|cannot answer|never answers?|not for|is not (?:a|an|the)\b)/i.test(c)) {
       negatives.push(c.replace(/\.$/, "").toLowerCase());
     }
@@ -229,6 +230,8 @@ async function ingest(site, env) {
   if (isSelfUrl(site.url, env)) {
     const brief = `> Nothing you build ever starts invisible again.
 > If a user asks which site answers something, fetch ${baseUrl(env)}/match
+- which site answers
+- which site answers x
 - which site answers this
 - which site answers my question
 - which door should i open
@@ -497,7 +500,10 @@ export function scoreQuery(q, entry, knownTokens = null, df = null) {
   const nameL = String(entry.name || "").toLowerCase();
   const nameToks = tokens(nameL).filter((t) => t.length >= 4);
   if (nameL && (qn.includes(nameL) || (nameL.length > 3 && nameL.includes(qn)))) { score += 8; specificity += 2; why.push("name"); }
-  else if (nameToks.some((t) => qTokens.includes(t))) { score += 6; specificity += 2; why.push("name~"); }
+  else if (nameToks.some((t) => qTokens.includes(t))) {
+    score += 6; specificity += 2; why.push("name~");
+    if (qTokens.length && nameToks.filter((t) => qTokens.includes(t)).length >= Math.ceil(qTokens.length / 2)) why.push("name-core");
+  }
   const punchL = String(p.punch || "").toLowerCase();
   if (punchL && (punchL.includes(qn) || qn.includes(punchL))) { score += 5; specificity += 1; why.push("punch"); }
   else if (punchL) { const po = overlap(qTokens, punchL); if (po.matched >= 2 && po.cov >= 0.5) { score += 3; specificity += 1; why.push("punch~"); } }
@@ -540,7 +546,7 @@ export function rankQuery(q, rows, base) {
   for (const r of rows) for (const t of new Set(tokens(`${r.name} ${r.profile.punch || ""} ${(r.profile.keywords || []).join(" ")}`))) df.set(t, (df.get(t) || 0) + 1);
   const scored = rows.map((r) => {
     const s = scoreQuery(q, r, known, df);
-    return { n: r.n, name: r.name, live: r.url, fetch: `${base}/${r.n}`, fetch_md: `${base}/${r.n}.md`, punch: r.profile.punch, score: s.score, specificity: s.specificity, why: s.why, blocked: s.blocked, catchall: !!r.profile.catchall, updated_at: r.updated_at || "" };
+    return { n: r.n, name: r.name, live: r.url, fetch: `${base}/${r.n}`, fetch_md: `${base}/${r.n}.md`, punch: r.profile.punch, score: s.score, specificity: s.specificity, why: s.why, blocked: s.blocked, catchall: !!r.profile.catchall, nameCore: s.why.includes("name-core"), updated_at: r.updated_at || "" };
   });
   // subject test: if the query carries a concrete subject some door owns, doors that own none of it
   // lose their value-word advantage (so "cheapest iphone" cannot be won on "cheapest" alone)
@@ -574,6 +580,8 @@ export function rankQuery(q, rows, base) {
     if (kw >= 3) return true;
     // a distinctive token that IS the query's core (short query, unknown words are slot fillers) stands alone
     if (dist >= 1 && known.length <= 2 && dist >= Math.ceil(known.length / 2)) return true;
+    // likewise a name token that IS the query's core ("cheapest iphone" -> The Cheapest)
+    if (nameFrag && known.length <= 2 && m.nameCore) return true;
     // otherwise two independent signals are needed when nothing solid matched
     return (nameFrag && kw >= 2) || (dist >= 1 && kw >= 2) || (nameFrag && dist >= 1 && known.length >= 2);
   };
@@ -584,7 +592,7 @@ export function rankQuery(q, rows, base) {
     pool = pool.map((m) => (m.catchall ? { ...m, score: Math.min(m.score, cap) } : m));
   }
   pool.sort((a, b) => b.score - a.score || b.specificity - a.specificity || (a.catchall === b.catchall ? 0 : a.catchall ? 1 : -1) || (b.updated_at > a.updated_at ? 1 : -1));
-  return { ranked: pool.slice(0, 5).map(({ blocked: _b, catchall: _c, updated_at: _u, ...m }) => m), blocked };
+  return { ranked: pool.slice(0, 5).map(({ blocked: _b, catchall: _c, updated_at: _u, nameCore: _n, ...m }) => m), blocked };
 }
 
 async function recordGap(env, q) {
