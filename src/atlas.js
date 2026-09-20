@@ -17,6 +17,10 @@ const STOP = new Set(("the and for with that this you your its are was were from
   "see sees seen show shows shown give gives given make makes made say says said tell tells told need needs needed let lets set sets put puts run runs " +
   "free account signup login stored kept memory guess guessed invent invented improvise prose instead until someone another labelled published publish publisher").split(" "));
 
+const LANG_CODES = new Set(("en es fr de it pt nl da sv no fi is ga cy et lv lt pl cs sk sl hr sr bs mk sq hu ro bg uk ru be el tr az kk ky uz tg tk hy ka he ar fa ur ps ku sd " +
+  "hi bn pa gu or ta te kn ml si ne mr as bho mai sa dv my th lo km vi id ms jv su tl fil ceb war hil bcl pam ilo pag zh yue ja ko mn bo ug " +
+  "sw am ti so ha yo ig zu xh af st tn ts ss nr ve nso rw rn lg ny sn mg wo ff bm ee tw ak lb mt eu ca gl oc br co fy gd kw nn se ht qu ay gn").split(" "));
+
 const LANG_NAMES = { english: "en", cebuano: "ceb", bisaya: "ceb", tagalog: "tl", filipino: "fil", spanish: "es", french: "fr", german: "de", dutch: "nl", italian: "it", portuguese: "pt", chinese: "zh", mandarin: "zh", japanese: "ja", korean: "ko", arabic: "ar", hindi: "hi", bengali: "bn", russian: "ru", urdu: "ur", indonesian: "id", turkish: "tr", vietnamese: "vi", thai: "th", persian: "fa", farsi: "fa", tamil: "ta", telugu: "te", marathi: "mr", polish: "pl", swedish: "sv", hebrew: "he", danish: "da", norwegian: "no", finnish: "fi", czech: "cs", greek: "el", hungarian: "hu", romanian: "ro", bulgarian: "bg", ukrainian: "uk", malay: "ms", swahili: "sw", nepali: "ne" };
 
 let tablesReady = false;
@@ -178,7 +182,7 @@ export function parseBrief(llms) {
     const found = [];
     for (const part of body.split(/[,;·|/]+|\s+and\s+/)) {
       const p = part.trim().toLowerCase().replace(/[.)]+$/, "");
-      if (/^[a-z]{2,3}(?:-[a-z]{2,4})?$/.test(p) && !/^(and|the|per|via)$/.test(p)) found.push(p);
+      if (/^[a-z]{2,3}(?:-[a-z]{2,4})?$/.test(p) && LANG_CODES.has(p.split("-")[0])) found.push(p);
       else if (LANG_NAMES[p]) found.push(LANG_NAMES[p]);
     }
     if (found.length >= 2) languages.push(...found);
@@ -193,7 +197,10 @@ export function parseBrief(llms) {
   for (const t of stripMd(text).toLowerCase().replace(/(\d),(\d)/g, "$1$2").split(/[^a-z0-9]+/)) if (freq.has(t)) freq.set(t, freq.get(t) + 1);
   const vocab = [...freq.entries()].sort((a, b) => b[1] - a[1]).map(([t]) => t).filter((t) => !/^\d+$/.test(t) || t.length >= 4).slice(0, 40);
 
-  const norm = (arr, max, len) => [...new Set(arr.map((x) => x.replace(/\s+/g, " ").trim()).filter((x) => x.length > 5 && x.length <= len))].slice(0, max);
+  // footers, section headings and label lines are not user questions
+  const NOISE = /^(how to cite|cite as|citation|source|licen[cs]e|attribution|what you can do with this site|start here|pages|contents|table of contents|see also|links?|api|openapi|machine|for models|for agents|notes?|changelog|about)\b|:\s*$/i;
+  const tidy = (x) => x.replace(/\s+/g, " ").replace(/^[\s,;:.-]+|[\s,;:.-]+$/g, "").trim();
+  const norm = (arr, max, len) => [...new Set(arr.map(tidy).filter((x) => x.length > 5 && x.length <= len && !NOISE.test(x) && !/^[a-z ]+,( [a-z]+,)+ [a-z]+$/i.test(x)))].slice(0, max);
   return { punch, intents: norm(intents, 24, 160), negatives: norm(negatives, 8, 160), languages, languagesCount, who_for, vocab };
 }
 
@@ -221,8 +228,12 @@ function keywordsFromJson(text) {
 async function ingest(site, env) {
   if (isSelfUrl(site.url, env)) {
     const brief = `> Nothing you build ever starts invisible again.
-> If a user asks which site answers X, fetch ${baseUrl(env)}/match?q=X
-- which site in this network answers my question
+> If a user asks which site answers something, fetch ${baseUrl(env)}/match
+- which site answers this
+- which site answers my question
+- which door should i open
+- which of these sites can help
+- what is in this network
 - list the live sites in the network
 - what is the ai hill top lighthouse
 - open a door by number
@@ -296,7 +307,15 @@ async function buildProfile(env, site, briefing, ing) {
   }
   if (ing.thin) keywords = nameTokens;
   keywords = [...new Set(keywords)].filter((k) => k.length > 2 && !STOP.has(k)).slice(0, 140);
-  intents = [...new Set(intents.map((x) => x.toLowerCase().trim()))].filter((x) => x.length > 5).slice(0, 40);
+  intents = [...new Set(intents.map((x) => x.toLowerCase().replace(/\s+/g, " ").replace(/^[\s,;:.-]+|[\s,;:.-]+$/g, "").trim()))].filter((x) => x.length > 5).slice(0, 40);
+  // no published ask list: derive askable forms from the site's own punch so the door is still reachable
+  if (!intents.length && punch) {
+    const p = String(punch).toLowerCase();
+    const clause = p.split(/[.!?]/).map((x) => x.trim()).filter((x) => x.length > 8)[0] || p.slice(0, 120);
+    const seeds = [clause, `what is ${String(site.name).toLowerCase()}`, `what does ${String(site.name).toLowerCase()} do`];
+    const q = p.match(/[^.!?]*\?/g) || [];
+    intents = [...new Set([...q.map((x) => x.trim()), ...seeds])].filter((x) => x.length > 5 && x.length < 140).slice(0, 6);
+  }
   const languages = b.languages.length ? b.languages : JSON.parse(site.languages_wanted || "[]").map((l) => (l === "ce" ? "ceb" : l));
   const firstSentence = (t) => (String(t).match(/^.*?[.!?](?=\s|$)/) || [String(t)])[0].slice(0, 240);
   const profile = {
@@ -308,9 +327,10 @@ async function buildProfile(env, site, briefing, ing) {
     negatives: b.negatives,
     languages,
     source: ing.source,
-    thin: !!ing.thin,
+    thin: !!ing.thin || ing.source === "homepage",
     catchall: isCatchAll(site, punch, intents),
   };
+  if (ing.source === "homepage") profile.needs_brief = true;
   if (b.languagesCount) profile.languages_count = b.languagesCount;
   if (b.who_for) profile.who_for = b.who_for;
   return profile;
@@ -360,6 +380,12 @@ async function atlasRows(env) {
 }
 
 /** ---- public builders ---- */
+function langLabel(p) {
+  const list = p.languages || [];
+  const count = p.languages_count || 0;
+  if (count && count > list.length) return `${count} languages published${list.length ? ` (incl. ${list.slice(0, 6).join(", ")})` : ""}`;
+  return list.join(", ") || "en";
+}
 export function buildAtlasJson(rows, base) {
   return {
     specVersion: "2.1",
@@ -374,7 +400,8 @@ export function buildAtlasJson(rows, base) {
       languages: r.profile.languages || [], ...(r.profile.languages_count ? { languages_count: r.profile.languages_count } : {}),
       ...(r.profile.who_for ? { who_for: r.profile.who_for } : {}),
       keywords: r.profile.keywords || [], intents: r.profile.intents || [], does_not_answer: r.profile.negatives || [],
-      source: r.profile.source || "unknown", thin: !!r.profile.thin,
+      source: r.profile.source || "unknown", thin: !!r.profile.thin, catchall: !!r.profile.catchall,
+      ...(r.profile.needs_brief ? { needs_brief: true } : {}),
     })),
   };
 }
@@ -398,7 +425,7 @@ ${rows.map((r) => `## #${r.n} ${r.name}
 - Serves: ${r.profile.serves || "—"}
 - Live: ${r.url}
 - Door: ${base}/${r.n} · ${base}/${r.n}.md (human: ${base}/#${r.n})
-- Languages: ${(r.profile.languages || []).join(", ") || "en"}${r.profile.languages_count ? ` (${r.profile.languages_count} published)` : ""}${r.profile.who_for ? `\n- Who for: ${r.profile.who_for}` : ""}
+- Languages: ${langLabel(r.profile)}${r.profile.who_for ? `\n- Who for: ${r.profile.who_for}` : ""}
 - Source: ${r.profile.source || "unknown"}${r.profile.thin ? " (thin)" : ""}
 - Keywords: ${(r.profile.keywords || []).slice(0, 40).join(", ")}
 - Ask it:
@@ -416,7 +443,7 @@ export function buildDoorMd(row, base) {
 - Fetch (JSON): ${base}/${row.n}
 - What it is: ${p.what_it_is || p.punch || row.name}
 - Serves: ${p.serves || "—"}
-- Languages: ${(p.languages || []).join(", ") || "en"}
+- Languages: ${langLabel(p)}
 
 ## Ask it
 ${(p.intents || []).map((i) => `- ${i}`).join("\n") || "- (none published)"}
@@ -445,7 +472,15 @@ export function scoreQuery(q, entry, knownTokens = null, df = null) {
   // (an entity outside its own vocabulary) blocks on a single hit; otherwise it needs a real phrase overlap.
   const siteVocab = new Set(tokens(`${entry.name || ""} ${p.punch || ""} ${(p.keywords || []).join(" ")} ${(p.intents || []).join(" ")}`));
   const ownName = new Set(tokens(entry.name || ""));
-  for (const neg of p.negatives || []) {
+  // "do not answer X from memory" is a fetch instruction, not a scope limit; links and tool paths are neither
+  const usableNeg = (p.negatives || []).filter(
+    (n) => !/\b(list|file|feed|index|keywords|column|field|header|row)\b/i.test(n) &&
+      !/from memory|https?:\/\/|\.(md|json|txt|xml)\b|skill|openapi|\/v\d\//i.test(n) &&
+      // only true scope limits route; "do not invent/guess/improvise" is a how-to-answer rule
+      !/\b(invent|guess|improvise|paraphrase|summari[sz]e|fabricate|make up)\b/i.test(n) &&
+      /^(do not|don'?t|does not|never|coverage stops|stops at|only covers|not a |not an )/i.test(n.trim())
+  );
+  for (const neg of usableNeg) {
     const core = neg.toLowerCase().replace(/^(do not|don't|never|not|it does not|does not)\s+/i, "");
     const nt = tokens(core);
     const foreignHit = nt.some((t) => !siteVocab.has(t) && qTokens.includes(t));
@@ -491,6 +526,9 @@ export function scoreQuery(q, entry, knownTokens = null, df = null) {
   return { score: Math.round(score * 10) / 10, specificity, why, blocked: false };
 }
 
+// subject tokens: the concrete thing asked about, minus shared value words that many doors carry
+const VALUE_WORDS = new Set(["cheap", "cost", "best", "good", "new", "find", "buy", "near", "top", "free", "fast", "online", "today", "now"]);
+
 export function rankQuery(q, rows, base) {
   // tokens no site knows (proper nouns, arbitrary words) are slot fillers: they never count against a match
   const vocab = new Set(rows.flatMap((r) => tokens(`${r.name} ${r.profile.punch || ""} ${(r.profile.keywords || []).join(" ")} ${(r.profile.intents || []).join(" ")}`)));
@@ -501,9 +539,39 @@ export function rankQuery(q, rows, base) {
     const s = scoreQuery(q, r, known, df);
     return { n: r.n, name: r.name, live: r.url, fetch: `${base}/${r.n}`, fetch_md: `${base}/${r.n}.md`, punch: r.profile.punch, score: s.score, specificity: s.specificity, why: s.why, blocked: s.blocked, catchall: !!r.profile.catchall, updated_at: r.updated_at || "" };
   });
+  // subject test: if the query carries a concrete subject some door owns, doors that own none of it
+  // lose their value-word advantage (so "cheapest iphone" cannot be won on "cheapest" alone)
+  const subject = known.filter((t) => !VALUE_WORDS.has(t));
+  if (subject.length) {
+    // ownership counts distinct subject tokens a door knows; a door that knows more of the subject wins
+    const owns = (r) => {
+      const v = new Set(tokens(`${r.name} ${r.profile.punch || ""} ${(r.profile.keywords || []).join(" ")} ${(r.profile.intents || []).join(" ")}`));
+      return subject.filter((t) => v.has(t)).length;
+    };
+    const ownership = new Map(rows.map((r) => [r.n, owns(r)]));
+    const best = Math.max(...ownership.values());
+    if (best > 0) {
+      for (const m of scored) {
+        const mine = ownership.get(m.n) || 0;
+        if (mine < best) { m.score = Math.round((m.score - 3 * (best - mine)) * 10) / 10; m.why.push(`subject:${mine}/${best}`); }
+        else { m.score = Math.round((m.score + 2 * mine) * 10) / 10; m.specificity += 1; m.why.push(`subject:${mine}/${best}`); }
+      }
+    }
+  }
   const blocked = scored.filter((m) => m.blocked).map((m) => m.name);
-  // strong evidence: name/punch/intent/distinctive hit, or three or more keyword hits
-  const strong = (m) => m.why.some((w) => (!w.startsWith("desc:") && !w.startsWith("keywords:")) || (w.startsWith("keywords:") && Number(w.split(":")[1]) >= 3));
+  // strong evidence: a full name/punch/intent hit, or several keyword hits.
+  // a single leftover token (name fragment or one keyword) never wins on its own.
+  const strong = (m) => {
+    const w = m.why;
+    const solid = w.some((x) => x === "name" || x === "punch" || x.startsWith("intent"));
+    if (solid) return true;
+    const kw = Number((w.find((x) => x.startsWith("keywords:")) || "keywords:0").split(":")[1]);
+    const dist = Number((w.find((x) => x.startsWith("distinct:")) || "distinct:0").split(":")[1]);
+    const nameFrag = w.includes("name~") || w.includes("punch~");
+    if (kw >= 3) return true;
+    // two independent signals are needed when nothing solid matched
+    return (nameFrag && kw >= 2) || (dist >= 1 && kw >= 2) || (nameFrag && dist >= 1 && known.length >= 2);
+  };
   let pool = scored.filter((m) => !m.blocked && m.score >= 3 && m.why.length && strong(m));
   const nonCatch = pool.filter((m) => !m.catchall);
   if (nonCatch.length) {
