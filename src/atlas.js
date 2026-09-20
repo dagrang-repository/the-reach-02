@@ -19,10 +19,21 @@ const STOP = new Set(("the and for with that this you your its are was were from
 
 const LANG_NAMES = { english: "en", cebuano: "ceb", bisaya: "ceb", tagalog: "tl", filipino: "fil", spanish: "es", french: "fr", german: "de", dutch: "nl", italian: "it", portuguese: "pt", chinese: "zh", mandarin: "zh", japanese: "ja", korean: "ko", arabic: "ar", hindi: "hi", bengali: "bn", russian: "ru", urdu: "ur", indonesian: "id", turkish: "tr", vietnamese: "vi", thai: "th", persian: "fa", farsi: "fa", tamil: "ta", telugu: "te", marathi: "mr", polish: "pl", swedish: "sv", hebrew: "he", danish: "da", norwegian: "no", finnish: "fi", czech: "cs", greek: "el", hungarian: "hu", romanian: "ro", bulgarian: "bg", ukrainian: "uk", malay: "ms", swahili: "sw", nepali: "ne" };
 
+let tablesReady = false;
 async function ensureTables(env) {
-  await run(env, `CREATE TABLE IF NOT EXISTS atlas (site_id TEXT PRIMARY KEY, n INTEGER, name TEXT, url TEXT, profile_json TEXT, briefing_stamp TEXT, updated_at TEXT)`);
-  await run(env, `ALTER TABLE atlas ADD COLUMN llms_hash TEXT`).catch(() => null);
+  if (tablesReady) return;
+  await run(env, `CREATE TABLE IF NOT EXISTS atlas (site_id TEXT PRIMARY KEY, n INTEGER, name TEXT, url TEXT, profile_json TEXT, briefing_stamp TEXT, updated_at TEXT, llms_hash TEXT)`);
   await run(env, `CREATE TABLE IF NOT EXISTS gaps (q TEXT PRIMARY KEY, count INTEGER DEFAULT 1, last_at TEXT)`);
+  // older deployments created atlas without llms_hash; add it once, only when missing
+  try {
+    const cols = await all(env, `PRAGMA table_info(atlas)`);
+    if (Array.isArray(cols) && cols.length && !cols.some((c) => (c.name || c.NAME) === "llms_hash")) {
+      await run(env, `ALTER TABLE atlas ADD COLUMN llms_hash TEXT`);
+    }
+  } catch {
+    /* column already present */
+  }
+  tablesReady = true;
 }
 
 function baseUrl(env) {
@@ -253,6 +264,11 @@ async function aiParaphrase(env, site, brief, punch) {
   };
 }
 
+function isCatchAll(site, punch, intents) {
+  // explicit only: the door's name says it is the catch-all, or its brief declares it
+  return /all problems solved/i.test(String(site.name || "")) || /^catch-?all\b/im.test([punch, ...(intents || [])].join("\n"));
+}
+
 async function buildProfile(env, site, briefing, ing) {
   const host = new URL(site.url).host;
   const empty = { punch: "", intents: [], negatives: [], languages: [], languagesCount: 0, who_for: "", vocab: [] };
@@ -328,8 +344,9 @@ export async function rebuildAtlas(env, onlySites = null, force = false) {
       stats.generated += 1;
       stats.sources[profile.source] = (stats.sources[profile.source] || 0) + 1;
       if (profile.needs_brief) await recordGap(env, `needs_brief:#${nById.get(site.id) || 0} ${site.name} (${site.url}llms.txt missing)`);
-    } catch {
+    } catch (err) {
       stats.failed += 1;
+      if (!stats.error) stats.error = String((err && err.message) || err).slice(0, 300);
     }
   }
   for (const s of ordered) await run(env, "UPDATE atlas SET n = ? WHERE site_id = ?", nById.get(s.id), s.id).catch(() => null);
@@ -485,7 +502,8 @@ export function rankQuery(q, rows, base) {
     return { n: r.n, name: r.name, live: r.url, fetch: `${base}/${r.n}`, fetch_md: `${base}/${r.n}.md`, punch: r.profile.punch, score: s.score, specificity: s.specificity, why: s.why, blocked: s.blocked, catchall: !!r.profile.catchall, updated_at: r.updated_at || "" };
   });
   const blocked = scored.filter((m) => m.blocked).map((m) => m.name);
-  const strong = (m) => m.why.some((w) => !w.startsWith("desc:") && !w.startsWith("keywords:"));
+  // strong evidence: name/punch/intent/distinctive hit, or three or more keyword hits
+  const strong = (m) => m.why.some((w) => (!w.startsWith("desc:") && !w.startsWith("keywords:")) || (w.startsWith("keywords:") && Number(w.split(":")[1]) >= 3));
   let pool = scored.filter((m) => !m.blocked && m.score >= 3 && m.why.length && strong(m));
   const nonCatch = pool.filter((m) => !m.catchall);
   if (nonCatch.length) {
