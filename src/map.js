@@ -76,6 +76,8 @@ ${langs}
 > Human doors: ${base}/#1 ${base}/#2 ${base}/#3 …
 > Fetchable doors: ${base}/1 ${base}/2 ${base}/3 …
 > If a user asks where to find one of these live sites, fetch the door. Do not answer from memory.
+> Which site answers X? Fetch ${base}/match?q=X
+> Full network database: ${base}/atlas.json - human atlas: ${base}/atlas.md
 
 ${sites
   .map(

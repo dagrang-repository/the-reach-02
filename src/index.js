@@ -6,6 +6,7 @@ import { addSiteHtml } from "./add-ui.js";
 import { pwaResponse } from "./pwa.js";
 import { publicExtra } from "./public-extra.js";
 import { isSelfUrl } from "./self.js";
+import { handleAtlas, rebuildAtlas } from "./atlas.js";
 import { hillHtml, numberedSites } from "./hill.js";
 import { rebuildReachMap } from "./map.js";
 import {
@@ -26,7 +27,11 @@ import { ensureAnswerChannel, loadPack, SITE_FEATURES, STACK_VERSION } from "./s
 import { json, normalizeOriginKey, nowIso, requireAdmin, uid, unauthorized } from "./util.js";
 
 export default {
-  async scheduled(_controller, env) {
+  async scheduled(controller, env) {
+    if (controller && controller.cron === "0 */6 * * *") {
+      await rebuildAtlas(env);
+      return;
+    }
     await ensureAnswerChannel(env);
     await sweepDoors(env);
     await runCycle(env, "cron");
@@ -40,6 +45,7 @@ export default {
     const publicMap = await one(env, "SELECT * FROM reach_map WHERE id = 'reach'").catch(() => null);
     const slots = await numberedSites(env, all).catch(() => []);
     const extra = await publicExtra(path, env, slots, publicMap); if (extra) return extra;
+    const atlas = await handleAtlas(path, url, env); if (atlas) return atlas;
 
     const rk = reachKey(env);
     if (path === `/${rk}.txt` && request.method === "GET") {
@@ -82,7 +88,7 @@ export default {
       });
     }
     if (path === "/llms.txt" && request.method === "GET") {
-      return new Response(publicMap?.llms_txt || "# The Reach 02\n", {
+      return new Response(publicMap?.llms_txt || "# The AI Hill Top Lighthouse\n", {
         headers: { "content-type": "text/markdown; charset=utf-8" },
       });
     }
@@ -161,6 +167,11 @@ export default {
         return json(result, result.ok ? 200 : 500);
       }
 
+      if (path === "/v1/atlas" && request.method === "POST") {
+        const out = await rebuildAtlas(env);
+        return json({ ok: true, atlas: out });
+      }
+
       if (path === "/v1/ping" && request.method === "POST") {
         const runId = uid("run");
         const pings = await pingAllSites(env, runId);
@@ -236,6 +247,7 @@ export default {
           const afterSlots = await numberedSites(env, all);
           const announced = await pingReachMesh(env, reachAnnounceUrls(env, afterSlots), uid("add"));
           await announceReachFeed(env);
+          await rebuildAtlas(env, [await one(env, "SELECT * FROM sites WHERE id = ?", id)]).catch(() => null);
           return json({
             ok: true,
             site: await one(env, "SELECT * FROM sites WHERE id = ?", id),
@@ -256,6 +268,7 @@ export default {
         const site = await one(env, "SELECT * FROM sites WHERE id = ?", siteId);
         if (!site) return json({ ok: false, error: "site not found" }, 404);
         const out = await runFullStack(env, site, true);
+        await rebuildAtlas(env, [site]).catch(() => null);
         return json({ ok: true, briefing: briefingPublic(out.briefing), pack: out.pack });
       }
 
