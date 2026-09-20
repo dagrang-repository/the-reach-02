@@ -572,8 +572,8 @@ export function rankQuery(q, rows, base) {
     const dist = Number((w.find((x) => x.startsWith("distinct:")) || "distinct:0").split(":")[1]);
     const nameFrag = w.includes("name~") || w.includes("punch~");
     if (kw >= 3) return true;
-    // a one-word query IS its subject: a distinctive keyword hit is enough ("earthquake")
-    if (dist >= 1 && allTokens.length === 1) return true;
+    // a distinctive token that IS the query's core (short query, unknown words are slot fillers) stands alone
+    if (dist >= 1 && known.length <= 2 && dist >= Math.ceil(known.length / 2)) return true;
     // otherwise two independent signals are needed when nothing solid matched
     return (nameFrag && kw >= 2) || (dist >= 1 && kw >= 2) || (nameFrag && dist >= 1 && known.length >= 2);
   };
