@@ -3,7 +3,6 @@ import { runCycle, status } from "./cycle.js";
 import { all, one, run } from "./db.js";
 import { sweepDoors } from "./doors.js";
 import { addSiteHtml } from "./add-ui.js";
-import { handlePaid, recheckPaidKeys } from "./paid.js";
 import { pwaResponse } from "./pwa.js";
 import { publicExtra } from "./public-extra.js";
 import { isSelfUrl } from "./self.js";
@@ -35,7 +34,6 @@ export default {
     }
     await ensureAnswerChannel(env);
     await sweepDoors(env);
-    await recheckPaidKeys(env).catch(() => null);
     await runCycle(env, "cron");
   },
 
@@ -158,9 +156,6 @@ export default {
       const result = await runCycle(env, "local-test");
       return json(result, result.ok ? 200 : 500);
     }
-
-    const paid = await handlePaid(path, request, url, env);
-    if (paid) return paid;
 
     if (!requireAdmin(request, env)) return unauthorized();
 

@@ -64,7 +64,7 @@ export function addSiteHtml() {
       <input id="pkey" placeholder="Origin key">
       <details style="margin-top:.7rem">
         <summary class="hint" style="cursor:pointer">How to create an origin key on your site</summary>
-        <p class="hint" style="margin:.5rem 0 0">Pick any 32-character hex string (letters a&ndash;f and digits 0&ndash;9). Save a plain text file named <code>yourkey.txt</code> at the root of your site, holding that key and nothing else, so it answers at <code>https://yoursite.com/yourkey.txt</code>. Paste the key above. Leave it empty and your door still goes live &mdash; add the key later and it is picked up within 24 hours.</p>
+        <p class="hint" style="margin:.5rem 0 0">Pick any 32-character hex string (letters a&ndash;f and digits 0&ndash;9). Save a plain text file named <code>yourkey.txt</code> at the root of your site, holding that key and nothing else, so it answers at <code>https://yoursite.com/yourkey.txt</code>. Paste the key above. Leave it empty and your door still goes live &mdash; add the key later and it is picked up on the next hourly pass.</p>
       </details>
       <button type="submit">Subscribe and add my site</button>
     </form>
