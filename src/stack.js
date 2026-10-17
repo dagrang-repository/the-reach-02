@@ -6,7 +6,7 @@ import { PLAYBOOK_PATHS, buildPlaybookFiles } from "./playbook.js";
 import { isSelfUrl, selfProbe } from "./self.js";
 
 export const ANSWER_CHANNEL_ID = "ch_answer";
-export const STACK_VERSION = 4;
+export const STACK_VERSION = 5; // v3 playbook (17 Oct 2026): 217 agent groups, SEP-2127, A2A 1.0, pick layer
 
 export const SITE_FEATURES = [
   { id: "briefing", label: "Intelligence briefing" },
@@ -28,6 +28,15 @@ export const SITE_FEATURES = [
   { id: "websub", label: "WebSub publish when a feed exists" },
   { id: "catalog", label: "Public catalog.json + changes.txt + pings" },
   { id: "reach_map", label: "Reach map expands on every add" },
+  { id: "agents_v3", label: "217 named agent groups + wildcard (verified 17 Oct 2026)" },
+  { id: "mcp_sep2127", label: "MCP server card at the canonical /.well-known/mcp-server-card + 2 aliases" },
+  { id: "a2a_10", label: "A2A 1.0 agent card" },
+  { id: "pick_layer", label: "seo/keywords.json + seo/structure.json (PART 21)" },
+  { id: "feeds", label: "Atom + JSON Feed with a WebSub hub" },
+  { id: "headers", label: "Header block, _headers / _redirects, head discovery block" },
+  { id: "capture", label: "Full door record: sitemap, key, llms.txt, description, languages" },
+  { id: "wikidata", label: "Wikidata item per door, labels in every published language" },
+  { id: "wayback", label: "Rolling Wayback snapshots of every door and surface" },
 ];
 
 const MACHINE_PATHS = PLAYBOOK_PATHS;

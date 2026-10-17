@@ -1,54 +1,56 @@
-/** Calling AI Models playbook — MAXIMAL EDITION (13 Sep 2026) clone, generated on every site add.
- *  Honest: only advertise what the probe found. Full PART 8 set (8.1–8.25), 193-token agent list. */
+/** Calling AI Models playbook — MAXIMAL EDITION v3 (17 Oct 2026) clone, generated on every site add.
+ *  Honest: only advertise what the probe found. Full PART 8 set (8.1–8.37) + PART 21 pick layer.
+ *  v3: 217 named agent groups + wildcard (CopilotBot removed — no vendor source; GrokAgent, meta-externalads,
+ *  Google-GeminiNotebook and the Cloudflare AI tokens added), MCP SEP-2127 card at /.well-known/mcp-server-card
+ *  (two legacy aliases), A2A 1.0 ("1.0", never "1.0.0"), Content-Usage alongside Content-Signal,
+ *  seo/keywords.json + seo/structure.json, feeds, service worker, server.json, status.json, head block, _headers. */
 
-export const CITATION_AGENTS = [
-  "GPTBot","OAI-SearchBot","ChatGPT-User","ChatGPT Agent","Operator","OAI-AdsBot","OpenAI",
-  "ClaudeBot","Claude-SearchBot","Claude-User","Claude-Web","Claude-Code","anthropic-ai",
-  "Googlebot","Google-Extended","GoogleOther","GoogleOther-Image","GoogleOther-Video",
-  "Google-CloudVertexBot","CloudVertexBot","Google-Agent","GoogleAgent-Mariner","GoogleAgent-URLContext",
-  "Google-Gemini-CLI","Google-NotebookLM","NotebookLM","Gemini-Deep-Research","Google-Firebase",
-  "Bingbot","BingPreview","msnbot","AzureAI-SearchBot","CopilotBot",
-  "meta-externalagent","Meta-ExternalAgent","meta-webindexer","meta-externalfetcher","Meta-ExternalFetcher",
-  "FacebookBot","facebookexternalhit",
-  "Applebot","Applebot-Extended",
-  "PerplexityBot","Perplexity-User",
-  "Amazonbot","Amzn-SearchBot","Amzn-User","AmazonBuyForMe","amazon-kendra","amazon-QBusiness","bedrockbot",
-  "MistralAI-User","MistralAI-User/1.0","MistralAI-Index","MistralAI-Training",
-  "DuckAssistBot","DuckDuckBot","Bravebot","kagi-fetcher","YouBot","PhindBot",
-  "cohere-ai","cohere-training-data-crawler",
-  "Bytespider","TikTokSpider","DeepSeekBot","ChatGLM-Spider","DoubaoBot","ERNIEBot","YiyanBot",
-  "TongyiBot","QwenBot","PanguBot","KimiBot","Kimi-SearchBot","Kimi-User","PetalBot",
-  "iAskBot","iaskspider","iaskspider/2.0",
-  "YandexBot","YandexAdditional","YandexAdditionalBot",
-  "CCBot","AI2Bot","AI2Bot-DeepResearchEval","Ai2Bot-Dolma",
-  "LAIONDownloader","laion-huggingface-processor","img2dataset","imageSpider","ImagesiftBot",
-  "ICC-Crawler","SBIntuitionsBot","Poseidon Research Crawler","ISSCyberRiskCrawler","LCC","Cotoyogi","Timpibot",
-  "Cursor","Devin","Trae","opencode","Code","Crawl4AI","Crawlspace","FirecrawlAgent","Lightpanda",
-  "Mozilla-Tabstack","NovaAct","Manus-User","TwinAgent","Anomura","YaK","Thinkbot","UseAI","wpbot",
-  "Shap-User","ShapBot","ExaBot","ExaSearchBot","TavilyBot","LinkupBot","LinerBot","Andibot",
-  "AddSearchBot","AIWebIndex","Aranet-SearchBot","Querit-SearchBot","QueritBot","Channel3Bot",
-  "bigsur.ai","Poggio-Citations","Reflectionbot","WRTNBot","ZanistaBot","QualifiedBot","KunatoCrawler",
-  "HenkBot","BuddyBot","NagetBot","WARDBot","MyCentralAIScraperBot","GeistHaus-PageFetcher",
-  "Terra Cotta","TerraCotta","CragCrawler","Diffbot","Diffbot-User","Scrapy","ApifyBot",
-  "ApifyWebsiteContentCrawler","omgili","omgilibot","Webzio-Extended","webzio-extended",
-  "VelenPublicWebCrawler","Panscient","panscient.com","Awario","EchoboxBot","Echobot Bot",
-  "Brightbot","Brightbot 1.0","Datenbank Crawler","Factset_spyderbot","Sidetrade indexer bot",
-  "netEstate Imprint Crawler","Linguee Bot","FriendlyCrawler","aiHitBot","AgentTimes","newsai",
-  "Kangaroo Bot","Spider","atlassian-bot","Cloudflare-AutoRAG","KlaviyoAIBot","QuillBot","quillbot.com",
-  "SemrushBot-OCOB","SemrushBot-SWA",
-  "Baiduspider","Seznam","NaverBot","Slurp",
-  "Twitterbot","LinkedInBot","Pinterestbot","Slackbot","Discordbot","TelegramBot","WhatsApp",
+export const AGENT_GROUPS = [
+  { g: "OpenAI", t: ["GPTBot", "OAI-SearchBot", "ChatGPT-User", "ChatGPT Agent", "Operator", "OAI-AdsBot", "OpenAI"] },
+  { g: "Anthropic", t: ["ClaudeBot", "Claude-SearchBot", "Claude-User", "Claude-Web", "Claude-Code", "anthropic-ai"] },
+  { g: "Google", t: ["Googlebot", "Googlebot-Image", "Googlebot-Video", "Googlebot-News", "Storebot-Google", "Google-InspectionTool", "AdsBot-Google", "Google-Extended", "GoogleOther", "GoogleOther-Image", "GoogleOther-Video", "Google-CloudVertexBot", "CloudVertexBot", "Google-Agent", "GoogleAgent-Mariner", "GoogleAgent-URLContext", "Google-Gemini-CLI", "Google-GeminiNotebook", "Google-NotebookLM", "NotebookLM", "Gemini-Deep-Research", "Google-Firebase", "Google-Read-Aloud", "Google-Pinpoint", "Google-CWS", "FeedFetcher-Google"] },
+  { g: "Microsoft / Bing", t: ["Bingbot", "BingPreview", "MicrosoftPreview", "AdIdxBot", "msnbot", "AzureAI-SearchBot"] },
+  { g: "Meta", t: ["meta-externalagent", "Meta-ExternalAgent", "meta-webindexer", "meta-externalfetcher", "Meta-ExternalFetcher", "meta-externalads", "Meta-ExternalAds", "FacebookBot", "facebookexternalhit"] },
+  { g: "Apple", t: ["Applebot", "Applebot-Extended"] },
+  { g: "Perplexity", t: ["PerplexityBot", "Perplexity-User"] },
+  { g: "xAI (Cloudflare-verified agent token only - see PART 19)", t: ["GrokAgent"] },
+  { g: "Amazon", t: ["Amazonbot", "Amzn-SearchBot", "Amzn-User", "AmazonBuyForMe", "amazon-kendra", "amazon-QBusiness", "bedrockbot"] },
+  { g: "Mistral", t: ["MistralAI-User", "MistralAI-User/1.0", "MistralAI-Index", "MistralAI-Training"] },
+  { g: "DuckDuckGo, Brave, Kagi, You, Phind", t: ["DuckAssistBot", "DuckDuckBot", "Bravebot", "kagi-fetcher", "YouBot", "PhindBot"] },
+  { g: "Cohere", t: ["cohere-ai", "cohere-training-data-crawler"] },
+  { g: "ByteDance / TikTok", t: ["Bytespider", "TikTokSpider"] },
+  { g: "Chinese labs and engines", t: ["DeepSeekBot", "ChatGLM-Spider", "DoubaoBot", "ERNIEBot", "YiyanBot", "TongyiBot", "QwenBot", "PanguBot", "KimiBot", "Kimi-SearchBot", "Kimi-User", "Kimi-Agent", "PetalBot", "iAskBot", "iaskspider", "iaskspider/2.0"] },
+  { g: "Yandex", t: ["YandexBot", "YandexAdditional", "YandexAdditionalBot"] },
+  { g: "Cloudflare", t: ["Cloudflare-AutoRAG", "Cloudflare-AI-Search", "Cloudflare-AI-Search-External", "CloudflareBrowserRenderingCrawler"] },
+  { g: "Research and dataset crawlers", t: ["CCBot", "AI2Bot", "AI2Bot-DeepResearchEval", "Ai2Bot-Dolma", "LAIONDownloader", "laion-huggingface-processor", "img2dataset", "imageSpider", "ImagesiftBot", "ICC-Crawler", "SBIntuitionsBot", "Poseidon Research Crawler", "ISSCyberRiskCrawler", "LCC", "Cotoyogi", "Timpibot", "Reflectionbot"] },
+  { g: "Agent and coding tools", t: ["Cursor", "Devin", "Trae", "opencode", "Code", "Crawl4AI", "Crawlspace", "FirecrawlAgent", "Lightpanda", "Mozilla-Tabstack", "NovaAct", "Manus-User", "TwinAgent", "Anomura", "YaK", "Thinkbot", "UseAI", "wpbot", "Shap-User", "ShapBot"] },
+  { g: "Search, retrieval and answer startups", t: ["ExaBot", "ExaSearchBot", "TavilyBot", "LinkupBot", "LinerBot", "Andibot", "AddSearchBot", "AIWebIndex", "Aranet-SearchBot", "Querit-SearchBot", "QueritBot", "Channel3Bot", "bigsur.ai", "Poggio-Citations", "WRTNBot", "ZanistaBot", "QualifiedBot", "KunatoCrawler", "HenkBot", "BuddyBot", "NagetBot", "WARDBot", "MyCentralAIScraperBot", "GeistHaus-PageFetcher", "Terra Cotta", "TerraCotta", "CragCrawler"] },
+  { g: "Data, monitoring and enterprise", t: ["Diffbot", "Diffbot-User", "Scrapy", "ApifyBot", "ApifyWebsiteContentCrawler", "omgili", "omgilibot", "Webzio-Extended", "webzio-extended", "VelenPublicWebCrawler", "Panscient", "panscient.com", "Awario", "EchoboxBot", "Echobot Bot", "Brightbot", "Brightbot 1.0", "Datenbank Crawler", "Factset_spyderbot", "Sidetrade indexer bot", "netEstate Imprint Crawler", "Linguee Bot", "FriendlyCrawler", "aiHitBot", "AgentTimes", "newsai", "Kangaroo Bot", "Spider", "atlassian-bot", "KlaviyoAIBot", "QuillBot", "quillbot.com", "SemrushBot-OCOB", "SemrushBot-SWA"] },
+  { g: "Conventional engines, archives and social fetchers", t: ["Baiduspider", "Seznam", "SeznamBot", "NaverBot", "Yeti", "Slurp", "MojeekBot", "ia_archiver", "archive.org_bot", "Twitterbot", "LinkedInBot", "Pinterestbot", "Slackbot", "Discordbot", "TelegramBot", "WhatsApp"] },
+];
+
+/** Flat token list (217 named groups; the wildcard is written separately). */
+export const CITATION_AGENTS = AGENT_GROUPS.flatMap((x) => x.t);
+
+/** Policy B (cite me, do not train): these tokens get Disallow + ai-train=no. Training-only crawlers. */
+export const TRAINING_ONLY = [
+  "GPTBot", "ClaudeBot", "anthropic-ai", "Google-Extended", "CCBot", "Applebot-Extended",
+  "meta-externalagent", "Meta-ExternalAgent", "MistralAI-Training", "cohere-training-data-crawler",
+  "cohere-ai", "Bytespider", "TikTokSpider", "KimiBot", "Reflectionbot", "Ai2Bot-Dolma",
+  "LAIONDownloader", "laion-huggingface-processor", "img2dataset", "imageSpider",
 ];
 
 export const PLAYBOOK_PATHS = [
   "/robots.txt", "/sitemap.xml", "/llms.txt", "/llms-full.txt", "/llms-small.txt",
   "/llms/api.txt", "/ai.txt", "/license.xml", "/tdmrep.json", "/openapi.json",
-  "/status.json", "/opensearch.xml", "/manifest.json", "/AGENTS.md",
+  "/status.json", "/opensearch.xml", "/manifest.json", "/AGENTS.md", "/sw.js",
+  "/feed.xml", "/feed.json", "/seo/keywords.json", "/seo/structure.json",
   "/.well-known/llms.txt", "/.well-known/security.txt", "/.well-known/trust.txt",
-  "/.well-known/tdmrep.json", "/.well-known/mcp.json", "/.well-known/mcp/server-card.json",
+  "/.well-known/tdmrep.json", "/.well-known/mcp-server-card", "/.well-known/mcp.json",
+  "/.well-known/mcp/server-card.json", "/.well-known/mcp-server",
   "/.well-known/agent-card.json", "/.well-known/agent.json", "/.well-known/agents.json",
   "/.well-known/agent-permissions.json", "/.well-known/agent-skills/index.json",
-  "/.well-known/ai-catalog.json", "/.well-known/api-catalog",
+  "/.well-known/skills/index.json", "/.well-known/ai-catalog.json", "/.well-known/api-catalog",
 ];
 
 function openPath(probe, path) {
@@ -60,20 +62,35 @@ function askerLine(intel, url) {
 }
 
 export function buildRobotsTxt(origin, policy = "A") {
-  const signal = "Content-Signal: search=yes, ai-input=yes, ai-train=yes";
-  const groups = CITATION_AGENTS.map((ua) => `User-agent: ${ua}\nAllow: /\n${signal}\n`).join("\n");
-  return `# Policy A — citation + training allowed. One policy. Do not contradict ai.txt / tdmrep / license.xml.
-# MAXIMAL set: ${CITATION_AGENTS.length} named groups + wildcard (community list superset, 13 Sep 2026).
+  const B = policy === "B";
+  const signal = (ua) =>
+    B && TRAINING_ONLY.includes(ua)
+      ? "Content-Signal: search=yes, ai-input=yes, ai-train=no"
+      : "Content-Signal: search=yes, ai-input=yes, ai-train=yes";
+  const rule = (ua) => (B && TRAINING_ONLY.includes(ua) ? "Disallow: /" : "Allow: /");
+  const groups = AGENT_GROUPS.map(
+    (grp) => `# --- ${grp.g} ---\n` + grp.t.map((ua) => `User-agent: ${ua}\n${rule(ua)}\n${signal(ua)}\n`).join("\n")
+  ).join("\n");
+  const named = AGENT_GROUPS.reduce((n, g) => n + g.t.length, 0);
+  return `# Policy ${policy} — ${B ? "citation yes, training no" : "citation + training allowed"}. One policy.
+# Must not contradict ai.txt / tdmrep.json / license.xml / llms.txt (PART 12 item 14 sweeps all four).
+# MAXIMAL set: ${named} named groups + wildcard = ${named + 1}. Community list + vendor-documented tokens,
+# verified 17 October 2026. Unknown and future tokens fall through to User-agent: * which already Allows.
+# Re-diff against the community list quarterly (scripts/agents-diff.sh).
 # RFC 9309: product tokens are letters, hyphen, underscore only — tokens with digits/spaces/dots
-# truncate under a strict parser; harmless under Policy A (the wildcard Allows).
+# truncate under a strict parser; harmless here (the wildcard Allows).
+# Content-Signal (contentsignals.org): search / ai-input / ai-train. Omitting a signal is unexpressed, not denied.
+# Content-Usage (IETF AIPREF draft-ietf-aipref-attach-05) must agree with Content-Signal. Still a draft.
+Content-Usage: train-ai=${B ? "n" : "y"}
 
 ${groups}
 User-agent: *
 Allow: /
-${signal}
+${signal("*")}
 
 License: ${origin}/license.xml
 Sitemap: ${origin}/sitemap.xml
+Sitemap: ${origin}/sitemap-index.xml
 `;
 }
 
@@ -183,42 +200,61 @@ Cite: ${site.name}, retrieved on fetch day, ${site.url}
 Licence: ${origin}/license.xml
 `;
 
-  // 8.8 MCP server card — both paths, same bytes
-  const mcpRemote = live("/openapi.json");
+  // 8.8 MCP server card — SEP-2127 canonical + two aliases, same bytes
   const mcpCard = JSON.stringify(
     {
-      $schema: "https://static.modelcontextprotocol.io/schemas/2025-10-17/server.schema.json",
-      name: `${host}/${slug}`,
+      // SEP-2127 requires exactly these four; tools/resources/prompts are deliberately NOT in a card —
+      // the client learns them from tools/list. Add `remotes` only once an endpoint answers.
+      $schema: "https://static.modelcontextprotocol.io/schemas/v1/server-card.schema.json",
+      name: `com.${host.split(".").reverse().join(".")}/${slug}`,
       title: site.name,
-      description: punch,
+      description: punch.slice(0, 240),
       version: "1.0.0",
-      remotes: [],
-      _note: "Add your live MCP remote URL to remotes before serving this card. A card without an endpoint is a dead card.",
       websiteUrl: origin,
-      documentationUrl: `${origin}/llms-full.txt`,
-      license: `${origin}/license.xml`,
+      ...(live("/openapi.json")
+        ? {
+            remotes: [
+              {
+                type: "streamable-http",
+                url: `${origin}/mcp`,
+                supportedProtocolVersions: ["2026-07-28", "2025-11-25", "2025-06-18"],
+              },
+            ],
+          }
+        : {}),
+      _meta: {
+        [`com.${host.split(".").reverse().join(".")}/documentation`]: `${origin}/llms-full.txt`,
+        [`com.${host.split(".").reverse().join(".")}/license`]: `${origin}/license.xml`,
+        [`com.${host.split(".").reverse().join(".")}/note`]:
+          "Add a live MCP remote to `remotes` before serving this card. A version you list and cannot speak is a dead card. Dual-era servers answer server/discover AND initialize.",
+      },
     },
     null,
     2
   );
-  files[".well-known/mcp.json"] = live("/.well-known/mcp.json")
-    ? "Alias of the origin's live /.well-known/mcp.json — copy the same bytes."
-    : mcpCard;
-  files[".well-known/mcp/server-card.json"] = files[".well-known/mcp.json"];
+
+  // SEP-2127 (merged 6 Oct 2026): canonical path has NO extension; the two pre-merge paths stay as aliases
+  // because clients built during the draft year still probe them. Same bytes on all three.
+  files[".well-known/mcp-server-card"] = mcpCard;
+  files[".well-known/mcp.json"] = mcpCard;
+  files[".well-known/mcp/server-card.json"] = mcpCard;
 
   // 8.9 A2A agent card + legacy alias
   const agentCard = JSON.stringify(
     {
-      protocolVersion: "0.3.0",
+      // A2A 1.0: protocolVersion is major.minor — never "1.0.0". Clients send `A2A-Version: 1.0`;
+      // an empty header means a 0.3 client → answer VersionNotSupportedError listing what you speak.
+      protocolVersion: "1.0",
       name: site.name,
       description: punch,
-      url: site.url,
+      url: `${origin}/a2a`,
+      preferredTransport: "JSONRPC",
       provider: { organization: site.name, url: origin },
       version: "1.0.0",
       documentationUrl: `${origin}/llms-full.txt`,
-      capabilities: { streaming: false, pushNotifications: false, stateTransitionHistory: false },
-      defaultInputModes: ["text/plain"],
-      defaultOutputModes: ["text/html", "text/plain"],
+      capabilities: { streaming: false, pushNotifications: false, stateTransitionHistory: false, extendedAgentCard: false },
+      defaultInputModes: ["text/plain", "application/json"],
+      defaultOutputModes: ["application/json", "text/plain"],
       skills: [
         {
           id: slug,
@@ -473,6 +509,224 @@ Licence: ${origin}/license.xml
   if (site.indexnow_key) files[`${site.indexnow_key}.txt`] = site.indexnow_key;
 
   // Cross-link mesh — paste into every page footer of the site; any crawler entering anywhere hops the network
+  // ---- v3 additions (PART 8.12, 8.26–8.37 and PART 21) ----
+
+  // 8.12 the header block every content response must carry
+  files["HTTP-HEADERS.md"] = `# Headers on every content response — ${site.name}
+
+\`\`\`
+Link: </llms.txt>; rel="describedby"; type="text/markdown"; title="Site index for LLMs",
+      </license.xml>; rel="license"; type="application/rsl+xml",
+      </.well-known/api-catalog>; rel="api-catalog"; type="application/linkset+json"
+X-Robots-Tag: max-snippet:-1, max-image-preview:large, max-video-preview:-1
+Cache-Control: public, max-age=3600
+Vary: Accept, Accept-Language
+Access-Control-Allow-Origin: *
+Content-Signal: search=yes, ai-input=yes, ai-train=yes
+\`\`\`
+
+On a Markdown twin: Content-Type: text/markdown; charset=utf-8
+On /.well-known/ files: CORS open, Cache-Control: public, max-age=3600, must-revalidate, X-Robots-Tag: noindex
+On an MCP endpoint: allow MCP-Protocol-Version, Mcp-Method, Mcp-Name, Mcp-Session-Id, Last-Event-ID, Idempotency-Key;
+expose MCP-Protocol-Version, Mcp-Session-Id, RateLimit-*, Retry-After; X-Accel-Buffering: no on SSE.
+
+Content negotiation: if Accept contains text/markdown and a twin exists, serve the twin. ALWAYS send Vary: Accept.
+`;
+
+  // 8.27 <head> discovery block, written with this site's real URLs
+  files["head-block.html"] = `<!-- ${site.name} — paste inside <head> of every content page. ONE title, ONE canonical, ONE JSON-LD. -->
+<link rel="canonical" href="PAGE_URL">
+<link rel="alternate" type="text/markdown" href="PAGE_URL.md" title="Markdown version">
+<link rel="describedby" type="text/markdown" href="${origin}/llms.txt" title="Site index for LLMs">
+<link rel="license" type="application/rsl+xml" href="${origin}/license.xml">
+<link rel="alternate" type="application/atom+xml" href="${origin}/feed.xml" title="Updates">
+<link rel="alternate" type="application/feed+json" href="${origin}/feed.json" title="Updates (JSON)">
+<link rel="search" type="application/opensearchdescription+xml" href="${origin}/opensearch.xml" title="${site.name}">
+<link rel="manifest" href="/manifest.json">
+<meta name="robots" content="max-snippet:-1, max-image-preview:large, max-video-preview:-1">
+<!-- Open Graph + X cards: og-x-cards.html -->
+<!-- JSON-LD: JSON-LD.json -->
+<!-- The title IS the question (seo/keywords.json grammar); the first sentence IS the answer. -->`;
+
+  // 8.28 Cloudflare Pages _headers / _redirects (a Worker does the same in code)
+  files["_headers"] = `/*
+  X-Robots-Tag: max-snippet:-1, max-image-preview:large, max-video-preview:-1
+  Vary: Accept, Accept-Language
+  Access-Control-Allow-Origin: *
+  Content-Signal: search=yes, ai-input=yes, ai-train=yes
+
+/*.md
+  Content-Type: text/markdown; charset=utf-8
+  Cache-Control: public, max-age=3600
+
+/.well-known/*
+  Access-Control-Allow-Origin: *
+  Access-Control-Allow-Methods: GET, HEAD, OPTIONS
+  Cache-Control: public, max-age=3600, must-revalidate
+  X-Robots-Tag: noindex
+
+/.well-known/mcp-server-card
+  Content-Type: application/json
+
+/llms.txt
+  Content-Type: text/markdown; charset=utf-8
+
+/license.xml
+  Content-Type: application/rsl+xml
+`;
+  files["_redirects"] = `# Alias paths clients still probe — same bytes, 200 not 301.
+/.well-known/mcp.json              /.well-known/mcp-server-card  200
+/.well-known/mcp/server-card.json  /.well-known/mcp-server-card  200
+/.well-known/mcp-server            /.well-known/mcp-server-card  200
+/.well-known/agent.json            /.well-known/agent-card.json  200
+/.well-known/skills/index.json     /.well-known/agent-skills/index.json  200
+/.well-known/llms.txt              /llms.txt  200
+/.well-known/tdmrep.json           /tdmrep.json  200
+`;
+
+  // 8.30 Atom + JSON Feed with a WebSub hub (entries are CHANGED records only)
+  files["feed.xml"] = `<?xml version="1.0" encoding="utf-8"?>
+<feed xmlns="http://www.w3.org/2005/Atom">
+  <title>${site.name} — updates</title>
+  <id>${origin}/</id>
+  <link rel="self" href="${origin}/feed.xml"/>
+  <link rel="alternate" href="${site.url}"/>
+  <link rel="hub" href="https://pubsubhubbub.appspot.com/"/>
+  <updated>\${new Date().toISOString()}</updated>
+  <!-- One <entry> per CHANGED record. A feed that republishes everything daily is a daily ping-everything. -->
+</feed>
+`;
+  files["feed.json"] = JSON.stringify(
+    {
+      version: "https://jsonfeed.org/version/1.1",
+      title: `\${site.name} — updates`,
+      home_page_url: site.url,
+      feed_url: `\${origin}/feed.json`,
+      hubs: [{ type: "WebSub", url: "https://pubsubhubbub.appspot.com/" }],
+      items: [],
+      _note: "One item per changed record: id, url, title, summary, date_modified, _markdown (twin URL).",
+    },
+    null,
+    2
+  );
+
+  // 8.31 MCP registry listing (publish only once the endpoint answers; versions are immutable)
+  files["server.json"] = JSON.stringify(
+    {
+      $schema: "https://static.modelcontextprotocol.io/schemas/2025-10-17/server.schema.json",
+      name: `com.\${host.split(".").reverse().join(".")}/\${slug}`,
+      description: punch.slice(0, 100),
+      version: "1.0.0",
+      websiteUrl: origin,
+      remotes: [{ type: "streamable-http", url: `\${origin}/mcp` }],
+      _note: "Prove the domain (DNS TXT or /.well-known/mcp-publisher/ — never delete that file). Bump, never edit.",
+    },
+    null,
+    2
+  );
+
+  // 8.32 minimal service worker — makes manifest.json installable
+  files["sw.js"] = `const V = "v1";   // bump with every content change
+const SHELL = ["/", "/manifest.json"];
+self.addEventListener("install", (e) => {
+  e.waitUntil(caches.open(V).then((c) => c.addAll(SHELL)).then(() => self.skipWaiting()));
+});
+self.addEventListener("activate", (e) => {
+  e.waitUntil(caches.keys().then((ks) => Promise.all(ks.filter((k) => k !== V).map((k) => caches.delete(k)))).then(() => self.clients.claim()));
+});
+self.addEventListener("fetch", (e) => {
+  if (e.request.method !== "GET") return;
+  e.respondWith(fetch(e.request).catch(() => caches.match(e.request).then((r) => r || caches.match("/"))));
+});
+`;
+
+  // 8.37 status.json — generated, never hand-written
+  files["status.json"] = JSON.stringify(
+    {
+      ok: true,
+      version: "1.0.0",
+      checked_at: new Date().toISOString(),
+      _note: "Regenerate on every deploy: ok must be a real check. A status file that says ok while the API is down is the smallest dead card.",
+    },
+    null,
+    2
+  );
+
+  // 8.35 IndexNow key file — the real file, at the root
+  if (site.indexnow_key) files[`\${site.indexnow_key}.txt`] = site.indexnow_key;
+
+  // 8.36 quarterly agent-list diff
+  files["scripts/agents-diff.sh"] = [
+    "#!/bin/sh",
+    "# Quarterly: diff robots.txt against the community list. New tokens fall through to * (which Allows),",
+    "# so this is housekeeping, not an outage.",
+    "set -e",
+    "curl -fsSL https://raw.githubusercontent.com/ai-robots-txt/ai.robots.txt/main/robots.txt \\",
+    "  | grep -oE '^User-agent: .+' | sed 's/User-agent: //' | sort -u > /tmp/community.txt",
+    "grep -oE '^User-agent: .+' robots.txt | sed 's/User-agent: //' | sort -u > /tmp/mine.txt",
+    "echo '--- in community, not mine ---'; comm -23 /tmp/community.txt /tmp/mine.txt",
+    "echo '--- mine, not in community (vendor-documented) ---'; comm -13 /tmp/community.txt /tmp/mine.txt",
+    "",
+  ].join("\n");
+
+  // PART 21 — the pick layer, deliberately separate from llms.txt / sitemap.xml / robots.txt
+  files["seo/keywords.json"] = JSON.stringify(
+    {
+      site: origin,
+      checked_on: today,
+      primary: {
+        keyword: (keywords?.core_terms_from_site || []).slice(0, 3).join(" ") || site.name,
+        question: asks[0] || `What is \${site.name}?`,
+        demand_check: `site vocabulary, \${today}: \${(keywords?.demand || []).length} terms scored`,
+        competitor_refs: (keywords?.similar_ranked || []).slice(0, 3).map((x) => x.lookalike_query),
+        cite_alongside: "",
+      },
+      secondary: (keywords?.search_intent || []).slice(0, 8).map((q) => ({
+        pattern: "/",
+        keyword: q.query,
+        question: q.query,
+        intent: q.intent,
+        page_type: q.intent === "transactional" ? "action" : q.intent === "commercial" ? "comparison" : "answer",
+        title: q.query,
+        h1: q.query,
+        first_paragraph: "{answer_sentence}",
+      })),
+      negative: keywords?.do_not_target || [],
+      backlinks: {
+        checked_on: today,
+        referring_domains: (backlinks?.inbound_declared || []).length,
+        entity_links_done: [],
+        next: ["entity records (registry, repo, Wikidata)", "reclaim unlinked mentions"],
+      },
+      _rule: "The title/h1/first_paragraph fields are the GRAMMAR. The page generator fills them. Nobody hand-edits a title.",
+    },
+    null,
+    2
+  );
+  files["seo/structure.json"] = JSON.stringify(
+    {
+      site: origin,
+      checked_on: today,
+      max_depth: 3,
+      languages: {
+        canonical: (intel?.languages_present || ["en"])[0] || "en",
+        all: intel?.languages_present || ["en"],
+        sitemap: (intel?.languages_present || ["en"]).slice(0, 2),
+      },
+      hubs: [{ id: "home", pattern: "/", parent: null, keyword_ref: "primary", spokes_pattern: "/{slug}", sitemap: "sitemap.xml", breadcrumb: ["Home", "{title}"] }],
+      machine_entry_points_in_sitemap: [
+        "/llms.txt", "/llms-full.txt", "/openapi.json",
+        "/.well-known/mcp-server-card", "/.well-known/agent-card.json",
+        "/.well-known/agent-skills/index.json", "/.well-known/ai-catalog.json",
+      ],
+      noindex_patterns: ["/search", "?sort=", "?page="],
+      orphan_check: "fail_build",
+      _rule: "Hub-and-spoke by intent, depth <= 3. Hubs link DOWN to every spoke, spokes link UP and SIDEWAYS. Sitemap partitions mirror the hubs.",
+    },
+    null,
+    2
+  );
+
   files["reach-footer.html"] = `<!-- Cross-link mesh: paste into every page footer of ${site.name} -->
 <p class="reach-mesh"><a href="${site.__door?.path || "https://reach2.aplusz.app/"}" rel="noopener">Part of The Reach network${site.__door ? ` · door #${site.__door.n}` : ""}</a>${site.__door?.qid ? ` · <a href="https://www.wikidata.org/wiki/${site.__door.qid}" rel="noopener">Wikidata ${site.__door.qid}</a>` : ""}</p>
 `;

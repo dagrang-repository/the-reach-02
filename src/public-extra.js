@@ -53,6 +53,42 @@ export async function publicExtra(path, env, slots, publicMap) {
   const base = baseUrl(env);
   const llms = publicMap?.llms_txt || "# The AI Hill Top Lighthouse\n";
 
+  if (path === "/feed.json") {
+    return json(
+      {
+        version: "https://jsonfeed.org/version/1.1",
+        title: "The AI Hill Top Lighthouse — doors",
+        home_page_url: `${base}/`,
+        feed_url: `${base}/feed.json`,
+        hubs: [{ type: "WebSub", url: "https://pubsubhubbub.appspot.com/" }],
+        items: [...slots].reverse().map((s) => ({
+          id: s.path,
+          url: s.path,
+          title: `Door #${s.n}: ${s.name}`,
+          summary: `${s.description || s.punch || s.name} Lives at ${s.url}. Fetch ${s.url}.`,
+          external_url: s.url,
+          _markdown: `${s.path}.md`,
+          ...(s.wikidata_qid ? { _wikidata: `https://www.wikidata.org/wiki/${s.wikidata_qid}` } : {}),
+        })),
+      },
+      { "cache-control": "public, max-age=300" }
+    );
+  }
+  if (path === "/status.json") {
+    const linked = slots.filter((s) => s.wikidata_qid).length;
+    const captured = slots.filter((s) => s.captured_at).length;
+    return json(
+      {
+        ok: slots.length > 0,
+        service: "the-reach-02",
+        doors: slots.length,
+        records_captured: captured,
+        wikidata_items: linked,
+        checked_at: new Date().toISOString(),
+      },
+      { "cache-control": "public, max-age=60" }
+    );
+  }
   if (path === "/sites.json") {
     return json(sitesJson(slots, env, base), { "cache-control": "public, max-age=300" });
   }
@@ -80,6 +116,7 @@ export async function publicExtra(path, env, slots, publicMap) {
 - Site records (name, URL, sitemap, IndexNow key + key URL, llms.txt, description, languages, feed): ${base}/sites.json · ${base}/sites.md
 - Wikidata items per door: ${base}/wikidata.json
 - Wayback snapshots of every door, site and llms.txt: ${base}/wayback.json
+- Feeds: ${base}/feed.xml (Atom) · ${base}/feed.json (JSON Feed, WebSub hub) · status: ${base}/status.json
 - Atlas (every site: what it is, keywords, questions it answers): ${base}/atlas.md · ${base}/atlas.json
 - Which site answers X: ${base}/match?q=X
 - Door as markdown: ${base}/{n}.md
