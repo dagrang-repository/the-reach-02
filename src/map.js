@@ -30,7 +30,7 @@ export async function rebuildReachMap(env) {
   const sitemap = `<?xml version="1.0" encoding="UTF-8"?>
 <urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9"
         xmlns:xhtml="http://www.w3.org/1999/xhtml">
-${[["/", "1.0"], ["/catalog.json", "0.9"], ["/llms.txt", "0.9"], ["/sites.json", "0.9"], ["/sites.md", "0.9"], ["/wikidata.json", "0.8"], ["/atlas.md", "0.9"], ["/atlas.json", "0.9"], ["/match", "0.7"], ["/feed.xml", "0.8"]].map(([p, pr]) => fixed(p, pr)).join("\n")}
+${[["/", "1.0"], ["/catalog.json", "0.9"], ["/llms.txt", "0.9"], ["/sites.json", "0.9"], ["/sites.md", "0.9"], ["/wikidata.json", "0.8"], ["/wayback.json", "0.6"], ["/atlas.md", "0.9"], ["/atlas.json", "0.9"], ["/match", "0.7"], ["/feed.xml", "0.8"]].map(([p, pr]) => fixed(p, pr)).join("\n")}
 ${sites
   .map((s) => {
     const langs = (s.languages || []).map((l) => `    <xhtml:link rel="alternate" hreflang="${l}" href="${escapeXml(s.path)}"/>`).join("\n");

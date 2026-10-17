@@ -77,6 +77,7 @@ export async function publicExtra(path, env, slots, publicMap) {
 - Crawler check: ${base}/crawler-check
 - Site records (name, URL, sitemap, IndexNow key + key URL, llms.txt, description, languages, feed): ${base}/sites.json · ${base}/sites.md
 - Wikidata items per door: ${base}/wikidata.json
+- Wayback snapshots of every door, site and llms.txt: ${base}/wayback.json
 - Atlas (every site: what it is, keywords, questions it answers): ${base}/atlas.md · ${base}/atlas.json
 - Which site answers X: ${base}/match?q=X
 - Door as markdown: ${base}/{n}.md
