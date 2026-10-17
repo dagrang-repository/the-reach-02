@@ -186,6 +186,14 @@ export async function persistStack(env, site, briefing, intel) {
   const backlinks = scanBacklinks(html, site.url);
   const structure = buildStructure(site.name, site.url, used, probe, doors);
   const pingUrls = buildPingUrls(site.url, probe, doors);
+  // door number + Wikidata item for this site, so the pack's JSON-LD and footer close the loop back to the hub
+  try {
+    const base = String(env.REACH_PUBLIC_URL || "https://reach2.aplusz.app").replace(/\/+$/, "");
+    const ordered = await all(env, "SELECT id FROM sites WHERE active = 1 ORDER BY created_at ASC");
+    const n = ordered.findIndex((r) => r.id === site.id) + 1;
+    const wd = await one(env, "SELECT qid FROM wikidata WHERE site_id = ?", site.id).catch(() => null);
+    if (n > 0) site.__door = { n, path: `${base}/${n}`, hash: `${base}/#${n}`, qid: wd?.qid || "", hubSite: `${base}/#site`, hubOrg: `${base}/#org` };
+  } catch { /* pack still builds without the loop */ }
   const playbook = buildPlaybookFiles(site, used, probe, keywords, structure, doors, backlinks);
   const files = {
     ...playbook,

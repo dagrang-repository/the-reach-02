@@ -435,13 +435,15 @@ Serve the link only once the endpoint answers. A dead discovery link is a dead c
     {
       "@context": "https://schema.org",
       "@graph": [
-        { "@type": "Organization", "@id": `${origin}/#org`, name: site.name, url: origin },
+        { "@type": "Organization", "@id": `${origin}/#org`, name: site.name, url: origin, ...(site.__door?.hubOrg ? { parentOrganization: { "@id": site.__door.hubOrg } } : {}) },
         {
           "@type": "WebSite",
           "@id": `${origin}/#site`,
           url: site.url,
           name: site.name,
           publisher: { "@id": `${origin}/#org` },
+          // closed loop: the hub door and the Wikidata item say the same thing about this site
+          ...(site.__door ? { sameAs: [site.__door.path, site.__door.hash, ...(site.__door.qid ? [`https://www.wikidata.org/wiki/${site.__door.qid}`] : [])].filter(Boolean), isPartOf: { "@id": site.__door.hubSite } } : {}),
           potentialAction: {
             "@type": "SearchAction",
             target: `${origin}/?q={q}`,
@@ -472,7 +474,7 @@ Licence: ${origin}/license.xml
 
   // Cross-link mesh — paste into every page footer of the site; any crawler entering anywhere hops the network
   files["reach-footer.html"] = `<!-- Cross-link mesh: paste into every page footer of ${site.name} -->
-<p class="reach-mesh"><a href="https://reach2.aplusz.app/" rel="noopener">Part of The Reach network</a></p>
+<p class="reach-mesh"><a href="${site.__door?.path || "https://reach2.aplusz.app/"}" rel="noopener">Part of The Reach network${site.__door ? ` · door #${site.__door.n}` : ""}</a>${site.__door?.qid ? ` · <a href="https://www.wikidata.org/wiki/${site.__door.qid}" rel="noopener">Wikidata ${site.__door.qid}</a>` : ""}</p>
 `;
 
   // Intel artefacts
