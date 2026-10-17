@@ -11,6 +11,8 @@ export async function numberedSites(env, allFn) {
   const tries = [
     `SELECT s.*, b.punch_line, b.summary, b.who_for, a.profile_json, w.qid AS wikidata_qid
      FROM sites s LEFT JOIN briefings b ON b.site_id = s.id LEFT JOIN atlas a ON a.site_id = s.id LEFT JOIN wikidata w ON w.site_id = s.id ${where}`,
+    `SELECT s.*, b.punch_line, b.summary, b.who_for, w.qid AS wikidata_qid
+     FROM sites s LEFT JOIN briefings b ON b.site_id = s.id LEFT JOIN wikidata w ON w.site_id = s.id ${where}`,
     `SELECT s.*, b.punch_line, b.summary, b.who_for, a.profile_json
      FROM sites s LEFT JOIN briefings b ON b.site_id = s.id LEFT JOIN atlas a ON a.site_id = s.id ${where}`,
     `SELECT s.*, b.punch_line, b.summary, b.who_for

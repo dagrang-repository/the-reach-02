@@ -79,7 +79,7 @@ export function jsonLdHill(slots, env) {
           position: s.n,
           name: s.punch || s.name,
           url: s.path,
-          item: { "@type": "WebPage", "@id": s.path, url: s.path, name: `Where do I open ${s.name}?`, sameAs: s.url },
+          item: { "@type": "WebPage", "@id": s.path, url: s.path, name: `Where do I open ${s.name}?`, sameAs: [s.url, ...(s.wikidata_qid ? [`https://www.wikidata.org/wiki/${s.wikidata_qid}`] : [])] },
         })),
       },
     ],

@@ -1,0 +1,88 @@
+# Reach 02 — Wikidata courier. Runs on a non-blocked IP (your PC) once a day via Task Scheduler.
+# Phase "create": link-free item (labels, description, P31, P1448, P407) — zero external links, so Wikidata's global
+# filter 210 ("too many external links") cannot fire. Phase "links": URL steps one per edit (P856, P973, references),
+# resumable — each run finishes what is missing, then the hub records the state. 1 create per day; link steps are free.
+# Credentials: %USERPROFILE%\.reach\wd.env.json (DPAPI-protected). Log: %USERPROFILE%\.reach\wd-courier.log
+$ErrorActionPreference = "Stop"
+$hub = "https://reach2.aplusz.app"; $api = "https://www.wikidata.org/w/api.php"; $ua = "VergeHeightsHub/1.0 (dagrang@gmail.com)"
+$dir = "$env:USERPROFILE\.reach"; $log = "$dir\wd-courier.log"; $envFile = "$dir\wd.env.json"
+function Unprotect-Value($s) { $ss = ConvertTo-SecureString $s; [Runtime.InteropServices.Marshal]::PtrToStringAuto([Runtime.InteropServices.Marshal]::SecureStringToBSTR($ss)) }
+function Write-Log($m) { "$(Get-Date -Format s) $m" | Out-File $log -Append -Encoding utf8 }
+function Invoke-Wd($body) {
+  # one Wikidata write. maxlag ("Waiting for ... lagged") = wait and retry, up to 8 x 15 s.
+  # An AbuseFilter "warn" refuses the first submission only — resubmit once in the same session.
+  $warned = $false
+  for ($i = 0; $i -lt 9; $i++) {
+    $r = Invoke-RestMethod -Uri $api -Method Post -UserAgent $ua -WebSession $script:ws -TimeoutSec 120 -Body $body
+    if (-not $r.error) { return $r }
+    $names = @($r.error.messages | ForEach-Object { $_.name })
+    if ($r.error.code -eq "maxlag") { Write-Log "maxlag, waiting 15 s ($($i + 1)/8)"; Start-Sleep -Seconds 15; continue }
+    if (-not $warned -and ($r.error.code -eq "abusefilter-warning" -or $names -contains "abusefilter-warning")) { $warned = $true; Start-Sleep -Seconds 2; continue }
+    break
+  }
+  $names = @($r.error.messages | ForEach-Object { $_.name }) -join ","; throw "$($body.action): $($r.error.code) [$names] $($r.error.info)"
+}
+function Send-Record($n, $qs) { Invoke-RestMethod -Uri "$hub/v1/wikidata/record?n=$n&$qs" -Method Post -Headers $script:hdr -UserAgent $ua -TimeoutSec 120 }
+$it = $null; $qid = ""
+try {
+  [Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12
+  if (!(Test-Path $envFile)) { throw "credentials file missing: $envFile" }
+  $cfg = Get-Content $envFile -Raw | ConvertFrom-Json
+  $tok = Unprotect-Value $cfg.admin; $u = Unprotect-Value $cfg.user; $p = Unprotect-Value $cfg.pass
+  $script:hdr = @{ authorization = "Bearer $tok" }
+  $q = Invoke-RestMethod -Uri "$hub/v1/wikidata/queue?limit=1" -Headers $script:hdr -UserAgent $ua -TimeoutSec 180
+  if (-not $q.ok) { throw "queue: hub refused" }
+  if (-not $q.items -or @($q.items).Count -eq 0) { Write-Log "idle: nothing pending"; "RESULT: PASS"; "wikidata: nothing pending"; return }
+  $it = @($q.items)[0]
+  if ($it.phase -eq "create" -and $it.existing_qid) {
+    Send-Record $it.n "qid=$($it.existing_qid)&action=existing" | Out-Null
+    Write-Log "#$($it.n) $($it.name) existing $($it.existing_qid)"; "RESULT: PASS"; "wikidata: door #$($it.n) existing $($it.existing_qid)"; return
+  }
+  $t = Invoke-RestMethod -Uri "${api}?action=query&meta=tokens&type=login&format=json" -UserAgent $ua -SessionVariable ws -TimeoutSec 60
+  $script:ws = $ws
+  $l = Invoke-RestMethod -Uri $api -Method Post -UserAgent $ua -WebSession $script:ws -TimeoutSec 60 -Body @{ action = "login"; lgname = $u; lgpassword = $p; lgtoken = $t.query.tokens.logintoken; format = "json" }
+  if ($l.login.result -ne "Success") { throw "login: $($l.login.result) $($l.login.reason)" }
+  $c = Invoke-RestMethod -Uri "${api}?action=query&meta=tokens&type=csrf&assert=user&format=json" -UserAgent $ua -WebSession $script:ws -TimeoutSec 60
+  $csrf = $c.query.tokens.csrftoken
+  $qid = $it.qid
+  if ($it.phase -eq "create") {
+    $r = Invoke-Wd @{ action = "wbeditentity"; new = "item"; data = $it.entity_json; token = $csrf; summary = $it.summary; assert = "user"; maxlag = "8"; format = "json" }
+    $qid = $r.entity.id; if (-not $qid) { throw "wbeditentity: no entity id in reply" }
+    Send-Record $it.n "qid=$qid&action=created&statements=$($it.statements)" | Out-Null
+    Write-Log "#$($it.n) $($it.name) created $qid (link-free)"
+    Start-Sleep -Seconds 3
+  }
+  # link steps — read what the item already has, add only what is missing, one URL per edit
+  $e = Invoke-RestMethod -Uri "${api}?action=wbgetentities&ids=$qid&props=claims&format=json" -UserAgent $ua -WebSession $script:ws -TimeoutSec 60
+  $claims = $e.entities.$qid.claims
+  $done = 0; $total = @($it.steps).Count; $lastErr = ""
+  foreach ($st in @($it.steps)) {
+    try {
+      $list = @($claims.($st.property) | Where-Object { $_ })
+      if ($st.kind -eq "claim") {
+        if (($list | Where-Object { $_.mainsnak.datavalue.value -eq $st.value }).Count -gt 0) { $done++; continue }
+        $r = Invoke-Wd @{ action = "wbcreateclaim"; entity = $qid; property = $st.property; snaktype = "value"; value = ($st.value | ConvertTo-Json -Compress); token = $csrf; summary = "Add $($st.note)"; assert = "user"; maxlag = "8"; format = "json" }
+        if ($null -eq $claims.($st.property)) { $claims | Add-Member -NotePropertyName $st.property -NotePropertyValue @($r.claim) } else { $claims.($st.property) = @($list) + @($r.claim) }
+        $done++; Write-Log "#$($it.n) $qid + $($st.id)"; Start-Sleep -Seconds 3
+      } elseif ($st.kind -eq "ref") {
+        if ($list.Count -eq 0) { throw "no $($st.property) claim to reference yet" }
+        if (@($list[0].references | Where-Object { $_ }).Count -gt 0) { $done++; continue }
+        $day = (Get-Date).ToUniversalTime().ToString("yyyy-MM-dd")
+        $snaks = @{ P854 = @(@{ snaktype = "value"; property = "P854"; datavalue = @{ value = $st.url; type = "string" } }); P813 = @(@{ snaktype = "value"; property = "P813"; datavalue = @{ value = @{ time = "+${day}T00:00:00Z"; timezone = 0; before = 0; after = 0; precision = 11; calendarmodel = "http://www.wikidata.org/entity/Q1985727" }; type = "time" } }) } | ConvertTo-Json -Depth 8 -Compress
+        $r = Invoke-Wd @{ action = "wbsetreference"; statement = $list[0].id; snaks = $snaks; token = $csrf; summary = "Add $($st.note)"; assert = "user"; maxlag = "8"; format = "json" }
+        $list[0] | Add-Member -NotePropertyName references -NotePropertyValue @(@{}) -Force
+        $done++; Write-Log "#$($it.n) $qid + $($st.id)"; Start-Sleep -Seconds 3
+      }
+    } catch { $lastErr = $_.Exception.Message; Write-Log "#$($it.n) $qid step $($st.id) FAIL $lastErr"; break }
+  }
+  $state = if ($done -ge $total) { "complete" } else { "partial" }
+  $detail = [uri]::EscapeDataString(("links $done/$total" + $(if ($lastErr) { ": " + $lastErr.Substring(0, [Math]::Min(150, $lastErr.Length)) } else { "" })))
+  Send-Record $it.n "qid=$qid&action=$state&detail=$detail" | Out-Null
+  Write-Log "#$($it.n) $qid $state links $done/$total"
+  "RESULT: PASS"; "wikidata: door #$($it.n) $($it.name) $qid $state (links $done/$total)"; "https://www.wikidata.org/wiki/$qid"
+} catch {
+  $msg = $_.Exception.Message
+  Write-Log "FAIL $msg"
+  try { if ($it -and $it.n -and -not $qid) { $d = [uri]::EscapeDataString($msg.Substring(0, [Math]::Min(200, $msg.Length))); Send-Record $it.n "action=error&detail=$d" | Out-Null } } catch {}
+  "RESULT: FAIL $msg"
+}

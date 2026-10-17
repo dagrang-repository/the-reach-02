@@ -4,6 +4,7 @@ import { all, one, run } from "./db.js";
 import { sweepDoors } from "./doors.js";
 import { addSiteHtml } from "./add-ui.js";
 import { captureBatch, captureSite, captureView, ensureCaptureColumns } from "./capture.js";
+import { handleWikidata, wikidataJson, wikidataTick } from "./wikidata.js";
 import { handlePaid, recheckPaidKeys } from "./paid.js";
 import { pwaResponse } from "./pwa.js";
 import { publicExtra } from "./public-extra.js";
@@ -40,6 +41,7 @@ export default {
     await recheckPaidKeys(env).catch(() => null);
     await captureBatch(env, 3, 24).catch(() => null);
     await runCycle(env, "cron");
+    await wikidataTick(env).catch(() => null);
   },
 
   async fetch(request, env) {
@@ -138,6 +140,9 @@ export default {
     if (path === "/jsonld.json" && request.method === "GET") {
       return json(jsonLdHill(slots, env));
     }
+    if (path === "/wikidata.json" && request.method === "GET") {
+      return json(wikidataJson(slots, publicBase(env)));
+    }
 
     if (path === "/v1/health" && request.method === "GET") {
       return json({
@@ -171,6 +176,9 @@ export default {
 
     try {
       if (path === "/v1/status" && request.method === "GET") return json(await status(env));
+
+      const wd = await handleWikidata(path, request, url, env);
+      if (wd) return wd;
 
       if (path === "/v1/run" && request.method === "POST") {
         const result = await runCycle(env, "manual");

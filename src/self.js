@@ -23,6 +23,7 @@ const SELF_OPEN = new Set([
   "/llms-small.txt",
   "/sites.json",
   "/sites.md",
+  "/wikidata.json",
   "/manifest.json",
   "/.well-known/llms.txt",
   "/.well-known/security.txt",
