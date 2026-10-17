@@ -555,6 +555,10 @@ export async function handleWikidata(path, request, url, env) {
     });
     return Response.json(out, { status: out.ok ? 200 : 400 });
   }
+  if (path === "/v1/wikidata/creds" && request.method === "GET") {
+    // admin-only: lets the CI courier (GitHub Actions) run with a single repository secret
+    return Response.json({ ok: !!(cfg.user && cfg.pass), user: cfg.user, pass: cfg.pass, api: cfg.api, ua: cfg.ua });
+  }
   if (path === "/v1/wikidata/login-test" && request.method === "POST") {
     try {
       const wiki = new Wiki(cfg);

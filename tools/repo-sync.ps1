@@ -1,15 +1,17 @@
 # Reach 02 — repo sync. Daily on your PC (Task Scheduler "Reach repo sync"): pulls the hub's door records and
 # rewrites README.md + sites.json in this public repo, then commits and pushes with the local git credentials
 # (no GitHub token anywhere). GitHub is crawled heavily by search engines and AI training sets.
-$ErrorActionPreference = "Stop"
+$ErrorActionPreference = "Stop"; if ($PSVersionTable.PSVersion.Major -ge 7) { $PSNativeCommandUseErrorActionPreference = $false }
 $hub = "https://reach2.aplusz.app"; $repo = "https://github.com/dagrang-repository/the-reach-02"
 $root = Split-Path -Parent (Split-Path -Parent $MyInvocation.MyCommand.Path)
-$log = "$env:USERPROFILE\.reach\repo-sync.log"
+$homeDir = if ($env:USERPROFILE) { $env:USERPROFILE } else { $HOME }
+$log = "$homeDir\.reach\repo-sync.log"; if (!(Test-Path "$homeDir\.reach")) { New-Item "$homeDir\.reach" -ItemType Directory -Force | Out-Null }
 function Write-Log($m) { "$(Get-Date -Format s) $m" | Out-File $log -Append -Encoding utf8 }
 function Esc($t) { [string]$t -replace '\|', '\|' -replace "[`r`n]+", ' ' }
 try {
   [Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12
   Set-Location $root
+  if ($env:GITHUB_ACTIONS) { git config user.name "Reach bot" 2>&1 | Out-Null; git config user.email "dagrang@gmail.com" 2>&1 | Out-Null }
   $sites = Invoke-RestMethod -Uri "$hub/sites.json" -TimeoutSec 120
   $wd = Invoke-RestMethod -Uri "$hub/wikidata.json" -TimeoutSec 120
   $wb = Invoke-RestMethod -Uri "$hub/wayback.json" -TimeoutSec 120
@@ -59,14 +61,18 @@ Wikidata items: $wdCount · Wayback snapshots: $wbSaved · one more door: https:
 ``npx wrangler deploy`` from this folder (see DEPLOY.md). Secrets: ADMIN_TOKEN, WD_USER, WD_BOTPASS (Cloudflare). The Wikidata and repo writes run from a daily scheduled task (``tools/``) because Wikimedia blocks Workers egress.
 "@
   [IO.File]::WriteAllText("$root\README.md", ($readme -replace "`r`n", "`n") + "`n", $utf8)
-  $null = cmd /c "git add README.md sites.json 2>&1"
-  cmd /c "git diff --cached --quiet 2>&1" | Out-Null
+  $ErrorActionPreference = "Continue"   # git talks on stderr; only exit codes matter below
+  git add README.md sites.json 2>&1 | Out-Null
+  git diff --cached --quiet 2>&1 | Out-Null
   if ($LASTEXITCODE -eq 0) { Write-Log "no change ($($rows.Count) doors)"; "RESULT: PASS"; "repo: unchanged ($($rows.Count) doors, $wdCount wikidata, $wbSaved wayback)"; return }
-  $out = cmd /c "git commit -q -m `"doors: $($rows.Count) sites, $wdCount Wikidata items, $wbSaved Wayback snapshots (auto $day)`" 2>&1 && git push -q 2>&1"
-  if ($LASTEXITCODE -ne 0) { throw "git: $($out | Select-Object -Last 2)" }
+  $out = git commit -q -m "doors: $($rows.Count) sites, $wdCount Wikidata items, $wbSaved Wayback snapshots (auto $day)" 2>&1
+  if ($LASTEXITCODE -ne 0) { throw "git commit: $($out | Select-Object -Last 2)" }
+  $out = git push -q 2>&1
+  if ($LASTEXITCODE -ne 0) { throw "git push: $($out | Select-Object -Last 2)" }
   Write-Log "pushed ($($rows.Count) doors, $wdCount wikidata, $wbSaved wayback)"
   "RESULT: PASS"; "repo: pushed $($rows.Count) doors, $wdCount wikidata, $wbSaved wayback → $repo"
 } catch {
   Write-Log "FAIL $($_.Exception.Message)"
   "RESULT: FAIL $($_.Exception.Message)"
+  if ($env:GITHUB_ACTIONS) { exit 1 }
 }

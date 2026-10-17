@@ -6,7 +6,9 @@
 # Credentials: %USERPROFILE%\.reach\wd.env.json (DPAPI-protected). Log: %USERPROFILE%\.reach\wd-courier.log
 $ErrorActionPreference = "Stop"
 $hub = "https://reach2.aplusz.app"; $api = "https://www.wikidata.org/w/api.php"; $ua = "VergeHeightsHub/1.0 (dagrang@gmail.com)"
-$dir = "$env:USERPROFILE\.reach"; $log = "$dir\wd-courier.log"; $envFile = "$dir\wd.env.json"
+$homeDir = if ($env:USERPROFILE) { $env:USERPROFILE } else { $HOME }
+$dir = "$homeDir\.reach"; $log = "$dir\wd-courier.log"; $envFile = "$dir\wd.env.json"
+if (!(Test-Path $dir)) { New-Item $dir -ItemType Directory -Force | Out-Null }
 function Unprotect-Value($s) { $ss = ConvertTo-SecureString $s; [Runtime.InteropServices.Marshal]::PtrToStringAuto([Runtime.InteropServices.Marshal]::SecureStringToBSTR($ss)) }
 function Write-Log($m) { "$(Get-Date -Format s) $m" | Out-File $log -Append -Encoding utf8 }
 function Invoke-Wd($body) {
@@ -65,10 +67,18 @@ function Invoke-Links($it, $qid) {
 }
 try {
   [Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12
-  if (!(Test-Path $envFile)) { throw "credentials file missing: $envFile" }
-  $cfg = Get-Content $envFile -Raw | ConvertFrom-Json
-  $tok = Unprotect-Value $cfg.admin; $script:u = Unprotect-Value $cfg.user; $script:p = Unprotect-Value $cfg.pass
-  $script:hdr = @{ authorization = "Bearer $tok" }
+  if ($env:REACH_ADMIN_TOKEN) {
+    # CI (GitHub Actions): one secret; the hub hands back the Wikidata bot credentials to its admin
+    $tok = $env:REACH_ADMIN_TOKEN; $script:hdr = @{ authorization = "Bearer $tok" }
+    $cr = Invoke-RestMethod -Uri "$hub/v1/wikidata/creds" -Headers $script:hdr -UserAgent $ua -TimeoutSec 60
+    $script:u = $cr.user; $script:p = $cr.pass
+    if (-not $script:u -or -not $script:p) { throw "hub returned no Wikidata credentials (WD_USER/WD_BOTPASS secrets)" }
+  } else {
+    if (!(Test-Path $envFile)) { throw "credentials file missing: $envFile" }
+    $cfg = Get-Content $envFile -Raw | ConvertFrom-Json
+    $tok = Unprotect-Value $cfg.admin; $script:u = Unprotect-Value $cfg.user; $script:p = Unprotect-Value $cfg.pass
+    $script:hdr = @{ authorization = "Bearer $tok" }
+  }
   $script:ws = $null
   for ($k = 0; $k -lt 12; $k++) {
     $it = $null; $qid = ""
@@ -110,4 +120,5 @@ try {
   try { if ($it -and $it.n -and -not $qid) { $d = [uri]::EscapeDataString($msg.Substring(0, [Math]::Min(200, $msg.Length))); Send-Record $it.n "action=error&detail=$d" | Out-Null } } catch {}
   if ($summary.Count) { "wikidata: $($summary -join ' · ')" }
   "RESULT: FAIL $msg"
+  if ($env:GITHUB_ACTIONS) { exit 1 }
 }

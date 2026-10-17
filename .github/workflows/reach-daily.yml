@@ -1,0 +1,32 @@
+# Reach 02 — daily jobs on GitHub's clean IPs (no PC needed):
+#  1. Wikidata courier — one new door item per day + link/i18n steps (Wikimedia blocks Cloudflare Workers egress)
+#  2. Repo sync — README.md + sites.json rewritten from the hub and pushed
+# Needs ONE repository secret: REACH_ADMIN_TOKEN (the hub hands the Wikidata bot credentials back to its admin).
+name: Reach daily
+on:
+  schedule:
+    - cron: "17 1 * * *"   # 09:17 Asia/Manila
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths: [".github/workflows/reach-daily.yml"]
+permissions:
+  contents: write
+concurrency:
+  group: reach-daily
+  cancel-in-progress: false
+jobs:
+  daily:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - name: Wikidata courier
+        shell: pwsh
+        env:
+          REACH_ADMIN_TOKEN: ${{ secrets.REACH_ADMIN_TOKEN }}
+        run: ./tools/wd-courier.ps1
+      - name: Repo sync
+        if: always()
+        shell: pwsh
+        run: ./tools/repo-sync.ps1
