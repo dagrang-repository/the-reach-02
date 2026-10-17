@@ -245,6 +245,11 @@ export function catalogFromSlots(slots) {
       live: s.url,
       punch: s.punch,
       languages: s.languages || [],
+      ...(s.description ? { description: s.description } : {}),
+      ...(s.sitemap_url ? { sitemap: s.sitemap_url } : {}),
+      ...(s.llms_url ? { llms_txt: s.llms_url } : {}),
+      ...(s.indexnow_key ? { key_url: `${new URL(s.url).origin}/${s.indexnow_key}.txt` } : {}),
+      ...(s.wikidata_qid ? { wikidata: `https://www.wikidata.org/wiki/${s.wikidata_qid}` } : {}),
     })),
   };
 }

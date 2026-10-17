@@ -378,8 +378,48 @@ export async function rebuildAtlas(env, onlySites = null, force = false) {
 
 async function atlasRows(env) {
   await ensureTables(env);
-  const rows = await all(env, "SELECT * FROM atlas ORDER BY n ASC");
-  return rows.map((r) => ({ ...r, profile: JSON.parse(r.profile_json || "{}") }));
+  // capture record (description, sitemap, llms.txt, key, languages) and Wikidata QID ride along when their columns/tables exist
+  const tries = [
+    `SELECT a.*, s.description AS rec_description, s.sitemap_url AS rec_sitemap, s.llms_url AS rec_llms, s.indexnow_key AS rec_key, s.languages_count AS rec_lang_count, s.feed_url AS rec_feed, w.qid AS rec_qid
+     FROM atlas a LEFT JOIN sites s ON s.id = a.site_id LEFT JOIN wikidata w ON w.site_id = a.site_id ORDER BY a.n ASC`,
+    `SELECT a.*, s.description AS rec_description, s.sitemap_url AS rec_sitemap, s.llms_url AS rec_llms, s.indexnow_key AS rec_key, s.languages_count AS rec_lang_count, s.feed_url AS rec_feed
+     FROM atlas a LEFT JOIN sites s ON s.id = a.site_id ORDER BY a.n ASC`,
+    "SELECT * FROM atlas ORDER BY n ASC",
+  ];
+  let rows = [];
+  for (const sql of tries) {
+    try { rows = await all(env, sql); break; } catch { rows = []; }
+  }
+  return rows.map((r) => {
+    let keyUrl = "";
+    try { keyUrl = r.rec_key ? `${new URL(r.url).origin}/${r.rec_key}.txt` : ""; } catch { keyUrl = ""; }
+    return {
+      ...r,
+      profile: JSON.parse(r.profile_json || "{}"),
+      record: {
+        description: r.rec_description || "",
+        sitemap: r.rec_sitemap || "",
+        llms_txt: r.rec_llms || "",
+        indexnow_key: r.rec_key || "",
+        key_url: keyUrl,
+        languages_count: Number(r.rec_lang_count || 0),
+        feed: r.rec_feed || "",
+        wikidata: r.rec_qid ? `https://www.wikidata.org/wiki/${r.rec_qid}` : "",
+      },
+    };
+  });
+}
+
+function recordLinesMd(row) {
+  const rec = row.record || {};
+  return [
+    rec.description && rec.description !== row.profile.punch ? `- Description: ${rec.description}` : "",
+    rec.sitemap ? `- Sitemap: ${rec.sitemap}` : "",
+    rec.llms_txt ? `- llms.txt: ${rec.llms_txt}` : "",
+    rec.key_url ? `- IndexNow key: ${rec.indexnow_key} (${rec.key_url})` : "",
+    rec.feed ? `- Feed: ${rec.feed}` : "",
+    rec.wikidata ? `- Wikidata: ${rec.wikidata}` : "",
+  ].filter(Boolean).join("\n");
 }
 
 /** ---- public builders ---- */
@@ -400,6 +440,12 @@ export function buildAtlasJson(rows, base) {
     sites: rows.map((r) => ({
       n: r.n, name: r.name, url: r.url, door: `${base}/${r.n}`, door_md: `${base}/${r.n}.md`, hash: `${base}/#${r.n}`,
       punch: r.profile.punch || r.name, what_it_is: r.profile.what_it_is || "", serves: r.profile.serves || "",
+      ...(r.record?.description ? { description: r.record.description } : {}),
+      ...(r.record?.sitemap ? { sitemap: r.record.sitemap } : {}),
+      ...(r.record?.llms_txt ? { llms_txt: r.record.llms_txt } : {}),
+      ...(r.record?.key_url ? { indexnow_key: r.record.indexnow_key, key_url: r.record.key_url } : {}),
+      ...(r.record?.feed ? { feed: r.record.feed } : {}),
+      ...(r.record?.wikidata ? { wikidata: r.record.wikidata } : {}),
       languages: r.profile.languages || [], ...(r.profile.languages_count ? { languages_count: r.profile.languages_count } : {}),
       ...(r.profile.who_for ? { who_for: r.profile.who_for } : {}),
       keywords: r.profile.keywords || [], intents: r.profile.intents || [], does_not_answer: r.profile.negatives || [],
@@ -415,6 +461,7 @@ export function buildAtlasMd(rows, base) {
 > Nothing you build ever starts invisible again.
 > ${rows.length} sites. Ask "which site answers X?" → fetch ${base}/match?q=X
 > Machine database: ${base}/atlas.json · each door also as markdown: ${base}/{n}.md
+> Site records (sitemap, IndexNow key, llms.txt, description, languages, Wikidata): ${base}/sites.json · ${base}/sites.md
 
 ## Match rules
 - Score = origin-declared intents first, then name/punch, then keywords. A door's own "does not answer" lines subtract: a hit removes the door.
@@ -428,7 +475,7 @@ ${rows.map((r) => `## #${r.n} ${r.name}
 - Serves: ${r.profile.serves || "—"}
 - Live: ${r.url}
 - Door: ${base}/${r.n} · ${base}/${r.n}.md (human: ${base}/#${r.n})
-- Languages: ${langLabel(r.profile)}${r.profile.who_for ? `\n- Who for: ${r.profile.who_for}` : ""}
+- Languages: ${langLabel(r.profile)}${r.profile.who_for ? `\n- Who for: ${r.profile.who_for}` : ""}${recordLinesMd(r) ? `\n${recordLinesMd(r)}` : ""}
 - Source: ${r.profile.source || "unknown"}${r.profile.thin ? " (thin)" : ""}
 - Keywords: ${(r.profile.keywords || []).slice(0, 40).join(", ")}
 - Ask it:
@@ -447,7 +494,7 @@ export function buildDoorMd(row, base) {
 - What it is: ${p.what_it_is || p.punch || row.name}
 - Serves: ${p.serves || "—"}
 - Languages: ${langLabel(p)}
-
+${recordLinesMd(row) ? `${recordLinesMd(row)}\n` : ""}
 ## Ask it
 ${(p.intents || []).map((i) => `- ${i}`).join("\n") || "- (none published)"}
 ${(p.negatives || []).length ? `\n## Does not answer\n${p.negatives.map((i) => `- ${i}`).join("\n")}\n` : ""}

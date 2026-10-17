@@ -38,6 +38,12 @@ export function addSiteHtml() {
     <input id="url" name="url" required placeholder="https://example.com/">
     <label for="key">Origin key (optional)</label>
     <input id="key" name="key" placeholder="Origin key">
+    <label for="description">Description (optional — auto-captured from llms.txt / meta when empty)</label>
+    <input id="description" name="description" placeholder="One paragraph, what the site answers">
+    <label for="sitemap">Sitemap URL (optional — auto-discovered)</label>
+    <input id="sitemap" name="sitemap" placeholder="https://example.com/sitemap.xml">
+    <label for="llms">llms.txt URL (optional — auto-discovered)</label>
+    <input id="llms" name="llms" placeholder="https://example.com/llms.txt">
     <label for="token">Admin</label>
     <input id="token" name="token" required placeholder="Your admin token">
     <button type="submit">Add</button>
@@ -81,6 +87,7 @@ document.getElementById("f").addEventListener("submit", async (e) => {
   const token = document.getElementById("token").value.trim();
   const body = { name, url };
   if (key) body.key = key;
+  for (const f of ["description", "sitemap", "llms"]) { const v = document.getElementById(f).value.trim(); if (v) body[f] = v; }
   const out = document.getElementById("out");
   out.textContent = "Saving...";
   try {
@@ -98,7 +105,10 @@ document.getElementById("f").addEventListener("submit", async (e) => {
     out.textContent = "";
     document.getElementById("doneTitle").textContent = (keyOk ? "Key green. " : "") + data.site.name + " successfully added" + (n ? " as door #" + n : "");
     document.getElementById("doneKey").textContent = keyOk ? "Origin key file is live (200)." : "Key not green yet - origin key file did not answer 200.";
-    document.getElementById("doneLinks").innerHTML = (n ? '<a href="/#' + n + '">Open door #' + n + '</a> &middot; ' : '') + '<a href="/add">Add another site</a>';
+    const rec = data.record || {};
+    const recRows = [["Name", rec.name], ["URL", rec.url], ["Sitemap", rec.sitemap], ["IndexNow key", rec.indexnow_key], ["Key URL", rec.key_url], ["llms.txt", rec.llms_txt], ["Description", rec.description], ["Languages", rec.languages_count]].filter((r) => r[1]);
+    document.getElementById("doneLinks").innerHTML = (n ? '<a href="/#' + n + '">Open door #' + n + '</a> &middot; ' : '') + '<a href="/add">Add another site</a>' +
+      (recRows.length ? '<table style="margin-top:1rem;font-size:.85rem;border-collapse:collapse">' + recRows.map((r) => '<tr><td style="padding:.15rem .6rem .15rem 0;color:#8dff9a;white-space:nowrap;vertical-align:top">' + r[0] + '</td><td style="padding:.15rem 0;overflow-wrap:anywhere">' + String(r[1]).replace(/</g, "&lt;") + '</td></tr>').join("") + '</table>' : '');
     document.getElementById("done").style.display = "block";
   } catch (err) {
     out.textContent = String(err.message || err);

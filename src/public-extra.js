@@ -1,5 +1,6 @@
 /** Public, no-token hub endpoints. Rule: a path named in llms.txt / robots / sitemap / catalogs never 401s. */
 import { isSelfUrl } from "./self.js";
+import { sitesJson, sitesMd } from "./capture.js";
 
 const UAS = ["GPTBot", "OAI-SearchBot", "ClaudeBot", "PerplexityBot", "Googlebot", "CCBot"];
 
@@ -32,6 +33,10 @@ function hubCatalog(env, slots) {
       displayName: s.name,
       type: "web",
       url: s.path,
+      ...(s.description ? { description: s.description } : {}),
+      ...(s.llms_url ? { llmsTxt: s.llms_url } : {}),
+      ...(s.sitemap_url ? { sitemap: s.sitemap_url } : {}),
+      liveUrl: s.url,
       representativeQueries: [`Where do I open ${s.name}?`, s.punch].filter(Boolean),
     })),
   ];
@@ -48,6 +53,12 @@ export async function publicExtra(path, env, slots, publicMap) {
   const base = baseUrl(env);
   const llms = publicMap?.llms_txt || "# The AI Hill Top Lighthouse\n";
 
+  if (path === "/sites.json") {
+    return json(sitesJson(slots, env, base), { "cache-control": "public, max-age=300" });
+  }
+  if (path === "/sites.md" || path === "/sites.txt") {
+    return md(sitesMd(slots, env, base), { "cache-control": "public, max-age=300" });
+  }
   if (path === "/ai-catalog.json" || path === "/.well-known/ai-catalog.json") {
     return json(hubCatalog(env, slots), { "cache-control": "public, max-age=3600" });
   }
@@ -64,6 +75,7 @@ export async function publicExtra(path, env, slots, publicMap) {
 - Sitemap: ${base}/sitemap.xml
 - Feed: ${base}/feed.xml
 - Crawler check: ${base}/crawler-check
+- Site records (name, URL, sitemap, IndexNow key + key URL, llms.txt, description, languages, feed): ${base}/sites.json · ${base}/sites.md
 - Atlas (every site: what it is, keywords, questions it answers): ${base}/atlas.md · ${base}/atlas.json
 - Which site answers X: ${base}/match?q=X
 - Door as markdown: ${base}/{n}.md

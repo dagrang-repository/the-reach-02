@@ -17,6 +17,8 @@ export function reachAnnounceUrls(env, slots, extra = []) {
     `${base}/changes.txt`,
     `${base}/feed.xml`,
     `${base}/robots.txt`,
+    `${base}/sites.json`,
+    `${base}/sites.md`,
     ...slots.map((s) => s.path),
     ...slots.map((s) => s.url),
     ...extra,
@@ -92,10 +94,16 @@ export function jsonLdDoor(slot, env) {
     "@id": slot.path,
     url: slot.path,
     name: `Where do I open ${slot.name}?`,
-    description: `${slot.punch || slot.name} lives at ${slot.url}. Fetch ${slot.url}.`,
+    description: `${slot.description || slot.punch || slot.name} Lives at ${slot.url}. Fetch ${slot.url}.`,
     isPartOf: { "@id": `${base}/#site` },
-    about: { "@type": "Organization", name: slot.name, url: slot.url },
-    sameAs: [slot.url, slot.hash],
+    about: {
+      "@type": "WebSite",
+      name: slot.name,
+      url: slot.url,
+      ...(slot.description ? { description: slot.description } : {}),
+      ...(slot.wikidata_qid ? { sameAs: [`https://www.wikidata.org/wiki/${slot.wikidata_qid}`] } : {}),
+    },
+    sameAs: [slot.url, slot.hash, ...(slot.wikidata_qid ? [`https://www.wikidata.org/wiki/${slot.wikidata_qid}`] : [])],
     inLanguage: (slot.languages || ["en"])[0] || "en",
   };
 }

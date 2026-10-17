@@ -4,27 +4,29 @@ export function publicBase(env) {
   return String(env?.REACH_PUBLIC_URL || BASE).replace(/\/+$/, "");
 }
 
-/** One truth for punch/languages: the atlas (origin llms.txt) when present, else the briefing. */
+/** One truth for punch/languages: the atlas (origin llms.txt) when present, else the briefing.
+ *  Carries the full capture record (description, sitemap, llms.txt, key, languages, feed) and the Wikidata QID when present. */
 export async function numberedSites(env, allFn) {
-  const base = `SELECT s.id, s.name, s.url, s.indexnow_key, s.languages_wanted, b.punch_line, b.summary, b.who_for
-     FROM sites s
-     LEFT JOIN briefings b ON b.site_id = s.id`;
-  let rows;
-  try {
-    rows = await allFn(env, `${base.replace("b.who_for", "b.who_for, a.profile_json")}
-     LEFT JOIN atlas a ON a.site_id = s.id
-     WHERE s.active = 1
-     ORDER BY s.created_at ASC`);
-  } catch {
-    rows = await allFn(env, `${base}
-     WHERE s.active = 1
-     ORDER BY s.created_at ASC`);
+  const where = `WHERE s.active = 1 ORDER BY s.created_at ASC`;
+  const tries = [
+    `SELECT s.*, b.punch_line, b.summary, b.who_for, a.profile_json, w.qid AS wikidata_qid
+     FROM sites s LEFT JOIN briefings b ON b.site_id = s.id LEFT JOIN atlas a ON a.site_id = s.id LEFT JOIN wikidata w ON w.site_id = s.id ${where}`,
+    `SELECT s.*, b.punch_line, b.summary, b.who_for, a.profile_json
+     FROM sites s LEFT JOIN briefings b ON b.site_id = s.id LEFT JOIN atlas a ON a.site_id = s.id ${where}`,
+    `SELECT s.*, b.punch_line, b.summary, b.who_for
+     FROM sites s LEFT JOIN briefings b ON b.site_id = s.id ${where}`,
+  ];
+  let rows = [];
+  for (const sql of tries) {
+    try { rows = await allFn(env, sql); break; } catch { rows = []; }
   }
   return rows.map((s, i) => {
     const n = i + 1;
     let atlas = {};
     try { atlas = JSON.parse(s.profile_json || "{}"); } catch { atlas = {}; }
-    const langs = atlas.languages && atlas.languages.length ? atlas.languages : JSON.parse(s.languages_wanted || "[]");
+    let wanted = [];
+    try { wanted = JSON.parse(s.languages_wanted || "[]"); } catch { wanted = []; }
+    const langs = atlas.languages && atlas.languages.length ? atlas.languages : wanted;
     return {
       n,
       hash: `${publicBase(env)}/#${n}`,
@@ -36,12 +38,23 @@ export async function numberedSites(env, allFn) {
       summary: s.summary || "",
       who_for: atlas.who_for || s.who_for || "",
       languages: langs.map((l) => (l === "ce" ? "ceb" : l)),
+      indexnow_key: s.indexnow_key || "",
+      description: s.description || "",
+      sitemap_url: s.sitemap_url || "",
+      llms_url: s.llms_url || "",
+      og_image: s.og_image || "",
+      jsonld_types: s.jsonld_types || "[]",
+      languages_count: Number(s.languages_count || 0) || Number(atlas.languages_count || 0) || langs.length,
+      feed_url: s.feed_url || "",
+      capture_json: s.capture_json || "{}",
+      captured_at: s.captured_at || "",
+      wikidata_qid: s.wikidata_qid || "",
     };
   });
 }
 
 export function hillHtml(slots) {
-  const data = JSON.stringify(slots);
+  const data = JSON.stringify(slots.map((s) => ({ n: s.n, hash: s.hash, name: s.name, url: s.url, punch: s.punch, description: s.description, llms_url: s.llms_url, sitemap_url: s.sitemap_url, wikidata_qid: s.wikidata_qid })));
   return `<!doctype html>
 <html lang="en">
 <head>
@@ -57,6 +70,8 @@ export function hillHtml(slots) {
   <link rel="alternate" type="text/markdown" href="/llms.txt">
   <link rel="alternate" type="text/markdown" href="/atlas.md">
   <link rel="alternate" type="application/json" href="/atlas.json">
+  <link rel="alternate" type="application/json" href="/sites.json">
+  <link rel="alternate" type="text/markdown" href="/sites.md">
   <script type="application/ld+json">${JSON.stringify({
     "@context": "https://schema.org",
     "@type": "ItemList",
@@ -105,7 +120,8 @@ function render() {
       '<div class="more">' +
         '<div class="n">#' + s.n + ' &middot; ' + s.hash + '</div>' +
         '<p>' + (s.punch || "") + '</p>' +
-        '<p><a href="' + s.url + '">Open live site</a> &middot; <a href="/' + s.n + '">/' + s.n + '</a></p>' +
+        (s.description && s.description !== s.punch ? '<p style="font-size:.9rem;color:#9bb89a">' + s.description + '</p>' : '') +
+        '<p><a href="' + s.url + '">Open live site</a> &middot; <a href="/' + s.n + '">/' + s.n + '</a>' + (s.llms_url ? ' &middot; <a href="' + s.llms_url + '">llms.txt</a>' : '') + (s.sitemap_url ? ' &middot; <a href="' + s.sitemap_url + '">sitemap</a>' : '') + (s.wikidata_qid ? ' &middot; <a href="https://www.wikidata.org/wiki/' + s.wikidata_qid + '">' + s.wikidata_qid + '</a>' : '') + '</p>' +
       '</div>' +
     '</article>'
   )).join("");

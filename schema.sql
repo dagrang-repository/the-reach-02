@@ -6,7 +6,17 @@ CREATE TABLE IF NOT EXISTS sites (
   indexnow_key TEXT,
   created_at TEXT NOT NULL,
   updated_at TEXT NOT NULL,
-  active INTEGER NOT NULL DEFAULT 1
+  active INTEGER NOT NULL DEFAULT 1,
+  sitemap_url TEXT,
+  llms_url TEXT,
+  description TEXT,
+  og_image TEXT,
+  jsonld_types TEXT,
+  languages_count INTEGER,
+  feed_url TEXT,
+  capture_json TEXT,
+  overrides_json TEXT,
+  captured_at TEXT
 );
 
 CREATE TABLE IF NOT EXISTS briefings (

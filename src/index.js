@@ -3,12 +3,13 @@ import { runCycle, status } from "./cycle.js";
 import { all, one, run } from "./db.js";
 import { sweepDoors } from "./doors.js";
 import { addSiteHtml } from "./add-ui.js";
+import { captureBatch, captureSite, captureView, ensureCaptureColumns } from "./capture.js";
 import { handlePaid, recheckPaidKeys } from "./paid.js";
 import { pwaResponse } from "./pwa.js";
 import { publicExtra } from "./public-extra.js";
 import { isSelfUrl } from "./self.js";
 import { handleAtlas, handleBriefs, listGaps, rebuildAtlas } from "./atlas.js";
-import { hillHtml, numberedSites } from "./hill.js";
+import { hillHtml, numberedSites, publicBase } from "./hill.js";
 import { rebuildReachMap } from "./map.js";
 import {
   announceReachFeed,
@@ -34,8 +35,10 @@ export default {
       return;
     }
     await ensureAnswerChannel(env);
+    await ensureCaptureColumns(env).catch(() => null);
     await sweepDoors(env);
     await recheckPaidKeys(env).catch(() => null);
+    await captureBatch(env, 3, 24).catch(() => null);
     await runCycle(env, "cron");
   },
 
@@ -77,7 +80,9 @@ export default {
         name: slot.name,
         live: slot.url,
         punch: slot.punch,
+        description: slot.description || slot.punch,
         languages: slot.languages || [],
+        record: captureView(slot, env, publicBase(env)),
         jsonld: jsonLdDoor(slot, env),
       };
       return new Response(JSON.stringify(payload, null, 2), {
@@ -177,6 +182,32 @@ export default {
         return json({ ok: true, atlas: out });
       }
 
+      if (path === "/v1/capture" && request.method === "POST") {
+        await ensureCaptureColumns(env);
+        const n = Number(url.searchParams.get("n") || 0);
+        if (n) {
+          const slots = await numberedSites(env, all);
+          const slot = slots.find((s) => s.n === n);
+          if (!slot) return json({ ok: false, error: "no door at that number" }, 404);
+          const site = await one(env, "SELECT * FROM sites WHERE id = ?", slot.id);
+          const captured = await captureSite(env, site, { description: url.searchParams.get("description") || "", sitemap: url.searchParams.get("sitemap") || "", llms: url.searchParams.get("llms") || "" });
+          await rebuildReachMap(env);
+          const after = (await numberedSites(env, all)).find((s) => s.n === n);
+          return json({ ok: true, captured_at: captured.captured_at, record: captureView(after, env, publicBase(env)) });
+        }
+        const limit = Math.max(1, Math.min(12, Number(url.searchParams.get("limit") || 6)));
+        const maxAge = Number(url.searchParams.get("max_age_hours") ?? 24);
+        const out = await captureBatch(env, limit, maxAge);
+        if (out.captured) await rebuildReachMap(env);
+        return json({ ok: true, ...out });
+      }
+
+      if (path === "/v1/capture" && request.method === "GET") {
+        await ensureCaptureColumns(env);
+        const rows = await all(env, "SELECT name, url, captured_at, description IS NOT NULL AND description != '' AS has_description, sitemap_url IS NOT NULL AND sitemap_url != '' AS has_sitemap, llms_url IS NOT NULL AND llms_url != '' AS has_llms, languages_count FROM sites WHERE active = 1 ORDER BY created_at ASC");
+        return json({ ok: true, total: rows.length, captured: rows.filter((r) => r.captured_at).length, sites: rows });
+      }
+
       if (path === "/v1/gaps" && request.method === "GET") {
         return json({ ok: true, gaps: await listGaps(env) });
       }
@@ -255,6 +286,8 @@ export default {
         }
         try {
           const out = await runFullStack(env, site, true);
+          site = await captureSite(env, site, { description: body.description || "", sitemap: body.sitemap || "", llms: body.llms || "" }).catch(() => site);
+          await rebuildReachMap(env);
           const keyCheck = site.indexnow_key
             ? (isSelfUrl(site.url, env) ? { url: "", status: 200, ok: true, detail: "self: worker serves its own key file" } : await verifyOriginKey(site))
             : { ok: false, detail: "no key on add and no indexnow-key meta on the page" };
@@ -262,9 +295,11 @@ export default {
           const announced = await pingReachMesh(env, reachAnnounceUrls(env, afterSlots), uid("add"));
           await announceReachFeed(env);
           await rebuildAtlas(env, [await one(env, "SELECT * FROM sites WHERE id = ?", id)]).catch(() => null);
+          const slotNow = afterSlots.find((s) => s.id === id);
           return json({
             ok: true,
             site: await one(env, "SELECT * FROM sites WHERE id = ?", id),
+            record: slotNow ? captureView(slotNow, env, publicBase(env)) : null,
             key_check: keyCheck,
             briefing: briefingPublic(out.briefing),
             pack: { features: out.pack?.features, doors: out.pack?.doors, ping_urls: out.pack?.pingUrls },
@@ -282,6 +317,8 @@ export default {
         const site = await one(env, "SELECT * FROM sites WHERE id = ?", siteId);
         if (!site) return json({ ok: false, error: "site not found" }, 404);
         const out = await runFullStack(env, site, true);
+        await captureSite(env, site).catch(() => null);
+        await rebuildReachMap(env);
         await rebuildAtlas(env, [site]).catch(() => null);
         return json({ ok: true, briefing: briefingPublic(out.briefing), pack: out.pack });
       }

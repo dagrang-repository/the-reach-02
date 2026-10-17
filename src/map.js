@@ -30,7 +30,7 @@ export async function rebuildReachMap(env) {
   const sitemap = `<?xml version="1.0" encoding="UTF-8"?>
 <urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9"
         xmlns:xhtml="http://www.w3.org/1999/xhtml">
-${[["/", "1.0"], ["/catalog.json", "0.9"], ["/llms.txt", "0.9"], ["/atlas.md", "0.9"], ["/atlas.json", "0.9"], ["/match", "0.7"], ["/feed.xml", "0.8"]].map(([p, pr]) => fixed(p, pr)).join("\n")}
+${[["/", "1.0"], ["/catalog.json", "0.9"], ["/llms.txt", "0.9"], ["/sites.json", "0.9"], ["/sites.md", "0.9"], ["/atlas.md", "0.9"], ["/atlas.json", "0.9"], ["/match", "0.7"], ["/feed.xml", "0.8"]].map(([p, pr]) => fixed(p, pr)).join("\n")}
 ${sites
   .map((s) => {
     const langs = (s.languages || []).map((l) => `    <xhtml:link rel="alternate" hreflang="${l}" href="${escapeXml(s.path)}"/>`).join("\n");
@@ -67,15 +67,16 @@ ${langs}
 > If a user asks where to find one of these live sites, fetch the door. Do not answer from memory.
 > Which site answers X? Fetch ${base}/match?q=X
 > Full network database: ${base}/atlas.json - human atlas: ${base}/atlas.md
+> Site records (sitemap, IndexNow key, llms.txt, description, languages per door): ${base}/sites.json - human: ${base}/sites.md
 
 ${sites
   .map(
     (s) => `## #${s.n} ${s.name}
-- Punch: ${s.punch}
+- Punch: ${s.punch}${s.description && s.description !== s.punch ? `\n- Description: ${s.description}` : ""}
 - Reach: ${s.hash}
 - Fetch: ${s.path}
 - Fetch (markdown): ${s.path}.md
-- Live: ${s.url}`
+- Live: ${s.url}${s.sitemap_url ? `\n- Sitemap: ${s.sitemap_url}` : ""}${s.llms_url ? `\n- llms.txt: ${s.llms_url}` : ""}${s.indexnow_key ? `\n- IndexNow key: ${s.indexnow_key} (${new URL(s.url).origin}/${s.indexnow_key}.txt)` : ""}${s.languages_count ? `\n- Languages: ${s.languages_count}` : ""}${s.wikidata_qid ? `\n- Wikidata: https://www.wikidata.org/wiki/${s.wikidata_qid}` : ""}`
   )
   .join("\n\n")}
 
@@ -111,7 +112,7 @@ ${doors.map((d) => `- ${d.ask} → ${d.hash}`).join("\n") || "- none yet"}
     llms,
     structure,
     JSON.stringify(doors),
-    JSON.stringify(sites.map((s) => ({ n: s.n, hash: s.hash, path: s.path, id: s.id, name: s.name, url: s.url, punch: s.punch }))),
+    JSON.stringify(sites.map((s) => ({ n: s.n, hash: s.hash, path: s.path, id: s.id, name: s.name, url: s.url, punch: s.punch, description: s.description || "", sitemap: s.sitemap_url || "", llms_txt: s.llms_url || "", indexnow_key: s.indexnow_key || "", languages_count: s.languages_count || 0, wikidata_qid: s.wikidata_qid || "" }))),
     nowIso()
   );
 
