@@ -217,6 +217,29 @@ export function refSnaks(url) {
   return reference(url);
 }
 
+/** Wikidata language codes we feed from hreflang codes (base code; a few differ). */
+const WD_LANG = { tl: "tl", fil: "tl", zh: "zh", pt: "pt", no: "nb", iw: "he", jw: "jv" };
+function wdLang(code) {
+  const c = String(code || "").toLowerCase().split("-")[0];
+  if (!c || c === "en") return "";
+  if (WD_LANG[c]) return WD_LANG[c];
+  return /^[a-z]{2,3}$/.test(c) ? c : "";
+}
+
+/** Labels + descriptions in every language the site publishes, from its own localized pages (text only, one edit). */
+export function i18nEntity(view, i18n) {
+  const labels = {};
+  const descriptions = {};
+  for (const [code, rec] of Object.entries(i18n || {})) {
+    const lang = wdLang(code);
+    if (!lang || !rec) continue;
+    const desc = firstSentence(rec.description || "").replace(/[.。]$/, "").trim();
+    labels[lang] = { language: lang, value: view.name.slice(0, 250) };
+    if (desc.length >= 12) descriptions[lang] = { language: lang, value: desc.slice(0, 240) };
+  }
+  return { labels, descriptions, languages: Object.keys(labels) };
+}
+
 function entityHash(view) {
   return `${view.name}|${wdDescription(view)}|${(view.languages || []).join(",")}|${view.sitemap || ""}`;
 }
@@ -300,6 +323,15 @@ export async function pushDoor(env, slot, { force = false } = {}) {
     const links = await applyLinkSteps(wiki, qid, linkPlan(view, base, hub)).catch((err) => ({ done: 0, error: String(err.message || err) }));
     const total = linkPlan(view, base, hub).length;
     await saveState(env, slot.id, { status: links.done >= total ? "complete" : "partial", detail: links.error ? `links ${links.done}/${total}: ${links.error.slice(0, 200)}` : `links ${links.done}/${total}` });
+    if (links.done >= total) {
+      let i18n = {};
+      try { i18n = JSON.parse(slot.i18n_json || "{}") || {}; } catch { i18n = {}; }
+      const ent = i18nEntity(view, i18n);
+      if (ent.languages.length) {
+        await wiki.edit({ action: "wbeditentity", id: qid, data: JSON.stringify({ labels: ent.labels, descriptions: ent.descriptions }), summary: `Add labels/descriptions in ${ent.languages.length} languages from ${view.url}` }).catch(() => null);
+        await saveState(env, slot.id, { status: "i18n_done", detail: `localized in ${ent.languages.length} languages` });
+      }
+    }
     return { ok: true, n: slot.n, qid, action: "created", statements: entity.claims.length, links: `${links.done}/${total}` };
   } catch (err) {
     const detail = String((err && err.message) || err).slice(0, 300);
@@ -405,7 +437,19 @@ export async function queueFor(env, limit = 1) {
     const r = byId.get(s.id);
     if (r?.qid && (r.status === "created" || r.status === "partial")) items.push(pack(s, r, "links"));
   }
-  // 2) next link-free create, strongest door first
+  // 2) items with all links done but no localized labels/descriptions yet (text-only edit, never counts as a create)
+  for (const s of orderedSlots(slots, cfg)) {
+    if (items.length >= limit) break;
+    const r = byId.get(s.id);
+    if (!(r?.qid && r.status === "complete")) continue;
+    let i18n = {};
+    try { i18n = JSON.parse(s.i18n_json || "{}") || {}; } catch { i18n = {}; }
+    const view = captureView(s, env, base);
+    const ent = i18nEntity(view, i18n);
+    if (!ent.languages.length) { continue; }
+    items.push({ n: s.n, name: s.name, url: s.url, phase: "i18n", qid: r.qid, existing_qid: "", languages: ent.languages, summary: `Add labels/descriptions in ${ent.languages.length} languages from ${view.url}`, i18n_json: JSON.stringify({ labels: ent.labels, descriptions: ent.descriptions }), steps: [], statements: 0, entity_json: "" });
+  }
+  // 3) next link-free create, strongest door first
   const createdNow = await createdToday(env);
   for (const s of orderedSlots(slots, cfg)) {
     if (items.length >= limit || createdNow >= cfg.dailyLimit) break;
@@ -434,6 +478,11 @@ export async function recordResult(env, slot, { qid, action, statements, detail 
     return { ok: true, n: slot.n, action: "reset" };
   }
   if (!/^Q\d+$/.test(String(qid || ""))) return { ok: false, n: slot.n, action: "bad-qid" };
+  if (action === "i18n") {
+    await saveState(env, slot.id, { qid, label: view.name, status: "i18n_done", attempts: prev?.attempts || 0, detail: detail || "localized", synced_at: nowIso(), created_at: prev?.created_at || nowIso() });
+    await recordChange(env, { kind: "wikidata", siteId: slot.id, url: `https://www.wikidata.org/wiki/${qid}`, detail: `#${slot.n} ${view.name} ${qid} ${detail || "localized"}` }).catch(() => null);
+    return { ok: true, n: slot.n, qid, action: "i18n", wikidata: `https://www.wikidata.org/wiki/${qid}` };
+  }
   if (action === "partial" || action === "complete") {
     await saveState(env, slot.id, { qid, label: view.name, status: action, attempts: prev?.attempts || 0, detail: detail || `links ${action}`, synced_at: nowIso(), created_at: prev?.created_at || nowIso() });
     if (action === "complete") await recordChange(env, { kind: "wikidata", siteId: slot.id, url: `https://www.wikidata.org/wiki/${qid}`, detail: `#${slot.n} ${view.name} ${qid} links complete` }).catch(() => null);
@@ -458,7 +507,7 @@ export function wikidataJson(slots, base) {
     generated: nowIso(),
     count: linked.length,
     total_doors: slots.length,
-    items: linked.map((s) => ({ n: s.n, name: s.name, url: s.url, door: `${base}/${s.n}`, qid: s.wikidata_qid, wikidata: `https://www.wikidata.org/wiki/${s.wikidata_qid}`, entity: `https://www.wikidata.org/wiki/Special:EntityData/${s.wikidata_qid}.json` })),
+    items: linked.map((s) => ({ n: s.n, name: s.name, url: s.url, door: `${base}/${s.n}`, qid: s.wikidata_qid, wikidata: `https://www.wikidata.org/wiki/${s.wikidata_qid}`, entity: `https://www.wikidata.org/wiki/Special:EntityData/${s.wikidata_qid}.json`, localized: (() => { try { return Object.keys(JSON.parse(s.i18n_json || "{}") || {}).length; } catch { return 0; } })() })),
   };
 }
 

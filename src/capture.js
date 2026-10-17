@@ -22,6 +22,7 @@ const COLS = {
   capture_json: "TEXT",
   overrides_json: "TEXT",
   captured_at: "TEXT",
+  i18n_json: "TEXT",
 };
 
 let ensured = false;
@@ -97,6 +98,42 @@ function hreflangs(html) {
     if (v && v !== "x-default") set.add(v.split("-")[0]);
   }
   return [...set];
+}
+
+/** code → absolute href of each language variant, from <link rel="alternate" hreflang=…>. */
+function hreflangMap(html, origin) {
+  const map = {};
+  for (const m of String(html || "").matchAll(/<link\b[^>]*hreflang=["']([^"']+)["'][^>]*>/gi)) {
+    const tag = m[0];
+    const code = m[1].toLowerCase().split("-")[0];
+    const href = (tag.match(/href=["']([^"']+)["']/i) || ["", ""])[1];
+    if (!code || code === "x" || !href) continue;
+    try { map[code] = map[code] || new URL(href, origin).toString(); } catch { /* skip */ }
+  }
+  return map;
+}
+
+/** Localized title + description per language, from the site's own hreflang pages. Incremental: at most `budget`
+ *  fetches per call, missing languages first, so the full set fills over a few daily captures. */
+export async function captureI18n(site, html, origin, budget = 12) {
+  let prev = {};
+  try { prev = JSON.parse(site.i18n_json || "{}") || {}; } catch { prev = {}; }
+  const map = hreflangMap(html, origin);
+  const codes = Object.keys(map).filter((c) => c !== "en");
+  if (!codes.length) return { i18n: prev, fetched: 0, total: 0 };
+  const order = [...codes.filter((c) => !prev[c]), ...codes.filter((c) => prev[c])].slice(0, budget);
+  const out = { ...prev };
+  let fetched = 0;
+  for (const code of order) {
+    const r = await get(map[code], "text/html");
+    fetched++;
+    if (!r.ok || looksXml(r.text)) continue;
+    const title = meta(r.text, /<title[^>]*>([\s\S]*?)<\/title>/i).slice(0, 200);
+    const desc = (metaContent(r.text, "name", "description") || metaContent(r.text, "property", "og:description")).slice(0, 600);
+    if (title || desc) out[code] = { title, description: desc, url: map[code] };
+  }
+  for (const c of Object.keys(out)) if (!codes.includes(c)) delete out[c];
+  return { i18n: out, fetched, total: codes.length };
 }
 
 function feedLink(html, origin) {
@@ -198,6 +235,7 @@ async function discover(site, env) {
   const description = llmsDesc || metaDesc || ogDesc || "";
   const feed = feedLink(html, origin);
   return {
+    html,
     title,
     description: description.slice(0, 600),
     sitemap,
@@ -234,6 +272,10 @@ export async function captureSite(env, site, overrides = null) {
   const description = ov.description || d.description || "";
   const sitemap = normalizeUrlMaybe(ov.sitemap, origin) || d.sitemap || "";
   const llmsUrl = normalizeUrlMaybe(ov.llms, origin) || d.llms || "";
+  let i18n = null;
+  if (d.html) {
+    try { i18n = await captureI18n(site, d.html, origin); } catch { i18n = null; }
+  }
   const stamp = nowIso();
   const captureJson = JSON.stringify({
     title: d.title,
@@ -243,6 +285,7 @@ export async function captureSite(env, site, overrides = null) {
     homepage_status: d.homepage_status ?? 200,
     source: d.source,
     overrides: Object.keys(ov),
+    ...(i18n ? { i18n_total: i18n.total, i18n_have: Object.keys(i18n.i18n).length } : {}),
   });
   const before = `${site.description || ""}|${site.sitemap_url || ""}|${site.llms_url || ""}|${site.languages_count || 0}`;
   await run(
@@ -261,6 +304,7 @@ export async function captureSite(env, site, overrides = null) {
     stamp,
     site.id
   );
+  if (i18n) await run(env, "UPDATE sites SET i18n_json = ? WHERE id = ?", JSON.stringify(i18n.i18n), site.id).catch(() => null);
   const after = `${description}|${sitemap}|${llmsUrl}|${d.languages_count || 0}`;
   if (before !== after) {
     await recordChange(env, { kind: "capture", siteId: site.id, url: site.url, detail: `desc:${d.source?.description || "override"} sitemap:${sitemap ? "yes" : "no"} llms:${llmsUrl ? "yes" : "no"} langs:${d.languages_count || 0}` }).catch(() => null);
@@ -316,6 +360,7 @@ export function captureView(slot, env, base) {
     door_md: `${base}/${slot.n}.md`,
     hash: `${base}/#${slot.n}`,
     ...(slot.wikidata_qid ? { wikidata: `https://www.wikidata.org/wiki/${slot.wikidata_qid}` } : {}),
+    localized: (() => { try { return Object.keys(JSON.parse(slot.i18n_json || "{}") || {}).length; } catch { return 0; } })(),
     captured_at: slot.captured_at || "",
   };
 }

@@ -16,7 +16,8 @@ CREATE TABLE IF NOT EXISTS sites (
   feed_url TEXT,
   capture_json TEXT,
   overrides_json TEXT,
-  captured_at TEXT
+  captured_at TEXT,
+  i18n_json TEXT
 );
 
 CREATE TABLE IF NOT EXISTS briefings (

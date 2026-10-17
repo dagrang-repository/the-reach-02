@@ -49,6 +49,7 @@ export async function numberedSites(env, allFn) {
       languages_count: Number(s.languages_count || 0) || Number(atlas.languages_count || 0) || langs.length,
       feed_url: s.feed_url || "",
       capture_json: s.capture_json || "{}",
+      i18n_json: s.i18n_json || "{}",
       captured_at: s.captured_at || "",
       wikidata_qid: s.wikidata_qid || "",
     };
