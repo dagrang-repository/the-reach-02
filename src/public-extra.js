@@ -72,7 +72,9 @@ export async function publicExtra(path, env, slots, publicMap) {
 - Catalog: ${base}/catalog.json
 - ARD: ${base}/ai-catalog.json
 - Doors JSON: ${base}/OPEN-DOORS.json
-- Sitemap: ${base}/sitemap.xml
+- Sitemap: ${base}/sitemap.xml · whole network: ${base}/sitemap-index.xml
+- Knowledge graph (Organization → doors → Wikidata): ${base}/jsonld.json
+- Source + machine copy of every door record: https://github.com/dagrang-repository/the-reach-02 (sites.json, README)
 - Feed: ${base}/feed.xml
 - Crawler check: ${base}/crawler-check
 - Site records (name, URL, sitemap, IndexNow key + key URL, llms.txt, description, languages, feed): ${base}/sites.json · ${base}/sites.md

@@ -23,6 +23,7 @@ import {
   pingReachMesh,
   reachAnnounceUrls,
   reachKey,
+  sitemapIndexXml,
 } from "./announce.js";
 import { keyForUrl } from "./known-keys.js";
 import { catalogFromSlots, changesTxt, listChanges, publicPings } from "./outreach.js";
@@ -64,7 +65,7 @@ export default {
       return new Response(addSiteHtml(), { headers: { "content-type": "text/html; charset=utf-8" } });
     }
     if (path === "/" && request.method === "GET") {
-      return new Response(hillHtml(slots), {
+      return new Response(hillHtml(slots, jsonLdHill(slots, env)), {
         headers: {
           "content-type": "text/html; charset=utf-8",
           link: `</llms.txt>; rel="alternate"; type="text/markdown", </atlas.md>; rel="alternate"; type="text/markdown", </atlas.json>; rel="alternate"; type="application/json", </catalog.json>; rel="alternate"; type="application/json", </feed.xml>; rel="alternate"; type="application/rss+xml"`,
@@ -110,9 +111,12 @@ export default {
     }
     if (path === "/robots.txt" && request.method === "GET") {
       const host = env.REACH_PUBLIC_URL || "https://reach2.aplusz.app";
-      return new Response(`User-agent: *\nAllow: /\nSitemap: ${host}/sitemap.xml\n`, {
+      return new Response(`User-agent: *\nAllow: /\nSitemap: ${host}/sitemap.xml\nSitemap: ${host}/sitemap-index.xml\n`, {
         headers: { "content-type": "text/plain; charset=utf-8" },
       });
+    }
+    if (path === "/sitemap-index.xml" && request.method === "GET") {
+      return new Response(sitemapIndexXml(slots, env), { headers: { "content-type": "application/xml; charset=utf-8", "cache-control": "public, max-age=3600" } });
     }
     if (path === "/OPEN-DOORS.json" && request.method === "GET") {
       return json(JSON.parse(publicMap?.doors_json || "[]"));

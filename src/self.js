@@ -25,6 +25,8 @@ const SELF_OPEN = new Set([
   "/sites.md",
   "/wikidata.json",
   "/wayback.json",
+  "/sitemap-index.xml",
+  "/jsonld.json",
   "/manifest.json",
   "/.well-known/llms.txt",
   "/.well-known/security.txt",

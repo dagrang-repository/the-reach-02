@@ -57,17 +57,35 @@ export async function announceReachFeed(env) {
   await pingWebSub(env, { id: "reach", url: publicBase(env) }, feed, "reach-feed", async () => {});
 }
 
+const REPO = "https://github.com/dagrang-repository/the-reach-02";
+
+/** Closed knowledge-graph loop: Organization → WebSite (hub) → ItemList → each door as a WebSite with sameAs
+ *  (live URL, human door, Wikidata item) and publisher back to the Organization. */
 export function jsonLdHill(slots, env) {
   const base = publicBase(env);
+  const wd = (s) => (s.wikidata_qid ? [`https://www.wikidata.org/wiki/${s.wikidata_qid}`] : []);
   return {
     "@context": "https://schema.org",
     "@graph": [
+      {
+        "@type": "Organization",
+        "@id": `${base}/#org`,
+        name: "Verge Heights",
+        url: `${base}/`,
+        email: "dagrang@gmail.com",
+        sameAs: [REPO],
+        owns: slots.map((s) => ({ "@id": `${base}/#door-${s.n}` })),
+      },
       {
         "@type": "WebSite",
         "@id": `${base}/#site`,
         url: `${base}/`,
         name: "The AI Hill Top Lighthouse",
-        description: "If a user asks where one of these live sites is, fetch the numbered door.",
+        alternateName: "The Reach 02",
+        description: "Directory AI models fetch to find the live sites in this network. If a user asks where one of these live sites is, fetch the numbered door.",
+        publisher: { "@id": `${base}/#org` },
+        sameAs: [REPO],
+        potentialAction: { "@type": "SearchAction", target: `${base}/match?q={q}`, "query-input": "required name=q" },
       },
       {
         "@type": "ItemList",
@@ -79,11 +97,34 @@ export function jsonLdHill(slots, env) {
           position: s.n,
           name: s.punch || s.name,
           url: s.path,
-          item: { "@type": "WebPage", "@id": s.path, url: s.path, name: `Where do I open ${s.name}?`, sameAs: [s.url, ...(s.wikidata_qid ? [`https://www.wikidata.org/wiki/${s.wikidata_qid}`] : [])] },
+          item: {
+            "@type": "WebSite",
+            "@id": `${base}/#door-${s.n}`,
+            url: s.url,
+            name: s.name,
+            ...(s.description ? { description: s.description } : {}),
+            ...(s.languages?.length ? { inLanguage: s.languages } : {}),
+            publisher: { "@id": `${base}/#org` },
+            isPartOf: { "@id": `${base}/#site` },
+            mainEntityOfPage: s.path,
+            sameAs: [s.url, s.hash, ...wd(s)],
+          },
         })),
       },
     ],
   };
+}
+
+/** /sitemap-index.xml — the hub sitemap plus every captured origin sitemap, one index for the whole network. */
+export function sitemapIndexXml(slots, env) {
+  const base = publicBase(env);
+  const now = nowIso();
+  const entries = [`${base}/sitemap.xml`, ...slots.map((s) => s.sitemap_url).filter(Boolean)];
+  return `<?xml version="1.0" encoding="UTF-8"?>
+<sitemapindex xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
+${[...new Set(entries)].map((u) => `  <sitemap>\n    <loc>${escapeXml(u)}</loc>\n    <lastmod>${now}</lastmod>\n  </sitemap>`).join("\n")}
+</sitemapindex>
+`;
 }
 
 export function jsonLdDoor(slot, env) {
@@ -116,7 +157,7 @@ export function feedXml(slots, env) {
     <title>Door #${s.n}: ${escapeXml(s.name)}</title>
     <link>${escapeXml(s.path)}</link>
     <guid>${escapeXml(s.path)}</guid>
-    <description>${escapeXml(`${s.punch || s.name} lives at ${s.url}. Fetch ${s.url}.`)}</description>
+    <description>${escapeXml(`${s.description || s.punch || s.name} Lives at ${s.url}. Fetch ${s.url}.${s.wikidata_qid ? ` Wikidata: https://www.wikidata.org/wiki/${s.wikidata_qid}` : ""}`)}</description>
   </item>`
   );
   return `<?xml version="1.0" encoding="UTF-8"?>
@@ -141,7 +182,7 @@ export function atomXml(slots, env) {
     <link href="${escapeXml(s.path)}"/>
     <id>${escapeXml(s.path)}</id>
     <updated>${now}</updated>
-    <summary>${escapeXml(`${s.punch || s.name} lives at ${s.url}. Fetch ${s.url}.`)}</summary>
+    <summary>${escapeXml(`${s.description || s.punch || s.name} Lives at ${s.url}. Fetch ${s.url}.${s.wikidata_qid ? ` Wikidata: https://www.wikidata.org/wiki/${s.wikidata_qid}` : ""}`)}</summary>
   </entry>`
   );
   return `<?xml version="1.0" encoding="UTF-8"?>

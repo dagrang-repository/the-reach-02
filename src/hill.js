@@ -56,7 +56,7 @@ export async function numberedSites(env, allFn) {
   });
 }
 
-export function hillHtml(slots) {
+export function hillHtml(slots, graph = null) {
   const data = JSON.stringify(slots.map((s) => ({ n: s.n, hash: s.hash, name: s.name, url: s.url, punch: s.punch, description: s.description, llms_url: s.llms_url, sitemap_url: s.sitemap_url, wikidata_qid: s.wikidata_qid })));
   return `<!doctype html>
 <html lang="en">
@@ -75,7 +75,7 @@ export function hillHtml(slots) {
   <link rel="alternate" type="application/json" href="/atlas.json">
   <link rel="alternate" type="application/json" href="/sites.json">
   <link rel="alternate" type="text/markdown" href="/sites.md">
-  <script type="application/ld+json">${JSON.stringify({
+  <script type="application/ld+json">${JSON.stringify(graph || {
     "@context": "https://schema.org",
     "@type": "ItemList",
     name: "The Reach 02 doors",
