@@ -137,7 +137,13 @@ try {
       # one stubborn door never sinks the whole daily run — record it, note it, move on
       $m = $_.Exception.Message
       $stuck[[string]$it.n] = $m
-      if ($it.phase -eq "create" -and $m -match "abusefilter-(warning|throttle|disallow)") {
+      if ($m -match "globalblocking|blockedtext") {
+        # this runner drew an IP in a range Wikimedia blocks globally. Nothing about the door is wrong
+        # and nothing on the hub should change — tomorrow's run gets a different runner.
+        $deferred += "#$($it.n) $($it.name) (blocked runner IP)"
+        Write-Log "#$($it.n) $($it.name) DEFER blocked IP range"
+        Write-Note "warning" "Wikidata deferred — runner IP in a Wikimedia-blocked range" $m
+      } elseif ($it.phase -eq "create" -and $m -match "abusefilter-(warning|throttle|disallow)") {
         # Wikidata filter 296 "Bulk item creation by new editor" throttles creates until the
         # account is established. That is pacing, not a fault: come back tomorrow, and reset the
         # attempt counter so the hub does not retire this door after 6 tries.
