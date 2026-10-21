@@ -1,10 +1,14 @@
-# Reach 02 — Wikidata courier. Runs on a non-blocked IP (your PC) once a day via Task Scheduler.
+# Reach 02 — Wikidata courier. Runs ONLY on GitHub Actions' clean IPs (.github/workflows/reach-daily.yml).
+# No PC is in the loop: the hub hands the bot credentials back to its admin from one repository secret.
+# A scheduled task on a workstation would run a stale copy of this file against the live hub, so this script
+# refuses to run outside CI. -Local is the deliberate manual escape hatch, never something a scheduler passes.
 # Phase "create": link-free item (labels, description, P31, P1448, P407) — zero external links, so Wikidata's global
 # filter 210 ("too many external links") cannot fire. Phase "links": URL steps one per edit (P856, P973, references),
 # resumable. Phase "i18n": labels + descriptions in every language the site publishes (one text-only edit).
 # One run drains the queue: links and i18n for our items freely, at most 1 create per day (hub enforces).
-# Credentials: %USERPROFILE%\.reach\wd.env.json (DPAPI-protected). Log: %USERPROFILE%\.reach\wd-courier.log
+param([switch]$Local)
 $ErrorActionPreference = "Stop"
+if (-not $env:GITHUB_ACTIONS -and -not $Local) { "RESULT: PASS"; "wikidata: skipped — this courier runs on GitHub Actions (pass -Local to override)"; return }
 $hub = "https://reach2.aplusz.app"; $api = "https://www.wikidata.org/w/api.php"; $ua = "VergeHeightsHub/1.0 (dagrang@gmail.com)"
 $homeDir = if ($env:USERPROFILE) { $env:USERPROFILE } else { $HOME }
 $dir = Join-Path $homeDir ".reach"; $log = Join-Path $dir "wd-courier.log"; $envFile = Join-Path $dir "wd.env.json"

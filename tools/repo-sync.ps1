@@ -1,7 +1,10 @@
-# Reach 02 — repo sync. Daily on your PC (Task Scheduler "Reach repo sync"): pulls the hub's door records and
-# rewrites README.md + sites.json in this public repo, then commits and pushes with the local git credentials
-# (no GitHub token anywhere). GitHub is crawled heavily by search engines and AI training sets.
+# Reach 02 — repo sync. Runs ONLY on GitHub Actions (.github/workflows/reach-daily.yml): pulls the hub's door
+# records and rewrites README.md + sites.json in this public repo, then commits and pushes with the workflow's
+# own credentials. No PC is in the loop — a workstation clone goes stale and its push is rejected anyway.
+# GitHub is crawled heavily by search engines and AI training sets.
+param([switch]$Local)
 $ErrorActionPreference = "Stop"; if ($PSVersionTable.PSVersion.Major -ge 7) { $PSNativeCommandUseErrorActionPreference = $false }
+if (-not $env:GITHUB_ACTIONS -and -not $Local) { "RESULT: PASS"; "repo: skipped — this sync runs on GitHub Actions (pass -Local to override)"; return }
 $hub = "https://reach2.aplusz.app"; $repo = "https://github.com/dagrang-repository/the-reach-02"
 $root = Split-Path -Parent (Split-Path -Parent $MyInvocation.MyCommand.Path)
 $homeDir = if ($env:USERPROFILE) { $env:USERPROFILE } else { $HOME }
@@ -58,7 +61,7 @@ Wikidata items: $wdCount · Wayback snapshots: $wbSaved · one more door: https:
 
 ## Deploy
 
-``npx wrangler deploy`` from this folder (see DEPLOY.md). Secrets: ADMIN_TOKEN, WD_USER, WD_BOTPASS (Cloudflare). The Wikidata and repo writes run from a daily scheduled task (``tools/``) because Wikimedia blocks Workers egress.
+``npx wrangler deploy`` from this folder (see DEPLOY.md). Secrets: ADMIN_TOKEN, WD_USER, WD_BOTPASS (Cloudflare). The Wikidata and repo writes run daily on GitHub Actions (``tools/``, one repository secret REACH_ADMIN_TOKEN) because Wikimedia blocks Workers egress — no workstation is involved.
 "@
   [IO.File]::WriteAllText("$root\README.md", ($readme -replace "`r`n", "`n") + "`n", $utf8)
   $ErrorActionPreference = "Continue"   # git talks on stderr; only exit codes matter below
