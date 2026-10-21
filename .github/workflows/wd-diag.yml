@@ -1,0 +1,17 @@
+# Reach 02 — one-off, manual, read-only probe of the Wikidata AbuseFilter block. Delete once answered.
+name: Wikidata diag
+on:
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  diag:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - name: Probe
+        shell: pwsh
+        env:
+          REACH_ADMIN_TOKEN: ${{ secrets.REACH_ADMIN_TOKEN }}
+        run: ./tools/wd-diag.ps1
