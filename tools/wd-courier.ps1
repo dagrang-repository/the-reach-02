@@ -7,10 +7,24 @@
 $ErrorActionPreference = "Stop"
 $hub = "https://reach2.aplusz.app"; $api = "https://www.wikidata.org/w/api.php"; $ua = "VergeHeightsHub/1.0 (dagrang@gmail.com)"
 $homeDir = if ($env:USERPROFILE) { $env:USERPROFILE } else { $HOME }
-$dir = "$homeDir\.reach"; $log = "$dir\wd-courier.log"; $envFile = "$dir\wd.env.json"
+$dir = Join-Path $homeDir ".reach"; $log = Join-Path $dir "wd-courier.log"; $envFile = Join-Path $dir "wd.env.json"
 if (!(Test-Path $dir)) { New-Item $dir -ItemType Directory -Force | Out-Null }
 function Unprotect-Value($s) { $ss = ConvertTo-SecureString $s; [Runtime.InteropServices.Marshal]::PtrToStringAuto([Runtime.InteropServices.Marshal]::SecureStringToBSTR($ss)) }
 function Write-Log($m) { "$(Get-Date -Format s) $m" | Out-File $log -Append -Encoding utf8 }
+function Write-Note($level, $title, $m) {
+  # surfaces the reason as a GitHub annotation, so a failure is readable from the e-mail without opening the log
+  if (-not $env:GITHUB_ACTIONS) { return }
+  $one = ([string]$m) -replace "%", "%25" -replace "`r", "" -replace "`n", " "
+  "::${level} title=${title}::${one}"
+}
+function Test-AbuseWarning($err) {
+  # Wikidata answers a "warn" filter as code=failed-save with messages named abusefilter-warning-<id>
+  # (e.g. abusefilter-warning-296), never the bare name — match on the prefix, not on equality.
+  $names = @($err.messages | ForEach-Object { $_.name })
+  if ([string]$err.code -like "abusefilter-warning*") { return $true }
+  if (@($names | Where-Object { $_ -like "abusefilter-warning*" }).Count -gt 0) { return $true }
+  return $false
+}
 function Invoke-Wd($body) {
   # one Wikidata write. maxlag ("Waiting for ... lagged") = wait and retry, up to 8 x 15 s.
   # An AbuseFilter "warn" refuses the first submission only — resubmit once in the same session.
@@ -20,13 +34,15 @@ function Invoke-Wd($body) {
     if (-not $r.error) { return $r }
     $names = @($r.error.messages | ForEach-Object { $_.name })
     if ($r.error.code -eq "maxlag") { Write-Log "maxlag, waiting 15 s ($($i + 1)/8)"; Start-Sleep -Seconds 15; continue }
-    if (-not $warned -and ($r.error.code -eq "abusefilter-warning" -or $names -contains "abusefilter-warning")) { $warned = $true; Start-Sleep -Seconds 2; continue }
+    if (-not $warned -and (Test-AbuseWarning $r.error)) {
+      $warned = $true; Write-Log "abusefilter warn [$($names -join ',')] — resubmitting once"; Start-Sleep -Seconds 5; continue
+    }
     break
   }
   $names = @($r.error.messages | ForEach-Object { $_.name }) -join ","; throw "$($body.action): $($r.error.code) [$names] $($r.error.info)"
 }
 function Send-Record($n, $qs) { Invoke-RestMethod -Uri "$hub/v1/wikidata/record?n=$n&$qs" -Method Post -Headers $script:hdr -UserAgent $ua -TimeoutSec 120 }
-$it = $null; $qid = ""; $summary = @()
+$it = $null; $qid = ""; $summary = @(); $failed = @()
 function Get-Session() {
   $t = Invoke-RestMethod -Uri "${api}?action=query&meta=tokens&type=login&format=json" -UserAgent $ua -SessionVariable ws -TimeoutSec 60
   $script:ws = $ws
@@ -80,38 +96,56 @@ try {
     $script:hdr = @{ authorization = "Bearer $tok" }
   }
   $script:ws = $null
+  $stuck = @{}     # door numbers that already failed this run — never serve the same one twice
   for ($k = 0; $k -lt 12; $k++) {
     $it = $null; $qid = ""
     $q = Invoke-RestMethod -Uri "$hub/v1/wikidata/queue?limit=1" -Headers $script:hdr -UserAgent $ua -TimeoutSec 180
     if (-not $q.ok) { throw "queue: hub refused" }
     if (-not $q.items -or @($q.items).Count -eq 0) { break }
     $it = @($q.items)[0]
-    if ($it.phase -eq "create" -and $it.existing_qid) {
-      Send-Record $it.n "qid=$($it.existing_qid)&action=existing" | Out-Null
-      Write-Log "#$($it.n) $($it.name) existing $($it.existing_qid)"; $summary += "#$($it.n) existing $($it.existing_qid)"; continue
+    if ($stuck.ContainsKey([string]$it.n)) { Write-Log "#$($it.n) already failed this run — stopping"; break }
+    try {
+      if ($it.phase -eq "create" -and $it.existing_qid) {
+        Send-Record $it.n "qid=$($it.existing_qid)&action=existing" | Out-Null
+        Write-Log "#$($it.n) $($it.name) existing $($it.existing_qid)"; $summary += "#$($it.n) existing $($it.existing_qid)"; continue
+      }
+      if (-not $script:ws) { Get-Session }
+      $qid = $it.qid
+      if ($it.phase -eq "create") {
+        $r = Invoke-Wd @{ action = "wbeditentity"; new = "item"; data = $it.entity_json; token = $script:csrf; summary = $it.summary; assert = "user"; maxlag = "8"; format = "json" }
+        $qid = $r.entity.id; if (-not $qid) { throw "wbeditentity: no entity id in reply" }
+        Send-Record $it.n "qid=$qid&action=created&statements=$($it.statements)" | Out-Null
+        Write-Log "#$($it.n) $($it.name) created $qid (link-free)"
+        Start-Sleep -Seconds 3
+        $st = Invoke-Links $it $qid
+        $summary += "#$($it.n) $($it.name) created $qid $st"
+      } elseif ($it.phase -eq "links") {
+        $st = Invoke-Links $it $qid
+        $summary += "#$($it.n) $qid $st"
+      } elseif ($it.phase -eq "i18n") {
+        $r = Invoke-Wd @{ action = "wbeditentity"; id = $qid; data = $it.i18n_json; token = $script:csrf; summary = $it.summary; assert = "user"; maxlag = "8"; format = "json" }
+        $n = @($it.languages).Count
+        Send-Record $it.n "qid=$qid&action=i18n&detail=$([uri]::EscapeDataString("localized in $n languages"))" | Out-Null
+        Write-Log "#$($it.n) $qid localized in $n languages ($(@($it.languages) -join ','))"
+        $summary += "#$($it.n) $qid localized $n languages"
+      } else { throw "unknown phase $($it.phase)" }
+    } catch {
+      # one stubborn door never sinks the whole daily run — record it, note it, move on
+      $m = $_.Exception.Message
+      $stuck[[string]$it.n] = $m; $failed += "#$($it.n) $($it.name): $m"
+      Write-Log "#$($it.n) $($it.name) FAIL $m"
+      Write-Note "warning" "Wikidata door #$($it.n) $($it.name)" $m
+      try { if (-not $qid) { $d = [uri]::EscapeDataString($m.Substring(0, [Math]::Min(200, $m.Length))); Send-Record $it.n "action=error&detail=$d" | Out-Null } } catch {}
     }
-    if (-not $script:ws) { Get-Session }
-    $qid = $it.qid
-    if ($it.phase -eq "create") {
-      $r = Invoke-Wd @{ action = "wbeditentity"; new = "item"; data = $it.entity_json; token = $script:csrf; summary = $it.summary; assert = "user"; maxlag = "8"; format = "json" }
-      $qid = $r.entity.id; if (-not $qid) { throw "wbeditentity: no entity id in reply" }
-      Send-Record $it.n "qid=$qid&action=created&statements=$($it.statements)" | Out-Null
-      Write-Log "#$($it.n) $($it.name) created $qid (link-free)"
-      Start-Sleep -Seconds 3
-      $st = Invoke-Links $it $qid
-      $summary += "#$($it.n) $($it.name) created $qid $st"
-    } elseif ($it.phase -eq "links") {
-      $st = Invoke-Links $it $qid
-      $summary += "#$($it.n) $qid $st"
-    } elseif ($it.phase -eq "i18n") {
-      $r = Invoke-Wd @{ action = "wbeditentity"; id = $qid; data = $it.i18n_json; token = $script:csrf; summary = $it.summary; assert = "user"; maxlag = "8"; format = "json" }
-      $n = @($it.languages).Count
-      Send-Record $it.n "qid=$qid&action=i18n&detail=$([uri]::EscapeDataString("localized in $n languages"))" | Out-Null
-      Write-Log "#$($it.n) $qid localized in $n languages ($(@($it.languages) -join ','))"
-      $summary += "#$($it.n) $qid localized $n languages"
-    } else { throw "unknown phase $($it.phase)" }
     Start-Sleep -Seconds 3
   }
+  if ($failed.Count -and -not $summary.Count) {
+    "RESULT: FAIL $($failed[0])"
+    Write-Note "error" "Wikidata courier" $failed[0]
+    if ($env:GITHUB_ACTIONS) { exit 1 }
+    return
+  }
+  if ($failed.Count) { "wikidata-skipped: $($failed -join ' · ')" }
   if (-not $summary.Count) { Write-Log "idle: nothing pending"; "RESULT: PASS"; "wikidata: nothing pending"; return }
   "RESULT: PASS"; "wikidata: $($summary -join ' · ')"
 } catch {
@@ -120,5 +154,6 @@ try {
   try { if ($it -and $it.n -and -not $qid) { $d = [uri]::EscapeDataString($msg.Substring(0, [Math]::Min(200, $msg.Length))); Send-Record $it.n "action=error&detail=$d" | Out-Null } } catch {}
   if ($summary.Count) { "wikidata: $($summary -join ' · ')" }
   "RESULT: FAIL $msg"
+  Write-Note "error" "Wikidata courier" $msg
   if ($env:GITHUB_ACTIONS) { exit 1 }
 }
