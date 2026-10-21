@@ -10,6 +10,11 @@ $root = Split-Path -Parent (Split-Path -Parent $MyInvocation.MyCommand.Path)
 $homeDir = if ($env:USERPROFILE) { $env:USERPROFILE } else { $HOME }
 $log = "$homeDir\.reach\repo-sync.log"; if (!(Test-Path "$homeDir\.reach")) { New-Item "$homeDir\.reach" -ItemType Directory -Force | Out-Null }
 function Write-Log($m) { "$(Get-Date -Format s) $m" | Out-File $log -Append -Encoding utf8 }
+function Write-Note($level, $title, $m) {
+  if (-not $env:GITHUB_ACTIONS) { return }
+  $one = ([string]$m) -replace "%", "%25" -replace "`r", "" -replace "`n", " "
+  "::${level} title=${title}::" + $one.Substring(0, [Math]::Min(900, $one.Length))
+}
 function Esc($t) { [string]$t -replace '\|', '\|' -replace "[`r`n]+", ' ' }
 try {
   [Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12
@@ -66,16 +71,23 @@ Wikidata items: $wdCount · Wayback snapshots: $wbSaved · one more door: https:
   [IO.File]::WriteAllText("$root\README.md", ($readme -replace "`r`n", "`n") + "`n", $utf8)
   $ErrorActionPreference = "Continue"   # git talks on stderr; only exit codes matter below
   git add README.md sites.json 2>&1 | Out-Null
+  if (Test-Path "$root/runs/deferrals.json") { git add runs/deferrals.json 2>&1 | Out-Null }
   git diff --cached --quiet 2>&1 | Out-Null
-  if ($LASTEXITCODE -eq 0) { Write-Log "no change ($($rows.Count) doors)"; "RESULT: PASS"; "repo: unchanged ($($rows.Count) doors, $wdCount wikidata, $wbSaved wayback)"; return }
+  if ($LASTEXITCODE -eq 0) {
+    Write-Log "no change ($($rows.Count) doors)"; "RESULT: PASS"
+    Write-Note "warning" "Repo sync" "unchanged — $($rows.Count) doors, $wdCount wikidata, $wbSaved wayback"
+    "repo: unchanged ($($rows.Count) doors, $wdCount wikidata, $wbSaved wayback)"; return
+  }
   $out = git commit -q -m "doors: $($rows.Count) sites, $wdCount Wikidata items, $wbSaved Wayback snapshots (auto $day)" 2>&1
   if ($LASTEXITCODE -ne 0) { throw "git commit: $($out | Select-Object -Last 2)" }
   $out = git push -q 2>&1
   if ($LASTEXITCODE -ne 0) { throw "git push: $($out | Select-Object -Last 2)" }
   Write-Log "pushed ($($rows.Count) doors, $wdCount wikidata, $wbSaved wayback)"
+  Write-Note "warning" "Repo sync" "pushed — $($rows.Count) doors, $wdCount wikidata, $wbSaved wayback"
   "RESULT: PASS"; "repo: pushed $($rows.Count) doors, $wdCount wikidata, $wbSaved wayback → $repo"
 } catch {
   Write-Log "FAIL $($_.Exception.Message)"
+  Write-Note "error" "Repo sync" $_.Exception.Message
   "RESULT: FAIL $($_.Exception.Message)"
   if ($env:GITHUB_ACTIONS) { exit 1 }
 }

@@ -10,6 +10,7 @@ param([switch]$Local)
 $ErrorActionPreference = "Stop"
 if (-not $env:GITHUB_ACTIONS -and -not $Local) { "RESULT: PASS"; "wikidata: skipped — this courier runs on GitHub Actions (pass -Local to override)"; return }
 $hub = "https://reach2.aplusz.app"; $api = "https://www.wikidata.org/w/api.php"; $ua = "VergeHeightsHub/1.0 (dagrang@gmail.com)"
+$STALL_DAYS = 14   # a door deferred this many days running is stalled, not paced — fail loudly again
 $homeDir = if ($env:USERPROFILE) { $env:USERPROFILE } else { $HOME }
 $dir = Join-Path $homeDir ".reach"; $log = Join-Path $dir "wd-courier.log"; $envFile = Join-Path $dir "wd.env.json"
 if (!(Test-Path $dir)) { New-Item $dir -ItemType Directory -Force | Out-Null }
@@ -160,9 +161,41 @@ try {
     }
     Start-Sleep -Seconds 3
   }
+  # Deferral ledger. Deferring quietly is right for days and wrong for weeks: a door that has been
+  # put off this long is stalled, not paced, and silence would hide that forever. runs/deferrals.json
+  # carries the first-deferred date per door and rides along in the repo-sync commit.
+  $stale = @()
+  try {
+    $ledgerDir = Join-Path (Split-Path -Parent $PSScriptRoot) "runs"
+    $ledgerPath = Join-Path $ledgerDir "deferrals.json"
+    $today = (Get-Date).ToUniversalTime().ToString("yyyy-MM-dd")
+    $seen = @{}
+    if (Test-Path $ledgerPath) {
+      (Get-Content $ledgerPath -Raw | ConvertFrom-Json).PSObject.Properties | ForEach-Object { $seen[$_.Name] = [string]$_.Value }
+    }
+    $next = @{}
+    foreach ($d in $deferred) {
+      if ($d -match '#(\d+)') {
+        $n = $Matches[1]
+        $next[$n] = $(if ($seen.ContainsKey($n)) { $seen[$n] } else { $today })
+        $age = ([datetime]$today - [datetime]$next[$n]).Days
+        if ($age -ge $STALL_DAYS) { $stale += "#$n stalled $age days" }
+      }
+    }
+    if (!(Test-Path $ledgerDir)) { New-Item $ledgerDir -ItemType Directory -Force | Out-Null }
+    [IO.File]::WriteAllText($ledgerPath, (($next | ConvertTo-Json -Depth 3) + "`n"), (New-Object Text.UTF8Encoding($false)))
+  } catch { Write-Log "ledger skipped: $($_.Exception.Message)" }
+
   if ($failed.Count -and -not $summary.Count) {
     "RESULT: FAIL $($failed[0])"
     Write-Note "error" "Wikidata courier" $failed[0]
+    if ($env:GITHUB_ACTIONS) { exit 1 }
+    return
+  }
+  if ($stale.Count) {
+    "RESULT: FAIL $($stale -join '; ')"
+    Write-Note "error" "Wikidata stalled — deferred too long to still be pacing" ($stale -join "; ")
+    Write-Log "STALLED $($stale -join '; ')"
     if ($env:GITHUB_ACTIONS) { exit 1 }
     return
   }
