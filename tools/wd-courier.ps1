@@ -42,7 +42,7 @@ function Invoke-Wd($body) {
   $names = @($r.error.messages | ForEach-Object { $_.name }) -join ","; throw "$($body.action): $($r.error.code) [$names] $($r.error.info)"
 }
 function Send-Record($n, $qs) { Invoke-RestMethod -Uri "$hub/v1/wikidata/record?n=$n&$qs" -Method Post -Headers $script:hdr -UserAgent $ua -TimeoutSec 120 }
-$it = $null; $qid = ""; $summary = @(); $failed = @()
+$it = $null; $qid = ""; $summary = @(); $failed = @(); $deferred = @()
 function Get-Session() {
   $t = Invoke-RestMethod -Uri "${api}?action=query&meta=tokens&type=login&format=json" -UserAgent $ua -SessionVariable ws -TimeoutSec 60
   $script:ws = $ws
@@ -132,10 +132,21 @@ try {
     } catch {
       # one stubborn door never sinks the whole daily run — record it, note it, move on
       $m = $_.Exception.Message
-      $stuck[[string]$it.n] = $m; $failed += "#$($it.n) $($it.name): $m"
-      Write-Log "#$($it.n) $($it.name) FAIL $m"
-      Write-Note "warning" "Wikidata door #$($it.n) $($it.name)" $m
-      try { if (-not $qid) { $d = [uri]::EscapeDataString($m.Substring(0, [Math]::Min(200, $m.Length))); Send-Record $it.n "action=error&detail=$d" | Out-Null } } catch {}
+      $stuck[[string]$it.n] = $m
+      if ($it.phase -eq "create" -and $m -match "abusefilter-(warning|throttle|disallow)") {
+        # Wikidata filter 296 "Bulk item creation by new editor" throttles creates until the
+        # account is established. That is pacing, not a fault: come back tomorrow, and reset the
+        # attempt counter so the hub does not retire this door after 6 tries.
+        try { Send-Record $it.n "action=reset" | Out-Null } catch {}
+        $deferred += "#$($it.n) $($it.name)"
+        Write-Log "#$($it.n) $($it.name) DEFER $m"
+        Write-Note "warning" "Wikidata door #$($it.n) deferred by filter" $m
+      } else {
+        $failed += "#$($it.n) $($it.name): $m"
+        Write-Log "#$($it.n) $($it.name) FAIL $m"
+        Write-Note "warning" "Wikidata door #$($it.n) $($it.name)" $m
+        try { if (-not $qid) { $d = [uri]::EscapeDataString($m.Substring(0, [Math]::Min(200, $m.Length))); Send-Record $it.n "action=error&detail=$d" | Out-Null } } catch {}
+      }
     }
     Start-Sleep -Seconds 3
   }
@@ -146,7 +157,8 @@ try {
     return
   }
   if ($failed.Count) { "wikidata-skipped: $($failed -join ' · ')" }
-  if (-not $summary.Count) { Write-Log "idle: nothing pending"; "RESULT: PASS"; "wikidata: nothing pending"; return }
+  if ($deferred.Count) { "wikidata-deferred: $($deferred -join ' · ') (Wikidata is pacing new-editor item creation)" }
+  if (-not $summary.Count) { Write-Log "idle: nothing to do"; "RESULT: PASS"; "wikidata: $(if ($deferred.Count) { 'deferred, retry tomorrow' } else { 'nothing pending' })"; return }
   "RESULT: PASS"; "wikidata: $($summary -join ' · ')"
 } catch {
   $msg = $_.Exception.Message
