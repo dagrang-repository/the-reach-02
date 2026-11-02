@@ -470,7 +470,25 @@ async function discover(page, n) {
       note(`3 ${p.split(id).join("{id}")}`, JSON.stringify({ at: mask(page.url()), title: v.title, buttons: v.buttons.filter((b) => !/^(Browse|Integrate|1)$/.test(b)).slice(0, 8), links: links.map(([t, h]) => `${t}=${mask(h)}`) }));
     } catch (e) { note(`3 ${p}`, "error " + String(e.message).slice(0, 80)); }
   }
-  await hub("/v1/peerpush/record", "POST", { n, status: d.status === "claimed" ? "claimed" : "created", detail: "claimed - free plan not reached yet" });
+  // the product's own row now: still offering "Choose launch plan", or showing a queue state?
+  await page.goto(PP + "/user/products", { waitUntil: "domcontentloaded", timeout: 30000 });
+  await page.waitForTimeout(2500);
+  const row = await page.evaluate((name) => {
+    const out = []; const w = document.createTreeWalker(document.body, NodeFilter.SHOW_TEXT);
+    while (w.nextNode()) out.push(w.currentNode.textContent);
+    const text = out.join(" ").replace(/\s+/g, " ");
+    const i = text.indexOf(name);
+    const plan = [...document.querySelectorAll("a, button")].find((e) => /choose (a )?launch plan/i.test(e.innerText || ""));
+    return { around: i >= 0 ? text.slice(Math.max(0, i - 40), i + 260) : "(name not on page)", plan_href: plan ? plan.href : "" };
+  }, item.name);
+  note("4 row now", JSON.stringify({ around: row.around, plan_link: row.plan_href ? redact(row.plan_href) : "none" }));
+  if (row.plan_href) {
+    await page.goto(row.plan_href, { waitUntil: "domcontentloaded", timeout: 30000 });
+    await page.waitForTimeout(2500);
+    const t = await pageWords(page);
+    const hits = [...t.matchAll(/.{0,110}(free queue|free launch|queue|wait in line|coming soon|joined|you'?re in).{0,110}/gi)].map((m) => m[0]).slice(0, 3);
+    note("5 plan page now", JSON.stringify({ at: redact(page.url()), slug_in_url: (page.url().match(/\/p\/([^/]+)\/plans/) || [])[1] || "", free_text: hits }));
+  }
   return `status ${d.status || "?"}, slug ${slug || "-"}`;
 }
 
