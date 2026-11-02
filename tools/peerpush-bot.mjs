@@ -33,8 +33,8 @@ export async function hub(path, method = "GET", body = null) {
 }
 
 /** A URL fit for a report: no query string, and any token-like path segment masked (claim links are private). */
-export function redact(u) {
-  try { const x = new URL(u); return x.origin + x.pathname.replace(/[A-Za-z0-9_-]{16,}/g, "***"); } catch { return "?"; }
+export function redact(u, base = PP) {
+  try { const x = new URL(u, base); return x.origin + x.pathname.replace(/[A-Za-z0-9_-]{16,}/g, "***"); } catch { return "?"; }
 }
 
 /** What a human would see: url, visible inputs/buttons, any alert text. Used when a step does not go as expected. */
@@ -264,6 +264,16 @@ async function safeClick(page, loc) {
   return text.slice(0, 40);
 }
 
+/** The page's visible words, text node by text node with spaces between (innerText glues inline neighbours). */
+async function pageWords(page) {
+  return page.evaluate(() => {
+    const out = []; const w = document.createTreeWalker(document.body, NodeFilter.SHOW_TEXT, {
+      acceptNode: (n) => (n.parentElement && !/^(SCRIPT|STYLE|NOSCRIPT)$/.test(n.parentElement.tagName) ? 1 : 3) });
+    while (w.nextNode()) out.push(w.currentNode.textContent);
+    return out.join(" ").replace(/\s+/g, " ").slice(0, 6000);
+  });
+}
+
 const DONE = /in (the )?(publishing )?queue|coming soon|scheduled|submitted|thank you|you'?re all set|is (now )?live|launched|waiting (in line|to be published)/i;
 
 /* What a free PLAN choice reads like - "Launch for free", "Free launch", "Free plan", "Join the free queue", "$0" -
@@ -299,10 +309,59 @@ export async function claimListing(page, item, trail) {
     trail.push(["clicked", await safeClick(page, claimBtn)]);
     trail.push(["after claim", { ...(await seen(page)), path: redact(page.url().split(item.product_id || "\u0000").join("{id}")) }]);
   }
+  return planLoop(page, item, trail);
+}
 
+/** A claimed listing whose plan is not chosen yet: its "Choose launch plan" on /user/products, then the free plan.
+ *  If PeerPush already shows it waiting (coming soon / in the queue), that is recorded instead - nothing re-chosen. */
+export async function finishListing(page, item, trail) {
+  await page.goto(PP + "/user/products", { waitUntil: "domcontentloaded", timeout: 45000 });
+  await page.waitForTimeout(2500);
+  const row = await page.evaluate((name) => {
+    document.querySelectorAll("[data-reach-plan]").forEach((e) => e.removeAttribute("data-reach-plan"));
+    const isPlan = (e) => /choose (a )?launch plan|choose (a )?plan|^\s*launch\s*$/i.test((e.innerText || "").trim());
+    const pick = [...document.querySelectorAll("a, button")].filter(isPlan);
+    const chrome = "nav, header, footer, [role=navigation], [role=banner], [role=contentinfo]";
+    // this product's own ROW: from the element showing its name, climb to the first ancestor that is one item of a
+    // repeated list (siblings with the same tag and class). A lone product (no list) uses the block around its name
+    // that holds at most one plan link. Only what is INSIDE that row is ever read or pressed.
+    const sig = (e) => e.tagName + "." + (typeof e.className === "string" ? e.className : "");
+    const rowOf = (leaf) => {
+      for (let el = leaf; el && el.parentElement && el !== document.body; el = el.parentElement) {
+        if ([...el.parentElement.children].filter((c) => sig(c) === sig(el)).length >= 2) return el;
+      }
+      let el = leaf;
+      while (el.parentElement && el.parentElement !== document.body && (el.parentElement.innerText || "").length < 1500
+        && [...el.parentElement.querySelectorAll("a, button")].filter(isPlan).length <= 1) el = el.parentElement;
+      return el;
+    };
+    const leaves = [...document.querySelectorAll("body *")].filter((el) => !el.closest(chrome)
+      && [...el.childNodes].some((n) => n.nodeType === 3 && (n.textContent || "").includes(name)));
+    // text node by node, space-separated: innerText glues inline neighbours ("Coming soon"+"Actions" = "Coming soonActions")
+    const words = (el) => { const out = []; const w = document.createTreeWalker(el, NodeFilter.SHOW_TEXT); while (w.nextNode()) out.push(w.currentNode.textContent); return out.join(" ").replace(/\s+/g, " "); };
+    let mine = null, state = "";
+    for (const leaf of leaves) {
+      const row = rowOf(leaf);
+      const plan = [...row.querySelectorAll("a, button")].find(isPlan);
+      const m = words(row).match(/\bcoming soon\b|\bin (the )?queue\b|\bscheduled\b|\bwaiting\b|\bpublished\b|\blive\b/i);
+      if (plan) { mine = plan; break; }
+      if (m && !state) state = m[0];
+    }
+    if (mine) mine.setAttribute("data-reach-plan", "1");
+    return { found: !!mine, many: pick.length, state };
+  }, item.name);
+  trail.push(["products page", { ...(await seen(page)), plan_links: row.many, state: row.state }]);
+  if (!row.found) return { reached: row.state && !/live|published/i.test(row.state) ? "submitted" : "claimed", free: false, note: row.state || "no launch-plan link for it" };
+  trail.push(["choose plan", await safeClick(page, page.locator('[data-reach-plan="1"]').first())]);
+  trail.push(["plan page", { ...(await seen(page)), path: redact(page.url().split(item.product_id || "\u0000").join("{id}")) }]);
+  return planLoop(page, item, trail);
+}
+
+/** Confirm details and take the FREE plan, never anything that costs money. Only a queue screen counts as done. */
+async function planLoop(page, item, trail) {
   let free = false, last = "";
   for (let step = 0; step < 7; step++) {
-    const body = await page.evaluate(() => document.body.innerText.slice(0, 4000));
+    const body = await pageWords(page);
     if (free && DONE.test(body)) return { reached: "submitted", free };
     // the free plan, when it is on screen and not chosen yet - a plan option, never a menu link ("Free Tools")
     if (!free) {
@@ -322,7 +381,7 @@ export async function claimListing(page, item, trail) {
     if (now === last) { trail.push(["stuck", await seen(page)]); break; }   // the same screen twice: a field needs attention
     last = now;
   }
-  const body = await page.evaluate(() => document.body.innerText.slice(0, 4000));
+  const body = await pageWords(page);
   trail.push(["end", { ...(await seen(page)), path: redact(page.url().split(item.product_id || "\u0000").join("{id}")) }]);
   return { reached: free && DONE.test(body) ? "submitted" : "claimed", free };
 }
@@ -356,7 +415,8 @@ async function listing(page, { only = 0 } = {}) {
         note(`3 #${item.n} created`, `product ${c.id}, tagline "${item.tagline}", logo ${redact(c.logoUrl)}`);
       }
       if (item.phase === "claim") {
-        const r = await claimListing(page, item, trail);
+        // a link already used to claim no longer opens: a claimed listing is finished from /user/products
+        const r = item.status === "claimed" ? await finishListing(page, item, trail) : await claimListing(page, item, trail);
         await hub("/v1/peerpush/record", "POST", { n: item.n, status: r.reached,
           detail: r.reached === "submitted" ? "free plan chosen, in the queue" : "claimed - free plan not reached yet" });
         for (const [k, v] of trail.slice(-7)) note(`4 #${item.n} ${k}`, typeof v === "string" ? v : JSON.stringify(v));
@@ -403,7 +463,7 @@ async function discover(page, n) {
       await page.goto(PP + p, { waitUntil: "domcontentloaded", timeout: 30000 });
       await page.waitForTimeout(2000);
       const links = await page.evaluate(([idv, slugv]) => [...document.querySelectorAll("a[href]")]
-        .map((a) => [(a.innerText || "").trim().replace(/\s+/g, " ").slice(0, 28), a.getAttribute("href")])
+        .map((a) => [(a.innerText || "").trim().replace(/\s+/g, " ").slice(0, 28), a.href])
         .filter(([t, h]) => h && (h.includes(idv) || (slugv && h.includes(slugv)) || /edit|launch|plan|claim|submit|dashboard|my-?products/i.test(h + " " + t)))
         .slice(0, 10), [id, slug]);
       const v = await seen(page);
