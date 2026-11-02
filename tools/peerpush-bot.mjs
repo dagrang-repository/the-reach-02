@@ -358,21 +358,35 @@ export async function finishListing(page, item, trail) {
   return planLoop(page, item, trail);
 }
 
-/** A confirmation the free choice opened (a dialog), and its confirm button - never one that costs money. */
-async function dialogConfirm(page) {
+/** Before the free click: tag every control visible on the page, so what the click opens can be told apart. */
+async function tagControls(page) {
+  await page.evaluate(() => {
+    const vis = (el) => { const r = el.getBoundingClientRect(); return r.width > 0 && r.height > 0; };
+    document.querySelectorAll("[data-reach-pre]").forEach((e) => e.removeAttribute("data-reach-pre"));
+    // only what is VISIBLE now: a pop-up can sit hidden in the page before the click
+    document.querySelectorAll("button, a, [role=button], input[type=submit]").forEach((e) => { if (vis(e)) e.setAttribute("data-reach-pre", "1"); });
+  });
+}
+
+/** What the free click opened - a dialog, or an upsell pop-up such as PeerPush's "40% OFF ... Launch now for $23.40 ...
+ *  Wait ~97 days in queue" - and its FREE way through: only controls that were not on the page before the click,
+ *  reading like "Wait ... in queue", "No thanks", "Continue with free", "Join the queue", "Confirm"; never a price,
+ *  "Launch now", pay, checkout, promotion, cancel or close. */
+async function queueConfirm(page) {
   const found = await page.evaluate(() => {
     document.querySelectorAll("[data-reach-ok]").forEach((e) => e.removeAttribute("data-reach-ok"));
     const vis = (el) => { const r = el.getBoundingClientRect(); return r.width > 0 && r.height > 0; };
-    const boxes = [...document.querySelectorAll('[role="dialog"], [role="alertdialog"], dialog[open], [aria-modal="true"]')].filter(vis);
-    for (const box of boxes) {
-      for (const b of box.querySelectorAll("button, [role=button], input[type=submit]")) {
-        const t = (b.innerText || b.value || "").trim().replace(/\s+/g, " ");
-        if (!vis(b) || !t || /[$€£]\s?[1-9]|pay|checkout|upgrade|promot|featured|launch now|cancel|close|back/i.test(t)) continue;
-        if (/^(join( the)?( free)?( launch)? queue|confirm|yes|continue|submit|ok|join|launch for free|use free|free)\b/i.test(t)) {
-          b.setAttribute("data-reach-ok", "1");
-          return { text: t, dialog: (box.innerText || "").replace(/\s+/g, " ").slice(0, 200) };
-        }
-      }
+    const inChrome = (el) => !!el.closest("nav, header, footer, [role=navigation], [role=banner], [role=contentinfo]");
+    const free = /^\s*(wait\b[^$€£]{0,40}\bqueue\b|no,? thanks\b[^$€£]{0,40}|continue (with|on) (the )?free\b|stay (on|with) (the )?free\b|keep (the )?free\b|(join|enter) (the )?(free )?(launch )?queue\b|use (the )?free\b|confirm\b|yes,? join\b)/i;
+    const money = /[$€£]\s?[1-9]|\bpay\b|checkout|upgrade|promot|featured|launch now|\bcancel\b|\bclose\b|\bback\b/i;
+    for (const e of document.querySelectorAll("button, a, [role=button], input[type=submit]")) {
+      if (e.hasAttribute("data-reach-pre") || !vis(e) || inChrome(e)) continue;
+      const t = (e.innerText || e.value || e.getAttribute("aria-label") || "").trim().replace(/\s+/g, " ");
+      if (!t || t.length > 70 || money.test(t) || !free.test(t)) continue;
+      e.setAttribute("data-reach-ok", "1");
+      const box = e.closest("[role=dialog], [aria-modal], dialog") || e.parentElement?.parentElement || e.parentElement;
+      const words = []; const w = document.createTreeWalker(box, NodeFilter.SHOW_TEXT); while (w.nextNode()) words.push(w.currentNode.textContent);
+      return { text: t, dialog: words.join(" ").replace(/\s+/g, " ").slice(0, 220) };
     }
     return null;
   });
@@ -395,10 +409,12 @@ async function planLoop(page, item, trail) {
     if (!free) {
       const option = await freePlanOption(page);
       if (option) {
+        await page.waitForLoadState("networkidle", { timeout: 15000 }).catch(() => null);   // buttons wired first
+        await tagControls(page);
         trail.push(["free plan", await safeClick(page, option)]);
-        const dlg = await dialogConfirm(page);
-        trail.push(["after free", { ...(await seen(page)), dialog: dlg ? dlg.dialog : "" }]);
-        if (dlg) trail.push(["confirmed", await safeClick(page, dlg.loc)]);
+        const dlg = await queueConfirm(page);
+        trail.push(["after free", { ...(await seen(page)), opened: dlg ? dlg.dialog : "" }]);
+        if (dlg) { trail.push(["free way through", await safeClick(page, dlg.loc)]); await page.waitForTimeout(2500); }
         free = true;
         break;
       }
