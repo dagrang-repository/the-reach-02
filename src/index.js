@@ -27,6 +27,7 @@ import { healthReport } from "./health.js";
 import { a2a } from "./a2a.js";
 import { safeUrl } from "./seo.js";
 import { handleEmail, handleInbox } from "./inbox.js";
+import { handlePeerPush } from "./peerpush.js";
 import { decorate, doorDateOf, doorHtmlOf, doorJsonOf, doorMarkdownOf, etagOf, homeMarkdownOf, hubSurfaces, isNoindex, loadA, preflight, tagged } from "./surfaces.js";
 
 const { atomXml, feedXml, jsonLdHill } = announce;
@@ -276,6 +277,8 @@ async function route(request, env, url, path) {
   if (wb) return wb;
   const ib = await handleInbox(path, request, url, env);
   if (ib) return ib;
+  const pp = await handlePeerPush(path, request, url, env);
+  if (pp) return pp;
 
   if (path === "/v1/doors" && method === "POST") {
     return json(await refreshSweeps(env, slots, base));

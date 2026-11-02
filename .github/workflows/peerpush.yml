@@ -8,9 +8,13 @@ on:
   workflow_dispatch:
     inputs:
       mode:
-        description: "signup | signin"
+        description: "signup | signin | list"
         required: true
-        default: "signin"
+        default: "list"
+      door:
+        description: "list only this door number (0 = the daily queue)"
+        required: false
+        default: "0"
 permissions:
   contents: read
 concurrency:
@@ -37,6 +41,8 @@ jobs:
         env:
           REACH_ADMIN_TOKEN: ${{ secrets.REACH_ADMIN_TOKEN }}
           MODE: ${{ inputs.mode }}
+          PEERPUSH_DOOR: ${{ inputs.door }}
         run: |
-          case "$MODE" in signup|signin) ;; *) echo "::error::mode must be signup or signin"; exit 1;; esac
+          case "$MODE" in signup|signin|list) ;; *) echo "::error::mode must be signup, signin or list"; exit 1;; esac
+          case "$PEERPUSH_DOOR" in ''|*[!0-9]*) echo "::error::door must be a number"; exit 1;; esac
           node peerpush-bot.mjs "$MODE"
