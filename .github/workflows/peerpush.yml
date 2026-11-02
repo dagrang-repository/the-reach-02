@@ -1,0 +1,42 @@
+# Reach 02 - PeerPush bot, hands-free, on GitHub's machines (no PC). Account peerpush@aplusz.app; its sign-in codes
+# reach the Worker through Cloudflare Email Routing (src/inbox.js). Manual for now (workflow_dispatch):
+#   signup - create the bot account and prove the code loop   |   signin - sign in and prove the session
+# The daily listing schedule is added once the account and the listing step are proven.
+# Needs the repository secret REACH_ADMIN_TOKEN (already set for the daily job).
+name: PeerPush
+on:
+  workflow_dispatch:
+    inputs:
+      mode:
+        description: "signup | signin"
+        required: true
+        default: "signin"
+permissions:
+  contents: read
+concurrency:
+  group: peerpush
+  cancel-in-progress: false
+jobs:
+  bot:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Install a browser (outside the repo, so package-lock stays untouched)
+        run: |
+          mkdir -p "$RUNNER_TEMP/pw" && cd "$RUNNER_TEMP/pw"
+          npm init -y >/dev/null
+          npm i --no-audit --no-fund playwright@1.55.0 >/dev/null
+          npx playwright install --with-deps chromium >/dev/null
+          cp "$GITHUB_WORKSPACE/tools/peerpush-bot.mjs" .
+      - name: PeerPush ${{ inputs.mode }}
+        working-directory: ${{ runner.temp }}/pw
+        env:
+          REACH_ADMIN_TOKEN: ${{ secrets.REACH_ADMIN_TOKEN }}
+          MODE: ${{ inputs.mode }}
+        run: |
+          case "$MODE" in signup|signin) ;; *) echo "::error::mode must be signup or signin"; exit 1;; esac
+          node peerpush-bot.mjs "$MODE"
