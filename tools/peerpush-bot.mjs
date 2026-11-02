@@ -341,7 +341,7 @@ async function rowState(page, name) {
     if (plan) plan.setAttribute("data-reach-plan", "1");
     const text = words(row).slice(0, 300);
     const ready = /\bready to launch\b/i.test(text);
-    const m = text.match(/\bcoming soon\b|\bin (the )?(free )?queue\b|\bqueued\b|\bscheduled\b|\bwaiting\b|\bpublished\b|\blive\b|\blaunch(es|ing) (on|in)\b/i);
+    const m = text.match(/\bin (the )?(free |launch |publishing )?queue\b|\bcoming soon\b|\bqueued\b|\bscheduled\b|\bwaiting\b|\bpublished\b|\blive\b|\blaunch(es|ing) (on|in)\b/i);
     return { listed: true, plan: !!plan, ready, state: m ? m[0] : "", text };
   }, name);
 }
@@ -451,13 +451,13 @@ async function listing(page, { only = 0 } = {}) {
   const { key, made } = await ensureKey(page);
   note("2 key", made ? "made a new API key for the bot and kept it (sealed) on the hub" : "kept API key still valid");
   const q = await hub(`/v1/peerpush/queue?limit=3${only ? `&n=${only}` : ""}`);
-  const done = [];
+  const done = [], failed = [];
   for (const item of q.items) {
     const trail = [];
     try {
       if (item.phase === "create") {
         const c = await createListing(key, item);
-        if (!c.ok) { await hub("/v1/peerpush/record", "POST", { n: item.n, status: "error", detail: c.detail }); done.push(`#${item.n} ${c.detail}`); continue; }
+        if (!c.ok) { await hub("/v1/peerpush/record", "POST", { n: item.n, status: "error", detail: c.detail }); done.push(`#${item.n} ${c.detail}`); failed.push(`#${item.n} not created`); continue; }
         await hub("/v1/peerpush/record", "POST", { n: item.n, status: "created", product_id: c.id, claim_url: c.claimUrl, detail: `logo ${redact(c.logoUrl)}` });
         Object.assign(item, { phase: "claim", product_id: c.id, claim_url: c.claimUrl });
         note(`3 #${item.n} created`, `product ${c.id}, tagline "${item.tagline}", logo ${redact(c.logoUrl)}`);
@@ -479,6 +479,7 @@ async function listing(page, { only = 0 } = {}) {
             : `claimed, not queued yet - row shows: ${r.note || "?"}`.slice(0, 280) });
         for (const [k, v] of trail.slice(-7)) note(`4 #${item.n} ${k}`, typeof v === "string" ? v : JSON.stringify(v));
         done.push(`#${item.n} ${r.reached === "submitted" ? "in the free queue (verified on /user/products)" : "claimed, NOT queued - " + (r.note || "?")}`);
+        if (r.reached !== "submitted") failed.push(`#${item.n} not queued`);
         if (r.reached === "submitted") item.phase = "watch";
         else continue;
       }
@@ -500,7 +501,9 @@ async function listing(page, { only = 0 } = {}) {
       throw new Error(`#${item.n}: ${e.message || e}`);
     }
   }
-  return done.length ? done.join(" · ") : "nothing to do today";
+  const said = done.length ? done.join(" · ") : "nothing to do today";
+  if (failed.length) throw new Error(`${failed.join(", ")} - ${said}`);
+  return said;
 }
 
 /** Read-only: where does PeerPush keep a claimed product, and which links lead to its editor / launch flow?
