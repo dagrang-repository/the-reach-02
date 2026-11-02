@@ -551,6 +551,18 @@ async function discover(page, n) {
     note("5 free choice", JSON.stringify({ free: before.free, form: before.form, html: before.free_html }));
     note("6 free card", before.card);
     note("7 controls before", before.controls.join(" | ").slice(0, 900));
+    // let the page finish wiring its buttons (a Next.js page is inert until it hydrates)
+    await page.waitForLoadState("networkidle", { timeout: 20000 }).catch(() => null);
+    await page.waitForTimeout(3000);
+    const wired = await page.evaluate(() => {
+      const b = [...document.querySelectorAll("button")].find((e) => /^\s*join the free queue\s*$/i.test(e.innerText || ""));
+      if (!b) return { found: false };
+      const pk = Object.keys(b).find((k) => k.startsWith("__reactProps"));
+      const props = pk ? Object.keys(b[pk] || {}) : [];
+      return { found: true, react: !!pk, handlers: props.filter((p) => /^on[A-Z]/.test(p)), disabled: b.disabled,
+        nextReady: !!(window.next && window.next.router) || !!document.querySelector("#__next, [data-nextjs-scroll-focus-boundary]") };
+    });
+    note("7 button wiring", JSON.stringify(wired));
     const opt = page.getByRole("button", { name: /^\s*join the free queue\s*$/i }).first();
     if (await opt.count()) {
       // what the click does: every fetch/XHR it sends with PeerPush's reply, console errors, and any toast or
@@ -568,9 +580,11 @@ async function discover(page, n) {
       await page.evaluate(() => {
         window.__reachToasts = [];
         new MutationObserver((ms) => { for (const m of ms) for (const n of m.addedNodes) {
+          if (n.nodeType !== 1) continue;
           const t = (n.innerText || n.textContent || "").trim().replace(/\s+/g, " ");
-          if (t && t.length < 300 && (n.nodeType === 1) && (n.matches?.("[role=status], [role=alert], [aria-live], [data-sonner-toast], [class*=toast], [role=dialog]") || n.querySelector?.("[role=status], [role=alert], [data-sonner-toast], [role=dialog]"))) window.__reachToasts.push(t);
+          if (t && t.length < 400) window.__reachToasts.push(`<${n.tagName.toLowerCase()}${n.getAttribute("role") ? " role=" + n.getAttribute("role") : ""}> ${t}`);
         } }).observe(document.body, { childList: true, subtree: true });
+        const push = history.pushState; history.pushState = function (...a) { window.__reachToasts.push("pushState " + String(a[2] || "")); return push.apply(this, a); };
       });
       await opt.click({ timeout: 10000 }).catch((e) => cons.push("click failed: " + e.message.slice(0, 100)));
       await page.waitForTimeout(6000);
