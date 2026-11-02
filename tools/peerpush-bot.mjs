@@ -140,29 +140,61 @@ export async function pp(path, key, { method = "GET", body = null, idem = "" } =
 
 /** The bot's own API key: the one kept (sealed) on the hub if PeerPush still accepts it, else a new one made on
  *  /user/api-keys in the signed-in session and handed to the hub. Never printed. */
+/* Every pp_live_ string on the page (text, inputs, code blocks, data attributes). A masked preview
+ * ("pp_live_ab12...2509") is collected too - it simply fails the API check below and is never kept. */
+async function keysOnPage(page) {
+  return page.evaluate(() => {
+    const re = /pp_live_[A-Za-z0-9_-]{8,}/g;
+    const texts = [document.body.innerText, ...[...document.querySelectorAll("input, textarea, code, pre, [data-key], [data-value]")]
+      .map((e) => e.value || e.textContent || e.getAttribute("data-key") || e.getAttribute("data-value") || "")];
+    return [...new Set(texts.flatMap((t) => String(t || "").match(re) || []))];
+  });
+}
+async function clipboardText(page) {
+  try { return String(await page.evaluate(() => navigator.clipboard.readText())).trim(); } catch { return ""; }
+}
+/** A key counts only when the PeerPush API itself accepts it. */
+async function firstWorking(cands) {
+  for (const k of cands) if (/^pp_live_[A-Za-z0-9_-]{8,}$/.test(k || "") && (await pp("/categories", k)).status === 200) return k;
+  return "";
+}
+/** Read a full key: what is on screen, then each Reveal, then each Copy (clipboard). Never Revoke. */
+async function readKey(page) {
+  let key = await firstWorking(await keysOnPage(page));
+  for (const label of [/^\s*reveal\b/i, /^\s*copy\b/i]) {
+    if (key) break;
+    const buttons = page.getByRole("button", { name: label });
+    for (let i = 0; i < Math.min(await buttons.count(), 6) && !key; i++) {
+      await buttons.nth(i).click({ timeout: 10000 }).catch(() => null);
+      await page.waitForTimeout(900);
+      key = await firstWorking([...(await keysOnPage(page)), await clipboardText(page)]);
+    }
+  }
+  return key;
+}
+
+/** The bot's own API key: the one kept (sealed) on the hub if PeerPush still accepts it; else one already on the
+ *  account if it can be read in full; else a new one. Handed to the hub; never printed. */
 export async function ensureKey(page) {
   const kept = (await hub("/v1/peerpush/key")).key;
   if (kept && (await pp("/categories", kept)).status === 200) return { key: kept, made: false };
+  await page.context().grantPermissions(["clipboard-read", "clipboard-write"], { origin: new URL(PP).origin }).catch(() => null);
   await page.goto(PP + "/user/api-keys", { waitUntil: "domcontentloaded", timeout: 45000 });
   await page.waitForTimeout(2500);
-  const name = page.locator('input[placeholder*="server" i], input[name*="name" i], input[type="text"]:not([placeholder*="Search" i])').first();
-  await name.waitFor({ state: "visible", timeout: 20000 });
-  await name.fill("Reach 02 bot");
-  await page.getByRole("button", { name: /create key|create|generate/i }).first().click();
-  let key = "";
-  for (let i = 0; i < 20 && !key; i++) {
-    await page.waitForTimeout(750);
-    key = await page.evaluate(() => {
-      const re = /pp_live_[A-Za-z0-9_-]{8,}/;
-      const vals = [...document.querySelectorAll("input, textarea, code, pre, [data-key]")].map((e) => e.value || e.textContent || e.getAttribute("data-key") || "");
-      for (const v of [document.body.innerText, ...vals]) { const m = re.exec(v || ""); if (m) return m[0]; }
-      return "";
-    });
+  let key = await readKey(page);                       // a key made on an earlier run, if PeerPush still shows it
+  let made = false;
+  if (!key) {
+    const name = page.locator('input[placeholder*="server" i], input[name*="name" i], input[type="text"]:not([placeholder*="Search" i])').first();
+    await name.waitFor({ state: "visible", timeout: 20000 });
+    await name.fill("Reach 02 bot");
+    await page.getByRole("button", { name: /^\s*(create key|create|generate)\b/i }).first().click();
+    await page.waitForTimeout(2500);
+    key = await readKey(page);
+    made = true;
   }
-  if (!key) throw new Error("API key page: no new key shown after Create - saw " + JSON.stringify(await seen(page)));
-  if ((await pp("/categories", key)).status !== 200) throw new Error("the new API key is not accepted by the PeerPush API");
+  if (!key) throw new Error("API key page: no full key readable (on screen, Reveal or Copy) - saw " + JSON.stringify(await seen(page)));
   await hub("/v1/peerpush/key", "POST", { key });
-  return { key, made: true };
+  return { key, made };
 }
 
 async function isImage(url) {
