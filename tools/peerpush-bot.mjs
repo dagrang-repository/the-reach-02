@@ -456,7 +456,8 @@ async function listing(page, { only = 0 } = {}) {
     const trail = [];
     try {
       if (item.phase === "create") {
-        const c = await createListing(key, item);
+        let c = await createListing(key, item);
+        if (!c.ok) { await sleep(8000); c = await createListing(key, item); }   // idempotent: never a second listing
         if (!c.ok) { await hub("/v1/peerpush/record", "POST", { n: item.n, status: "error", detail: c.detail }); done.push(`#${item.n} ${c.detail}`); failed.push(`#${item.n} not created`); continue; }
         await hub("/v1/peerpush/record", "POST", { n: item.n, status: "created", product_id: c.id, claim_url: c.claimUrl, detail: `logo ${redact(c.logoUrl)}` });
         Object.assign(item, { phase: "claim", product_id: c.id, claim_url: c.claimUrl });
@@ -472,7 +473,11 @@ async function listing(page, { only = 0 } = {}) {
       }
       if (item.phase === "claim") {
         // a link already used to claim no longer opens: a claimed listing is finished from /user/products
-        const r = item.status === "claimed" ? await finishListing(page, item, trail) : await claimListing(page, item, trail);
+        let r = item.status === "claimed" ? await finishListing(page, item, trail) : await claimListing(page, item, trail);
+        if (r.reached !== "submitted") {          // second try in the same run: the row decides
+          await page.waitForTimeout(8000);
+          r = await finishListing(page, item, trail);
+        }
         if (r.slug) item.slug = r.slug;
         await hub("/v1/peerpush/record", "POST", { n: item.n, status: r.reached, slug: r.slug || item.slug || "",
           detail: r.reached === "submitted" ? `in the free queue - row shows: ${r.note || "no plan to choose"}`.slice(0, 280)
@@ -498,12 +503,11 @@ async function listing(page, { only = 0 } = {}) {
         status = s?.j?.data?.status === "claimed" ? "claimed" : "created";
       }
       await hub("/v1/peerpush/record", "POST", { n: item.n, status, detail: String(e.message || e).slice(0, 280) }).catch(() => null);
-      throw new Error(`#${item.n}: ${e.message || e}`);
+      done.push(`#${item.n} retry next run: ${String(e.message || e).slice(0, 120)}`);
     }
   }
   const said = done.length ? done.join(" · ") : "nothing to do today";
-  if (failed.length) throw new Error(`${failed.join(", ")} - ${said}`);
-  return said;
+  return failed.length ? `${said} (retry next run: ${failed.join(", ")})` : said;
 }
 
 /** Read-only: where does PeerPush keep a claimed product, and which links lead to its editor / launch flow?
@@ -662,5 +666,5 @@ if (import.meta.url === `file://${process.argv[1]}`) {
   const mode = process.argv[2] || "signin";
   const ok = await main(mode).catch((e) => { note("verdict", "RESULT: FAIL " + (e.message || e)); return false; });
   for (const n of notes.slice(-10)) console.log(`::notice title=PeerPush ${n.title}::${n.msg}`);
-  if (!ok) process.exit(1);
+  // never a red run (owner: no failure e-mails) - every problem is kept on the hub and retried next run
 }

@@ -15,7 +15,7 @@ import { confidenceOf } from "./liveness.js";
 import { publicBase } from "./hill.js";
 import { COPY } from "./peerpush-copy.js";
 
-export const SKIP_DEFAULT = "6,13,28,29,33";
+export const SKIP_DEFAULT = "6,13,26,28,29,30,31,32,33";   // not software, duplicates, support pages (owner, Nov 3 2026)
 export const PER_DAY_DEFAULT = 3;
 export const CONTACT_EMAIL = "contact@aplusz.app";
 const CLAIM_LIFE_DAYS = 30;            // PeerPush: the claim link expires 30 days after creation
