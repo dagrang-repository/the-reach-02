@@ -4,10 +4,18 @@ import { applyFullStack, ensureAnswerChannel } from "./stack.js";
 import { rebuildReachMap } from "./map.js";
 import { pingAllSites } from "./ping.js";
 import { deliverTarget, LIVE_TYPES } from "./deliver.js";
-import { announceReachFeed, pingReachMesh, reachAnnounceUrls } from "./announce.js";
+import { announceReachFeed, pingReachMesh, reachAnnounceItems } from "./mesh.js";
 import { numberedSites } from "./hill.js";
 import { ensureOutreachTables, recordChange } from "./outreach.js";
 import { nowIso, uid } from "./util.js";
+
+/** What the schedule really does (wrangler.jsonc triggers.crons). Keep these strings true; /v1/status serves them. */
+export const CRONS = ["0 * * * *", "0 */6 * * *"];
+export const CRON_TRUTH = {
+  hourly: "0 * * * * UTC: re-capture the 3 stalest doors, refresh the briefing of ONE rotated site (oldest ping cursor first) and ping that site's changed URLs to the 7 IndexNow endpoints, rebuild the map, ping the hub mesh (hub-host URLs only), deliver up to BATCH_SIZE targets, one Wikidata and one Wayback tick",
+  six_hourly: "0 */6 * * * UTC: rebuild the atlas from every door's own llms.txt",
+  rotation: "one site per hour; with N doors a site is pinged about every N hours, and only URLs whose body hash changed",
+};
 
 export async function runCycle(env, trigger = "cron") {
   const runId = uid("run");
@@ -44,19 +52,30 @@ export async function runCycle(env, trigger = "cron") {
        ORDER BY c.last_pinged_at IS NULL DESC, c.last_pinged_at ASC
        LIMIT 1`
     );
+    /* the rotated site's briefing refresh is its own failure domain: an origin that answers 404 (or nothing) this
+       hour is recorded and the cursor moves past it, so the map, the mesh ping and the deliveries below still run
+       and the next hour rotates to the next site instead of the same one again */
+    let rotateError = "";
     if (due) {
-      const out = await refreshBriefing(env, due, false);
-      if (out.refreshed || !(await one(env, "SELECT site_id FROM packs WHERE site_id = ?", due.id))) {
-        await applyFullStack(env, due, out.briefing, out.intel);
+      try {
+        const out = await refreshBriefing(env, due, false);
+        if (out.refreshed || !(await one(env, "SELECT site_id FROM packs WHERE site_id = ?", due.id))) {
+          await applyFullStack(env, due, out.briefing, out.intel);
+        }
+        await materializeTargets(env, due.id);
+      } catch (err) {
+        rotateError = String(err?.message || err).slice(0, 300);
+        await recordChange(env, { kind: "rotate", detail: `${due.name}: briefing skipped - ${rotateError}` }).catch(() => null);
       }
-      await materializeTargets(env, due.id);
     }
 
     map = await rebuildReachMap(env);
     await recordChange(env, { kind: "map", detail: `${map.sites} sites` });
     const slots = await numberedSites(env, all);
-    const reachPing = await pingReachMesh(env, reachAnnounceUrls(env, slots), runId);
-    if (reachPing.urls?.length) await announceReachFeed(env);
+    /* never ping over a failing sweep (playbook PART 20): pingReachMesh and announceReachFeed read the last verdict
+       posted by tools/reachability.ps1 themselves (src/sweep.js) - the one gate, inside the one function */
+    const reachPing = await pingReachMesh(env, await reachAnnounceItems(env, slots), runId);
+    if (reachPing.doors_changed) await announceReachFeed(env);
     pings = due ? await pingAllSites(env, runId, [due]) : { ok: true, stats: {}, report: [] };
     if (due) {
       await run(
@@ -100,10 +119,11 @@ export async function runCycle(env, trigger = "cron") {
       else stats.failed += 1;
     }
 
-    detail = `pings ${pings.stats.indexnow} indexnow / ${pings.stats.doors} doors · map ${map.sites} sites`;
+    const pingsSkipped = pings.report?.[0]?.skipped ? ` (site pings skipped: ${pings.report[0].reason})` : "";
+    detail = `rotated ${due ? due.name : "none"}${rotateError ? ` (briefing skipped: ${rotateError})` : ""} · pings ${pings.stats.indexnow || 0} indexnow / ${pings.stats.doors || 0} doors${pings.stats.host_mismatch ? ` / ${pings.stats.host_mismatch} host-mismatch dropped` : ""}${pingsSkipped} · map ${map.sites} sites${map.changed ? " (changed)" : " (unchanged)"}`;
     const ok = pings.ok;
     await finish(env, runId, ok, stats, detail);
-    return { ok, runId, stats, detail, pings: pings.stats, map: { sites: map.sites } };
+    return { ok, runId, stats, detail, pings: pings.stats, map: { sites: map.sites, changed: !!map.changed, updated_at: map.updated_at }, ...(rotateError ? { rotate_error: rotateError } : {}) };
   } catch (err) {
     detail = String(err.message || err).slice(0, 800);
     await finish(env, runId, false, stats, detail);
@@ -134,11 +154,15 @@ export async function status(env) {
   const lastPings = await all(env, "SELECT kind, ok, COUNT(*) AS c FROM pings GROUP BY kind, ok");
   return {
     ok: sites.length > 0,
-    cron: "0 * * * * UTC",
-    must: "outward IndexNow + door pings every cycle, every site",
+    crons: CRONS,
+    schedule: CRON_TRUTH,
+    must: "every hourly cron: one rotated site gets its briefing refreshed and its changed URLs pinged; the hub mesh is pinged every cron; nothing unchanged is re-pinged",
     sites,
     last_run: lastRun,
     ping_counts: lastPings,
     same_target_twice: false,
   };
 }
+
+/* ---------------- the sweep's verdict lives in src/sweep.js; re-exported so index.js keeps one import ---------------- */
+export { SWEEP_BODY_MAX, latestSweep, storeSweep, sweepAllowsPing } from "./sweep.js";

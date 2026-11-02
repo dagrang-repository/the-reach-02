@@ -1,12 +1,28 @@
 import { all, one, run } from "./db.js";
-import { nowIso } from "./util.js";
+import { discardBody, nowIso, readResponseCapped } from "./util.js";
+import { recentOriginChanges } from "./origin-urls.js";
 import { ensureIndexNowKey, keyFileUrl } from "./ping.js";
 import { buildKeywordPack, scanBacklinks } from "./intel.js";
-import { PLAYBOOK_PATHS, buildPlaybookFiles } from "./playbook.js";
-import { isSelfUrl, selfProbe } from "./self.js";
+import { ENDPOINT_PROBES, PLAYBOOK_PATHS, buildPlaybookFiles } from "./playbook.js";
+import { isSelfUrl, selfBase, selfProbe } from "./self.js";
+import { A2A_SPOKEN, MCP_LEGACY, MCP_MODERN } from "./surfaces.js";
+import { ensureDoorNumbers } from "./hill.js";
 
 export const ANSWER_CHANNEL_ID = "ch_answer";
-export const STACK_VERSION = 5; // v3 playbook (17 Oct 2026): 217 agent groups, SEP-2127, A2A 1.0, pick layer
+// 6: interpolation fix (no "${" in any served file), cards gated on live /mcp and /a2a probes, asker-first
+//    llms.txt, SKILL.md digest, pack self-test. Every pack is rebuilt on its next rotation.
+export const STACK_VERSION = 6;
+/** The date the current STACK_VERSION's release-derived files (openapi.json, the MCP card, agent skills) last
+ *  changed: bumped together with STACK_VERSION. map.js uses it as their sitemap <lastmod>. */
+export const STACK_RELEASED = "2026-11-02";
+
+/* ---- pack pull (CONTRACT.md, builder O2 implements; builder O1 routes /pack/{site_id}/{token}/...) ---- */
+/** The per-site pull token, or "" when the hub cannot mint one. WAVE-0 STUB. */
+export async function packToken(env, siteId) { void env; void siteId; return ""; }
+/** The pack manifest for an origin's pull, or null (unknown site / wrong token). WAVE-0 STUB. */
+export async function packManifest(env, siteId, token, meta = {}) { void env; void siteId; void token; void meta; return null; }
+/** One pack file as a Response for an origin's pull, or null. WAVE-0 STUB. */
+export async function packFileResponse(env, siteId, token, path) { void env; void siteId; void token; void path; return null; }
 
 export const SITE_FEATURES = [
   { id: "briefing", label: "Intelligence briefing" },
@@ -22,15 +38,17 @@ export const SITE_FEATURES = [
   { id: "doors", label: "Open doors (ask X, fetch Y)" },
   { id: "asker", label: "Asker-first llms.txt" },
   { id: "gaps", label: "Origin-gap file pack" },
-  { id: "pings", label: "Outward IndexNow + door pings every hour" },
-  { id: "change_only", label: "Ping only doors whose hash changed" },
+  { id: "pings", label: "Outward IndexNow + door pings: one rotated site per hourly cron, hub mesh every cron" },
+  { id: "change_only", label: "Ping only doors whose hash changed, only URLs on the key's host" },
   { id: "ua_watch", label: "GPTBot/OAI-SearchBot/Googlebot challenge watch" },
   { id: "websub", label: "WebSub publish when a feed exists" },
   { id: "catalog", label: "Public catalog.json + changes.txt + pings" },
   { id: "reach_map", label: "Reach map expands on every add" },
   { id: "agents_v3", label: "217 named agent groups + wildcard (verified 17 Oct 2026)" },
-  { id: "mcp_sep2127", label: "MCP server card at the canonical /.well-known/mcp-server-card + 2 aliases" },
-  { id: "a2a_10", label: "A2A 1.0 agent card" },
+  { id: "mcp_sep2127", label: "MCP server card at /.well-known/mcp-server-card + 2 aliases, only when /mcp answered both eras" },
+  { id: "a2a_10", label: "A2A 1.0 agent card, only when /a2a answered message/send" },
+  { id: "endpoint_gate", label: "POST probes of /mcp (initialize + server/discover) and /a2a before any card; _reach-pack/NOT-SHIPPED.md otherwise" },
+  { id: "pack_selftest", label: "No pack is written with a template string or placeholder domain in any file" },
   { id: "pick_layer", label: "seo/keywords.json + seo/structure.json (PART 21)" },
   { id: "feeds", label: "Atom + JSON Feed with a WebSub hub" },
   { id: "headers", label: "Header block, _headers / _redirects, head discovery block" },
@@ -56,22 +74,126 @@ export async function ensureAnswerChannel(env) {
   );
 }
 
+const PROBE_UA = "TheReach02/1.2 (+https://reach2.aplusz.app/)";
+const HTML_HEAD = /^\s*(?:<!doctype html|<html|<head[\s>]|<!--)/i;
+
+/** A GET probe row. A 200 that is an HTML page where a machine file was asked for is a soft 404 and is
+ *  reported closed: advertising it would point a model at a page it cannot parse. */
+/** The first `max` bytes of a body and not one more: the stream is cancelled after that, so an origin that answers
+ *  a machine path with a multi-megabyte page costs this probe the cap, not the page (util.readResponseCapped). */
+async function readHead(res, max = 2048) {
+  return new TextDecoder().decode(await readResponseCapped(res, max));
+}
+
+async function probeGet(base, path) {
+  const url = `${base}${path}`;
+  try {
+    const res = await fetch(url, { redirect: "follow", headers: { "user-agent": PROBE_UA }, signal: AbortSignal.timeout(9000) });
+    const head = res.ok ? (await readHead(res, 2048).catch(() => "")).slice(0, 1200) : "";
+    if (!res.ok) await discardBody(res);
+    const wantsMachine = /\.(json|xml|txt|md|js)$|^\/\.well-known\/|^\/llms|^\/seo\//.test(path) && !/\.(html?)$/.test(path);
+    const soft = res.ok && wantsMachine && HTML_HEAD.test(head) && !/^\/\.well-known\/(security|trust)\.txt$/.test(path);
+    return { path, url: res.url || url, status: res.status, open: res.ok && !soft, ...(soft ? { detail: "soft 200: an HTML page where a machine file was expected" } : {}) };
+  } catch {
+    return { path, url, status: 0, open: false };
+  }
+}
+
+/** POST a JSON-RPC body and read the answer, whether it came back as JSON or as one SSE `data:` frame. */
+async function rpc(url, body, headers = {}) {
+  const res = await fetch(url, {
+    method: "POST",
+    redirect: "follow",
+    headers: { "content-type": "application/json", accept: "application/json, text/event-stream", "user-agent": PROBE_UA, ...headers },
+    body: JSON.stringify(body),
+    signal: AbortSignal.timeout(9000),
+  });
+  /* the answer is read to 20 KB and no further, whatever the origin streams (a JSON-RPC reply is a few hundred bytes) */
+  const text = await readHead(res, 20000).catch(() => "");
+  let parsed = null;
+  try {
+    parsed = JSON.parse(text);
+  } catch {
+    const frame = text.split(/\r?\n/).find((l) => l.startsWith("data:"));
+    if (frame) {
+      try { parsed = JSON.parse(frame.slice(5).trim()); } catch { parsed = null; }
+    }
+  }
+  return { status: res.status, ok: res.ok, url: res.url || url, body: parsed };
+}
+
+/** /mcp: the legacy `initialize` handshake for each 2025 version, and `server/discover` with per-request
+ *  `_meta` plus the three headers (2026-07-28). The row lists ONLY the versions the endpoint echoed back. */
+export async function probeMcp(base) {
+  const url = `${base}/mcp`;
+  const legacy = [];
+  const modern = [];
+  let status = 0;
+  let finalUrl = url;
+  const detail = [];
+  for (const v of MCP_LEGACY) {
+    try {
+      const r = await rpc(url, { jsonrpc: "2.0", id: 1, method: "initialize", params: { protocolVersion: v, capabilities: {}, clientInfo: { name: "TheReach02-probe", version: "1.2" } } });
+      status = r.status || status;
+      finalUrl = r.url || finalUrl;
+      const got = r.body?.result?.protocolVersion;
+      if (r.ok && r.body?.jsonrpc === "2.0" && got === v) legacy.push(v);
+      else if (r.ok && got && !legacy.includes(got) && MCP_LEGACY.includes(got)) detail.push(`initialize ${v} -> ${got}`);
+    } catch (err) {
+      detail.push(`initialize ${v}: ${String(err?.message || err).slice(0, 60)}`);
+    }
+  }
+  try {
+    const r = await rpc(
+      url,
+      { jsonrpc: "2.0", id: 2, method: "server/discover", params: { _meta: { "io.modelcontextprotocol/protocolVersion": MCP_MODERN, protocolVersion: MCP_MODERN } } },
+      { "MCP-Protocol-Version": MCP_MODERN, "Mcp-Method": "server/discover", "Mcp-Name": "TheReach02-probe" }
+    );
+    status = r.status || status;
+    finalUrl = r.url || finalUrl;
+    const versions = r.body?.result?.supportedProtocolVersions;
+    if (r.ok && r.body?.jsonrpc === "2.0" && r.body?.result && (!Array.isArray(versions) || versions.includes(MCP_MODERN))) modern.push(MCP_MODERN);
+    else if (r.ok && r.body?.error) detail.push(`server/discover: ${String(r.body.error.message || "error").slice(0, 60)}`);
+  } catch (err) {
+    detail.push(`server/discover: ${String(err?.message || err).slice(0, 60)}`);
+  }
+  const versions = [...modern, ...legacy];
+  return { path: "/mcp", method: "POST", url: finalUrl, status, open: versions.length > 0, mcp: { versions, modern, legacy }, ...(detail.length ? { detail: detail.join("; ") } : {}) };
+}
+
+/** /a2a: a JSON-RPC message/send with `A2A-Version: 1.0`; open only when a 1.0 result came back. */
+export async function probeA2a(base) {
+  const url = `${base}/a2a`;
+  try {
+    const r = await rpc(
+      url,
+      { jsonrpc: "2.0", id: 1, method: "message/send", params: { message: { role: "user", messageId: "reach-probe", kind: "message", parts: [{ kind: "text", text: "probe" }] } } },
+      { "A2A-Version": "1.0" }
+    );
+    const spoke = r.ok && r.body?.jsonrpc === "2.0" && r.body?.result && typeof r.body.result === "object";
+    const listed = r.body?.error?.data?.supported;
+    const versions = spoke ? ["1.0"] : Array.isArray(listed) ? listed.filter((v) => A2A_SPOKEN.includes(v)) : [];
+    return { path: "/a2a", method: "POST", url: r.url || url, status: r.status, open: versions.includes("1.0"), a2a: { versions }, ...(r.body?.error ? { detail: String(r.body.error.message || "error").slice(0, 80) } : {}) };
+  } catch (err) {
+    return { path: "/a2a", method: "POST", url, status: 0, open: false, a2a: { versions: [] }, detail: String(err?.message || err).slice(0, 80) };
+  }
+}
+
 export async function probeOrigin(origin) {
   const base = origin.replace(/\/+$/, "");
-  return Promise.all(
-    MACHINE_PATHS.map(async (path) => {
-      const url = `${base}${path}`;
-      try {
-        const res = await fetch(url, {
-          redirect: "follow",
-          headers: { "user-agent": "TheReach02/1.1" },
-        });
-        return { path, url: res.url || url, status: res.status, open: res.ok };
-      } catch {
-        return { path, url, status: 0, open: false };
-      }
-    })
-  );
+  const gets = await Promise.all(MACHINE_PATHS.map((path) => probeGet(base, path)));
+  const posts = await Promise.all(ENDPOINT_PROBES.map((p) => (p === "/mcp" ? probeMcp(base) : probeA2a(base))));
+  return [...gets, ...posts];
+}
+
+/** The hub never fetches itself: its own /mcp and /a2a are what src/mcp.js and src/a2a.js speak, by the
+ *  same constants those routes export. */
+export function selfEndpointProbe(env) {
+  const base = selfBase(env);
+  return [
+    { path: "/mcp", method: "POST", url: `${base}/mcp`, status: 200, open: true, mcp: { versions: [MCP_MODERN, ...MCP_LEGACY], modern: [MCP_MODERN], legacy: [...MCP_LEGACY] } },
+    { path: "/a2a", method: "POST", url: `${base}/a2a`, status: 200, open: true, a2a: { versions: [...A2A_SPOKEN] } },
+  ];
 }
 
 export function buildDoors(name, url, intel, probe) {
@@ -99,7 +221,8 @@ export function buildDoors(name, url, intel, probe) {
 
 export function buildPingUrls(url, probe, doors) {
   const list = [url];
-  for (const p of probe.filter((x) => x.open)) list.push(p.url);
+  // GET surfaces only: a POST endpoint is not a URL an index fetches
+  for (const p of probe.filter((x) => x.open && x.method !== "POST")) list.push(p.url);
   for (const d of doors) if (d.there) list.push(d.there);
   return [...new Set(list)].slice(0, 40);
 }
@@ -123,10 +246,10 @@ Separate from robots.txt / sitemap.xml / llms.txt.
 ${doors.map((d) => `- ${d.ask} → ${d.there}`).join("\n")}
 
 ## Machine paths that answered
-${open.map((p) => `- ${p.path} → ${p.url}`).join("\n") || "- none"}
+${open.map((p) => `- ${p.method === "POST" ? "POST " : ""}${p.path} → ${p.url}${p.mcp ? ` (MCP ${p.mcp.versions.join(", ")})` : p.a2a ? ` (A2A ${p.a2a.versions.join(", ")})` : ""}`).join("\n") || "- none"}
 
-## Do not advertise (404)
-${missing.slice(0, 20).map((p) => `- ${p}`).join("\n") || "- none"}
+## Do not advertise (closed on this probe; pack-internal, never published)
+${missing.slice(0, 40).map((p) => `- ${p}`).join("\n") || "- none"}
 `;
 }
 
@@ -174,7 +297,7 @@ export async function persistStack(env, site, briefing, intel) {
   await ensureIndexNowKey(env, site);
   const origin = new URL(site.url).origin;
   const selfSite = isSelfUrl(site.url, env);
-  const probe = selfSite ? selfProbe(env) : await probeOrigin(origin);
+  const probe = selfSite ? [...selfProbe(env), ...selfEndpointProbe(env)] : await probeOrigin(origin);
   const used = intel || intelFromBriefing(briefing);
   let html = briefing?.raw_excerpt || "";
   if (!selfSite) {
@@ -198,12 +321,17 @@ export async function persistStack(env, site, briefing, intel) {
   // door number + Wikidata item for this site, so the pack's JSON-LD and footer close the loop back to the hub
   try {
     const base = String(env.REACH_PUBLIC_URL || "https://reach2.aplusz.app").replace(/\/+$/, "");
-    const ordered = await all(env, "SELECT id FROM sites WHERE active = 1 ORDER BY created_at ASC");
-    const n = ordered.findIndex((r) => r.id === site.id) + 1;
+    // the door's permanent number (door_n), never its position: a deactivation elsewhere never moves it
+    await ensureDoorNumbers(env);
+    const own = await one(env, "SELECT door_n, active FROM sites WHERE id = ?", site.id);
+    const n = own && Number(own.active) === 1 && Number(own.door_n) > 0 ? Number(own.door_n) : 0;
     const wd = await one(env, "SELECT qid FROM wikidata WHERE site_id = ?", site.id).catch(() => null);
     if (n > 0) site.__door = { n, path: `${base}/${n}`, hash: `${base}/#${n}`, qid: wd?.qid || "", hubSite: `${base}/#site`, hubOrg: `${base}/#org` };
   } catch { /* pack still builds without the loop */ }
-  const playbook = buildPlaybookFiles(site, used, probe, keywords, structure, doors, backlinks);
+  // async: the agent-skills digest is the real sha256 of SKILL.md; throws on any placeholder, so a bad pack
+  // is never persisted and the previous good one stays in the packs table
+  site.__changes = await recentOriginChanges(env, site.id, 50).catch(() => []);
+  const playbook = await buildPlaybookFiles(site, used, probe, keywords, structure, doors, backlinks);
   const files = {
     ...playbook,
     "llms.txt": playbook["llms.txt"] || buildAskerLlms(site.name, site.url, used, probe),

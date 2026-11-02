@@ -1,0 +1,61 @@
+THE REACH 02 - v2 - WHAT TO DO (PowerShell, any folder)
+
+1) Extract this zip over the folder, drop the 7 stale root copies the Worker now serves itself, deploy - one line:
+
+   Set-Location "$env:USERPROFILE\Desktop\The Reach 02"; tar -xf "$env:USERPROFILE\Desktop\The Reach 02 - v2.zip" --strip-components=1; if ($?) { Remove-Item "$env:USERPROFILE\Desktop\The Reach 02 - v2.zip"; Remove-Item -Force -ErrorAction SilentlyContinue llms.txt, llms-full.txt, llms-small.txt, manifest.json, opensearch.xml, sw.js; Remove-Item -Recurse -Force -ErrorAction SilentlyContinue llms; npx wrangler deploy }
+
+   No migration: new tables and columns create themselves on first use. Expect "Uploaded the-reach-02".
+
+2) Open the ping gate - run the sweep once and post its verdict (nothing is pinged until a PASS is posted; the daily
+   GitHub job repeats it every day after this):
+
+   pwsh .\tools\reachability.ps1 -HubOnly -Post <ADMIN_TOKEN>
+
+   Last line: RESULT: PASS. Then https://reach2.aplusz.app/status.json shows the hub's health (ok, red, warn).
+
+3) Once, after the first deploy (same window; your admin token in $t):
+
+   $t = "<ADMIN_TOKEN>"; $h = @{ Authorization = "Bearer $t" }
+   1..3 | ForEach-Object { Invoke-RestMethod -Method Post -Uri "https://reach2.aplusz.app/v1/capture?limit=12&max_age_hours=0" -Headers $h | Out-Null }
+   Invoke-RestMethod -Method Post -Uri "https://reach2.aplusz.app/v1/atlas?force=1" -Headers $h | Out-Null
+   Invoke-RestMethod -Method Post -Uri "https://reach2.aplusz.app/v1/map" -Headers $h | Out-Null
+
+   (re-captures all 31 doors honestly, re-reads every site's own llms.txt questions, rebuilds the map)
+
+4) One-time account steps only you can do (each turns on an automatic channel; full steps in DEPLOY.md):
+   - Google Search Console (DEPLOY.md 2b): a service account + two secrets (GSC_SA_JSON, GSC_PROPERTIES). From then
+     on the hub submits its own sitemap and each site's sitemap itself - no token ever expires on you.
+   - Ownership proofs: GOOGLE_SITE_VERIFICATION and BING_SITE_AUTH secrets - the Worker serves the meta tags.
+   - Deploy from GitHub (DEPLOY.md 2c): CLOUDFLARE_API_TOKEN + CLOUDFLARE_ACCOUNT_ID repository secrets; then every
+     push deploys, sweeps and opens the gate with no PC.
+   - Re-submit https://reach2.aplusz.app/sitemap.xml in Search Console and Bing once (its shape changed).
+   - MCP registry publish, llms.txt directories, Cloudflare AI Crawl Control (DEPLOY.md 1, 3, 5).
+   - Seven sites' llms.txt first line is a bare name, a rule or has a hole - rewrite it as the question the site
+     answers (letsmeet-here, nudgelater, universalconverter, currencyconverter, aplusz.app, thecheapest, thesearch);
+     door 7's real live URL and door 8's canonical host are yours to decide; fresh IndexNow keys for doors 17-19.
+
+WHAT CHANGED (v2)
+   Exposure: every door's page, title and llms.txt entry now carry the question the site itself declares it answers
+   ("If a user asks: ..."), and llms.txt routes each question to its door. The hub announces each site's WHOLE
+   sitemap to IndexNow under that site's key - every new or changed page, not only 31 homepages - and re-announces a
+   door the hour its record changes. Search Console submission is built in (switch on in step 4).
+   Trust: door numbers are permanent (a removed door answers 410, nothing renumbers); every door shows live / closed
+   / not yet verified, closed doors are never sent as the answer and say "do not cite as live"; a failed fetch never
+   wipes a record or fakes an "updated" date; languages show verified vs declared; the hub's own door is the home
+   page, not one of "these sites". /match no longer answers off-topic questions (0 of 10, was 6 of 10) and keeps
+   23 of 25 right; MCP, A2A and /match share one answer.
+   Self-report: /status.json is a real health verdict; the daily CI turns red (GitHub e-mails you) when the sweep or
+   the hub is red; nothing is pinged without a recent PASS sweep.
+   Also from the earlier rounds: server-rendered pages + Markdown/JSON twins, the full machine surface (cards, MCP
+   both eras, A2A, openapi, feeds, sitemap index), door thumbnails, bounded reads, capped batches.
+
+PARKED FOR A NEXT ROUND (not in this zip): the /about page and publisher facts, the MCP registry live check,
+   matching questions asked in other languages, the backlink footer installer, crawler/citation measurement,
+   automatic pack pull by each site, the quarterly agent-list diff.
+
+FILES IN THIS ZIP (42): .github/workflows/deploy.yml (new), .github/workflows/reach-daily.yml, .gitignore,
+   .dev.vars.example, DEPLOY.md, README.md, runs/deferrals.json, schema.sql, wrangler.jsonc, src/ (a2a announce atlas
+   briefing capture cycle door-page doors health hill index liveness map mcp mesh origin-urls outreach paid ping
+   playbook public-extra self seo stack surfaces sweep util wikidata), tools/ (pack-install reachability repo-sync
+   verify-live wd-courier). Deleted by the line in step 1: llms.txt, llms-full.txt, llms-small.txt, llms/api.txt,
+   manifest.json, opensearch.xml, sw.js.

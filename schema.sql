@@ -17,7 +17,34 @@ CREATE TABLE IF NOT EXISTS sites (
   capture_json TEXT,
   overrides_json TEXT,
   captured_at TEXT,
-  i18n_json TEXT
+  i18n_json TEXT,
+  door_n INTEGER,
+  checked_at TEXT,
+  attempt_status INTEGER,
+  failed_attempts INTEGER,
+  stale_since TEXT,
+  record_hash TEXT,
+  same_as_json TEXT,
+  links_to_hub_json TEXT
+);
+
+-- door_n is permanent and never reused: src/hill.js ensureDoorNumbers backfills it once, numbers every new row and
+-- creates the unique index idx_sites_door_n itself (here it would fail on a database whose sites table predates door_n)
+
+-- the one liveness resolver (src/liveness.js): one row per door, written by the sweep, the hourly home probe,
+-- the capture, the ping rotation and the key check; a door with no row is 'unverified'
+CREATE TABLE IF NOT EXISTS door_status (
+  site_id TEXT PRIMARY KEY,
+  status TEXT NOT NULL,
+  http_status INTEGER,
+  last_verified TEXT,
+  last_ok_at TEXT,
+  first_fail_at TEXT,
+  closed_since TEXT,
+  fails INTEGER NOT NULL DEFAULT 0,
+  source TEXT,
+  key_ok INTEGER,
+  key_verified_at TEXT
 );
 
 CREATE TABLE IF NOT EXISTS briefings (
@@ -166,4 +193,16 @@ CREATE TABLE IF NOT EXISTS door_state (
   last_ping_at TEXT,
   last_ok_at TEXT,
   last_status INTEGER
+);
+
+-- each origin's own sitemap URLs as last read by the hub (src/origin-urls.js): the IndexNow deltas for every
+-- citable page of the network, and the dated entries of each site's pack feed
+CREATE TABLE IF NOT EXISTS origin_urls (
+  site_id TEXT NOT NULL,
+  url TEXT NOT NULL,
+  lastmod TEXT,
+  seen_at TEXT,
+  pinged_lastmod TEXT,
+  pinged_at TEXT,
+  PRIMARY KEY (site_id, url)
 );

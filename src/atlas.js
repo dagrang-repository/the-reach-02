@@ -1,3 +1,4 @@
+import { gradeDescription } from "./capture.js";
 /** Atlas v2 — network knowledge base + query matcher, fed by each origin's own llms.txt.
  *  Source of truth: origin /llms.txt (+ /keywords.json, /llms-small.txt when they 200). Homepage scrape only when
  *  llms.txt is absent; thin pages (redirects, nav chrome) skip keyword extraction. The hub never fetches itself.
@@ -5,6 +6,8 @@
 import { all, one, run } from "./db.js";
 import { asArray, nowIso, parseJsonLoose } from "./util.js";
 import { isSelfUrl } from "./self.js";
+import { ensureDoorNumbers, numberedSites } from "./hill.js";
+import { repairMojibake } from "./util.js";
 
 const UA = "TheReach02-atlas/2.0";
 const STOP = new Set(("the and for with that this you your its are was were from into every any all one two not but our out about what who how where when why can get site www http https com app org net io dev " +
@@ -109,15 +112,53 @@ function stripMd(t) {
 
 function sentences(text) {
   // a line break is always a boundary (headings, bullets, machine lines never merge into prose); markdown stripped per line
-  return String(text).split(/\n+/).flatMap((line) => stripMd(line).split(/(?<=[.!?])\s+|\s+[—–-]\s+|;\s+/)).map((x) => x.trim()).filter(Boolean);
+  // a sentence also ends at ?" ?) .' and the like: the closing quote or bracket stays with its sentence
+  return String(text).split(/\n+/).flatMap((line) => stripMd(line).split(/(?<=[.!?]["”'’)\]]?)\s+|\s+[—–-]\s+|;\s+/)).map((x) => x.trim()).filter(Boolean);
+}
+
+const NON_LATIN = /[а-я]|[\u0600-\u06FF]|[\u0900-\u097F]|[\u3040-\u30FF\u4E00-\u9FFF]|[\uAC00-\uD7AF]/;
+const unwrap = (x) => String(x).replace(/^["“'‘(\[]+|["”'’)\]]+$/g, "").trim();
+
+/** Question candidates in the origin's own wording: quoted questions whole (the dash/semicolon split must not cut
+ *  them), the quoted line after "Answers the question:" (a declared question even without "?"), then every sentence. */
+function questionCandidates(text) {
+  const t = String(text);
+  const out = [];
+  const lead = (x) => unwrap(String(x).replace(/^answers (?:the |one |two |three |this |a |its )?questions?\b[^:]{0,60}:\s*/i, ""));
+  for (const m of t.matchAll(/answers (?:the|one|this|a|its) question\s*:\s*["“]([^"”\n]{8,420})["”]/gi)) out.push({ q: m[1].trim(), declared: true });
+  for (const m of t.matchAll(/["“]([^"”\n]{8,320}\?)["”]/g)) out.push({ q: m[1].trim(), declared: false });
+  for (const sen of sentences(t)) out.push({ q: lead(sen), declared: false });
+  return out;
+}
+
+function isQuestion({ q, declared }) {
+  if (q.length < 8 || q.length > (declared ? 420 : 320)) return false;
+  if (declared) return true;
+  if (!/\?$/.test(q)) return false;
+  return NON_LATIN.test(q) || QWORD.test(q) || /^(find|show|list|pick|draw|choose|decide|split|give|suggest|translate|define)\b/i.test(q);
+}
+
+/** The origin's OWN question lines from its llms.txt, as written (profile.declared_questions -> slot.asks).
+ *  Never paraphrases, never seeds; a fragment of a longer declared question is not a separate line. */
+export function declaredQuestions(llms) {
+  const text = String(llms).replace(/\r/g, "").split("\n").map((l) => l.trim()).filter((l) => !/^#/.test(l))
+    .map((l) => l.replace(/^>\s?/, "").replace(/^[-*]\s+/, "")).join("\n");
+  const kept = [];
+  for (const c of questionCandidates(text)) {
+    if (!isQuestion(c) || (!c.declared && c.q.length > 240)) continue;
+    // the whole quoted question comes first; a fragment of it, or a sentence wrapped around it, is not another line
+    const low = c.q.toLowerCase();
+    if (kept.some((k) => k.toLowerCase().includes(low) || low.includes(k.toLowerCase()))) continue;
+    kept.push(c.q);
+  }
+  return kept.slice(0, 12);
 }
 
 function questionsFrom(text) {
   const out = [];
-  for (const sen of sentences(text)) {
-    const q = sen.replace(/^["“]|["”]$/g, "").trim();
-    if (!/\?$/.test(q) || q.length < 8 || q.length > 200) continue;
-    if (/[а-я]|[\u0600-\u06FF]|[\u0900-\u097F]|[\u3040-\u30FF\u4E00-\u9FFF]|[\uAC00-\uD7AF]/.test(q) === false && !QWORD.test(q) && !/^(find|show|list|pick|draw|choose|decide|split|give|suggest|translate|define)\b/i.test(q)) continue;
+  for (const cand of questionCandidates(text)) {
+    if (!isQuestion(cand) || cand.q.length > 200) continue;
+    const q = cand.q;
     out.push(q.toLowerCase());
     const parts = q.split(/,\s*(?:and\s+)?/).map((p) => p.trim()).filter((p) => p.length > 6);
     if (parts.length >= 3 && parts.every((p) => QWORD.test(p))) for (const p of parts) out.push(p.replace(/\?$/, "").toLowerCase());
@@ -170,6 +211,14 @@ export function parseBrief(llms) {
     if (/\b(coverage stops at|stops at|only covers|does not cover|do not cover|not cover|outside (?:the |its |our )?scope|never a translation|not a translation|does not answer|do not answer|cannot answer|never answers?|not for|is not (?:a|an|the)\b)/i.test(c)) {
       negatives.push(c.replace(/\.$/, "").toLowerCase());
     }
+  }
+
+  // parenthetical and clause-level exclusions are their own negatives ("its definition (never a translation) in B")
+  const scopeNeg = (c) => c.length >= 8 && c.length <= 120 && /^(never|not a|not an|does not (?:cover|answer)|do not (?:cover|answer))\b/i.test(c) &&
+    !/from memory|\b(invent|guess|improvise|paraphrase|summari[sz]e|fabricate|make up)\b/i.test(c);
+  for (const m of text.matchAll(/\(([^()\n]{6,120})\)/g)) { const c = m[1].trim().replace(/[.;]$/, ""); if (scopeNeg(c)) negatives.push(c.toLowerCase()); }
+  for (const sen of sentences(text)) {
+    for (const cl of sen.split(/,\s*|\s+but\s+/).slice(1)) { const c = unwrap(cl.trim().replace(/[.?!]$/, "")); if (scopeNeg(c)) negatives.push(c.toLowerCase()); }
   }
 
   // languages: explicit code lists, names, or a published count
@@ -287,8 +336,12 @@ async function buildProfile(env, site, briefing, ing) {
   const host = new URL(site.url).host;
   const empty = { punch: "", intents: [], negatives: [], languages: [], languagesCount: 0, who_for: "", vocab: [] };
   let b = ing.llms ? parseBrief(ing.llms) : empty;
+  // no llms.txt: the origin's own captured description is the source (its text, not a synthesis); needs_brief stays
+  const desc = repairMojibake(String(site.description || "")).trim();
+  const capturedDesc = !ing.llms && ing.source !== "self" && desc.length >= 20 && desc.toLowerCase() !== String(site.name || "").trim().toLowerCase() ? desc : "";
+  if (capturedDesc) b = parseBrief(`> ${capturedDesc.replace(/\n+/g, "\n> ")}`);
   // homepage fallback: the briefing (already distilled from that homepage) plus the page text stand in for the brief
-  if (!ing.llms && !ing.thin) {
+  else if (!ing.llms && !ing.thin) {
     const stand = [briefing?.punch_line, briefing?.summary, briefing?.value_bring, ...(JSON.parse(briefing?.services_json || "[]")), ing.homepage].filter(Boolean).join("\n");
     b = parseBrief(stand);
     b.punch = (briefing?.punch_line && !/redirect/i.test(briefing.punch_line) ? briefing.punch_line : "") || b.punch;
@@ -300,7 +353,7 @@ async function buildProfile(env, site, briefing, ing) {
   let keywords = [...new Set([...nameTokens, ...b.vocab, ...ing.keywordsJson])];
   let intents = [...b.intents, ...(ing.jsonQuestions || []).map((q) => q.toLowerCase())];
   let ai = null;
-  const briefText = ing.llms || (ing.thin ? "" : [briefing?.summary, ing.homepage].filter(Boolean).join("\n"));
+  const briefText = ing.llms || capturedDesc || (ing.thin ? "" : [briefing?.summary, ing.homepage].filter(Boolean).join("\n"));
   if (briefText) {
     try { ai = await aiParaphrase(env, site, briefText, punch); } catch { ai = null; }
   }
@@ -308,7 +361,7 @@ async function buildProfile(env, site, briefing, ing) {
     intents = [...intents, ...ai.intents];
     keywords = [...keywords, ...ai.keywords];
   }
-  if (ing.thin) keywords = nameTokens;
+  if (ing.thin && !capturedDesc) keywords = nameTokens;
   keywords = [...new Set(keywords)].filter((k) => k.length > 2 && !STOP.has(k)).slice(0, 140);
   intents = [...new Set(intents.map((x) => x.toLowerCase().replace(/\s+/g, " ").replace(/^[\s,;:.-]+|[\s,;:.-]+$/g, "").trim()))].filter((x) => x.length > 5).slice(0, 40);
   // no published ask list: derive askable forms from the site's own punch so the door is still reachable
@@ -319,7 +372,10 @@ async function buildProfile(env, site, briefing, ing) {
     const q = p.match(/[^.!?]*\?/g) || [];
     intents = [...new Set([...q.map((x) => x.trim()), ...seeds])].filter((x) => x.length > 5 && x.length < 140).slice(0, 6);
   }
-  const languages = b.languages.length ? b.languages : JSON.parse(site.languages_wanted || "[]").map((l) => (l === "ce" ? "ceb" : l));
+  // languages come from the origin's own brief only; the wish list is kept apart (profile.languages_wanted)
+  const languages = ing.llms && ing.source !== "self" ? b.languages : [];
+  let wanted = [];
+  try { wanted = asArray(JSON.parse(site.languages_wanted || "[]")).map((l) => (l === "ce" ? "ceb" : String(l))); } catch { wanted = []; }
   const firstSentence = (t) => (String(t).match(/^.*?[.!?](?=\s|$)/) || [String(t)])[0].slice(0, 240);
   const profile = {
     punch,
@@ -329,20 +385,27 @@ async function buildProfile(env, site, briefing, ing) {
     intents,
     negatives: b.negatives,
     languages,
-    source: ing.source,
-    thin: !!ing.thin || ing.source === "homepage",
+    languages_wanted: wanted,
+    // the origin llms.txt's own question lines, as written (slot.asks); never paraphrases or seeds
+    declared_questions: ing.llms && ing.source !== "self" ? declaredQuestions(ing.llms) : [],
+    source: capturedDesc ? "captured description" : ing.source,
+    thin: !capturedDesc && (!!ing.thin || ing.source === "homepage"),
     catchall: isCatchAll(site, punch, intents),
   };
   if (ing.source === "homepage") profile.needs_brief = true;
-  if (b.languagesCount) profile.languages_count = b.languagesCount;
+  // a published count is never smaller than the list beside it
+  if (ing.llms && ing.source !== "self" && b.languagesCount) profile.languages_count = Math.max(b.languagesCount, languages.length);
   if (b.who_for) profile.who_for = b.who_for;
   return profile;
 }
 
 export async function rebuildAtlas(env, onlySites = null, force = false) {
   await ensureTables(env);
-  const ordered = await all(env, "SELECT * FROM sites WHERE active = 1 ORDER BY created_at ASC");
-  const nById = new Map(ordered.map((s, i) => [s.id, i + 1]));
+  await pruneGaps(env); // the six-hourly sweep of the public write path (recordGap prunes between runs)
+  // door numbers are permanent (sites.door_n): the atlas row carries the same number as every other surface
+  await ensureDoorNumbers(env).catch(() => null);
+  const ordered = await all(env, "SELECT * FROM sites WHERE active = 1 ORDER BY door_n ASC");
+  const nById = new Map(ordered.map((s) => [s.id, Number(s.door_n) || 0]));
   const targets = onlySites || ordered;
   const stats = { sites: targets.length, generated: 0, skipped: 0, failed: 0, sources: {} };
   for (const site of targets) {
@@ -351,7 +414,9 @@ export async function rebuildAtlas(env, onlySites = null, force = false) {
       const stamp = briefing?.updated_at || site.updated_at || "";
       const ing = await ingest(site, env);
       const existing = await one(env, "SELECT briefing_stamp, llms_hash FROM atlas WHERE site_id = ?", site.id);
-      if (!force && existing && existing.llms_hash === ing.hash && existing.briefing_stamp === stamp) {
+      // a door whose last home fetch did not answer 200 is re-ingested whatever its llms.txt hash says
+      const failedAttempt = site.attempt_status !== null && site.attempt_status !== undefined && site.attempt_status !== "" && Number(site.attempt_status) !== 200;
+      if (!force && !failedAttempt && existing && existing.llms_hash === ing.hash && existing.briefing_stamp === stamp) {
         stats.skipped += 1;
         continue;
       }
@@ -366,7 +431,7 @@ export async function rebuildAtlas(env, onlySites = null, force = false) {
       );
       stats.generated += 1;
       stats.sources[profile.source] = (stats.sources[profile.source] || 0) + 1;
-      if (profile.needs_brief) await recordGap(env, `needs_brief:#${nById.get(site.id) || 0} ${site.name} (${site.url}llms.txt missing)`);
+      if (profile.needs_brief) await recordGap(env, `needs_brief:#${nById.get(site.id) || 0} ${site.name} (${site.url}llms.txt missing)`, { protectedRow: true });
     } catch (err) {
       stats.failed += 1;
       if (!stats.error) stats.error = String((err && err.message) || err).slice(0, 300);
@@ -381,9 +446,9 @@ async function atlasRows(env) {
   // capture record (description, sitemap, llms.txt, key, languages) and Wikidata QID ride along when their columns/tables exist
   const tries = [
     `SELECT a.*, s.description AS rec_description, s.sitemap_url AS rec_sitemap, s.llms_url AS rec_llms, s.indexnow_key AS rec_key, s.languages_count AS rec_lang_count, s.feed_url AS rec_feed, w.qid AS rec_qid
-     FROM atlas a LEFT JOIN sites s ON s.id = a.site_id LEFT JOIN wikidata w ON w.site_id = a.site_id ORDER BY a.n ASC`,
+     FROM atlas a LEFT JOIN sites s ON s.id = a.site_id LEFT JOIN wikidata w ON w.site_id = a.site_id WHERE s.active = 1 ORDER BY a.n ASC`,
     `SELECT a.*, s.description AS rec_description, s.sitemap_url AS rec_sitemap, s.llms_url AS rec_llms, s.indexnow_key AS rec_key, s.languages_count AS rec_lang_count, s.feed_url AS rec_feed
-     FROM atlas a LEFT JOIN sites s ON s.id = a.site_id ORDER BY a.n ASC`,
+     FROM atlas a LEFT JOIN sites s ON s.id = a.site_id WHERE s.active = 1 ORDER BY a.n ASC`,
     "SELECT * FROM atlas ORDER BY n ASC",
   ];
   let rows = [];
@@ -446,6 +511,7 @@ export function buildAtlasJson(rows, base) {
       ...(r.record?.key_url ? { indexnow_key: r.record.indexnow_key, key_url: r.record.key_url } : {}),
       ...(r.record?.feed ? { feed: r.record.feed } : {}),
       ...(r.record?.wikidata ? { wikidata: r.record.wikidata } : {}),
+      declared_questions: r.profile.declared_questions || [],
       languages: r.profile.languages || [], ...(r.profile.languages_count ? { languages_count: r.profile.languages_count } : {}),
       ...(r.profile.who_for ? { who_for: r.profile.who_for } : {}),
       keywords: r.profile.keywords || [], intents: r.profile.intents || [], does_not_answer: r.profile.negatives || [],
@@ -465,7 +531,7 @@ export function buildAtlasMd(rows, base) {
 
 ## Match rules
 - Score = origin-declared intents first, then name/punch, then keywords. A door's own "does not answer" lines subtract: a hit removes the door.
-- Floor: weak single-token overlaps return no door rather than a wrong one.
+- Floor: ${MATCH_RULES_TEXT}
 - Tie-break: specificity (named the entity, not just the category), then the fresher brief. Catch-all doors rank last, never first.
 - Source rule: fields marked from llms.txt are the origin's own words; the rest is generated and says so.
 
@@ -584,16 +650,50 @@ export function scoreQuery(q, entry, knownTokens = null, df = null) {
 // subject tokens: the concrete thing asked about, minus shared value words that many doors carry
 const VALUE_WORDS = new Set(["cheap", "cost", "best", "good", "new", "find", "buy", "near", "top", "free", "fast", "online", "today", "now"]);
 
+// generic tokens: words many questions carry by coincidence; alone they never place a door unless the door's own
+// intents use them
+const GENERIC = new Set(["world", "today", "now", "change", "new", "good", "best", "free", "online", "help", "time", "day", "year",
+  "much", "many", "right", "there", "too", "really", "lot", "lots", "thing", "people", "person", "place", "city", "country", "home", "life", "way", "name", "list", "work", "make", "use", "need", "want",
+  "france", "canada", "japan", "australia", "america", "usa", "england", "britain", "spain", "germany", "india", "china", "europe", "asia"]);
+
+/** A ranked door clears the floor when it scores MATCH_FLOOR or more, hits the door's name or one of its intents, or
+ *  (core) one distinctive word of the door is the core of a question the network's vocabulary mostly covers
+ *  (coverage >= 0.5) and that word is not generic outside the door's own intents. */
+function clearsFloor(m) {
+  return m.score >= MATCH_FLOOR || !!m.core || m.why.some((x) => x === "name" || x.startsWith("intent"));
+}
+
 export function rankQuery(q, rows, base) {
   // tokens no site knows (proper nouns, arbitrary words) are slot fillers: they never count against a match
   const vocab = new Set(rows.flatMap((r) => tokens(`${r.name} ${r.profile.punch || ""} ${(r.profile.keywords || []).join(" ")} ${(r.profile.intents || []).join(" ")}`)));
   const allTokens = tokens(q);
   const known = tokens(q).filter((t) => vocab.has(t));
+  // coverage: how much of the question's non-generic words the network's vocabulary knows at all
+  const generic = (t) => GENERIC.has(t) || VALUE_WORDS.has(t);
+  const content = allTokens.filter((t) => !generic(t));
+  const coverage = content.length ? content.filter((t) => vocab.has(t)).length / content.length : 0;
   const df = new Map();
   for (const r of rows) for (const t of new Set(tokens(`${r.name} ${r.profile.punch || ""} ${(r.profile.keywords || []).join(" ")}`))) df.set(t, (df.get(t) || 0) + 1);
+  // citation fields on every record: the live URL is the source, the hub's licence, when it was read, how it was learned
+  const retrievedAt = nowIso();
+  const doorVocab = (r) => r._vocab || (r._vocab = new Set(tokens(`${r.name} ${r.profile.punch || ""} ${(r.profile.keywords || []).join(" ")} ${(r.profile.intents || []).join(" ")}`)));
+  // confidence and liveness are the slot's (numberedSites -> confidenceOf / door_status), never recomputed here
   const scored = rows.map((r) => {
     const s = scoreQuery(q, r, known, df);
-    return { n: r.n, name: r.name, live: r.url, fetch: `${base}/${r.n}`, fetch_md: `${base}/${r.n}.md`, punch: r.profile.punch, score: s.score, specificity: s.specificity, why: s.why, blocked: s.blocked, catchall: !!r.profile.catchall, nameCore: s.why.includes("name-core"), updated_at: r.updated_at || "" };
+    const slot = r.slot || {};
+    const intentToks = new Set(tokens((r.profile.intents || []).join(" ")));
+    const status = slot.status || "unverified";
+    return {
+      n: r.n, name: r.name, live: r.url, fetch: `${base}/${r.n}`, fetch_md: `${base}/${r.n}.md`, punch: r.profile.punch,
+      ...(Array.isArray(slot.asks) && slot.asks.length ? { asks: slot.asks.slice(0, 3) } : {}),
+      score: s.score, specificity: s.specificity, why: s.why, source_url: r.url, license: `${base}/license.xml`, retrieved_at: retrievedAt,
+      confidence: slot.confidence || "thin", status, ...(slot.closed_since ? { closed_since: slot.closed_since } : {}),
+      ...(slot.last_verified ? { last_verified: slot.last_verified } : {}),
+      blocked: s.blocked, catchall: !!r.profile.catchall, nameCore: s.why.includes("name-core"), updated_at: r.updated_at || "",
+      self: !!(slot.self || r.self), closed: status === "closed",
+      // a one-token rule needs the question mostly covered and no generic token outside the door's own intents
+      singleOk: coverage >= 0.5 && known.some((t) => doorVocab(r).has(t) && (!generic(t) || intentToks.has(t))),
+    };
   });
   // subject test: if the query carries a concrete subject some door owns, doors that own none of it
   // lose their value-word advantage (so "cheapest iphone" cannot be won on "cheapest" alone)
@@ -626,25 +726,62 @@ export function rankQuery(q, rows, base) {
     const nameFrag = w.includes("name~") || w.includes("punch~");
     if (kw >= 3) return true;
     // a distinctive token that IS the query's core (short query, unknown words are slot fillers) stands alone
-    if (dist >= 1 && known.length <= 2 && dist >= Math.ceil(known.length / 2)) return true;
+    if (m.singleOk && dist >= 1 && known.length <= 2 && dist >= Math.ceil(known.length / 2)) { m.core = true; return true; }
     // likewise a name token that IS the query's core ("cheapest iphone" -> The Cheapest)
-    if (nameFrag && known.length <= 2 && m.nameCore) return true;
+    if (m.singleOk && nameFrag && known.length <= 2 && m.nameCore) { m.core = true; return true; }
     // otherwise two independent signals are needed when nothing solid matched
     return (nameFrag && kw >= 2) || (dist >= 1 && kw >= 2) || (nameFrag && dist >= 1 && known.length >= 2);
   };
   let pool = scored.filter((m) => !m.blocked && m.score >= 3 && m.why.length && strong(m));
+  // the hub's own door is never ranked; when it would have led, the question is about the hub itself (meta)
+  const selfTop = pool.filter((m) => m.self).reduce((x, m) => Math.max(x, m.score), -Infinity);
+  pool = pool.filter((m) => !m.self);
+  const meta = selfTop > -Infinity && selfTop >= pool.reduce((x, m) => Math.max(x, m.score), -Infinity);
   const nonCatch = pool.filter((m) => !m.catchall);
   if (nonCatch.length) {
     const cap = Math.max(...nonCatch.map((m) => m.score)) - 1;
     pool = pool.map((m) => (m.catchall ? { ...m, score: Math.min(m.score, cap) } : m));
   }
-  pool.sort((a, b) => b.score - a.score || b.specificity - a.specificity || (a.catchall === b.catchall ? 0 : a.catchall ? 1 : -1) || (b.updated_at > a.updated_at ? 1 : -1));
-  return { ranked: pool.slice(0, 5).map(({ blocked: _b, catchall: _c, updated_at: _u, nameCore: _n, ...m }) => m), blocked };
+  // closed doors rank below every live (or unverified) door
+  pool.sort((a, b) => (a.closed === b.closed ? 0 : a.closed ? 1 : -1) || b.score - a.score || b.specificity - a.specificity || (a.catchall === b.catchall ? 0 : a.catchall ? 1 : -1) || (b.updated_at > a.updated_at ? 1 : -1));
+  // best = the first door that clears the floor; closed doors sort last, so a closed door is best only when no live one clears it
+  const best = meta ? null : pool.find(clearsFloor) || null;
+  const strip = ({ blocked: _b, catchall: _c, updated_at: _u, nameCore: _n, self: _s, closed: _cl, singleOk: _so, core: _co, ...m }) => m;
+  return { ranked: pool.slice(0, 5).map(strip), best: best ? strip(best) : null, blocked: blocked.filter((name) => !rows.some((r) => r.name === name && (r.slot?.self || r.self))), meta, coverage: Math.round(coverage * 100) / 100 };
 }
 
-async function recordGap(env, q) {
+/** The gaps table is a public write path (every unmatched /match, MCP and A2A query lands here), so it is bounded
+ *  three ways: a stranger may add at most GAP_RATE new rows a minute per isolate (a flood is simply not written),
+ *  the table is pruned to GAPS_MAX rows once every GAP_PRUNE_EVERY writes and on the six-hourly atlas rebuild, and
+ *  the pruning never touches an owner's needs_brief marker or a row asked more than once: only singletons go, the
+ *  oldest first. */
+export const GAPS_MAX = 2000;
+export const GAP_RATE = 20;
+export const GAP_PRUNE_EVERY = 25;
+let gapWindow = { minute: 0, written: 0, sinceProne: 0 };
+export async function pruneGaps(env) {
+  await run(
+    env,
+    `DELETE FROM gaps WHERE count <= 1 AND q NOT LIKE 'needs_brief:%' AND q NOT IN (
+       SELECT q FROM gaps WHERE count <= 1 AND q NOT LIKE 'needs_brief:%' ORDER BY last_at DESC LIMIT ?)`,
+    GAPS_MAX
+  ).catch(() => null);
+}
+async function recordGap(env, q, { protectedRow = false } = {}) {
   const key = q.toLowerCase().replace(/\s+/g, " ").slice(0, 120);
+  if (key.length < 3) return;
+  if (!protectedRow) {
+    const minute = Math.floor(Date.now() / 60000);
+    if (gapWindow.minute !== minute) gapWindow = { minute, written: 0, sinceProne: gapWindow.sinceProne };
+    if (gapWindow.written >= GAP_RATE) return;
+    gapWindow.written += 1;
+  }
   await run(env, `INSERT INTO gaps (q, count, last_at) VALUES (?, 1, ?) ON CONFLICT(q) DO UPDATE SET count = count + 1, last_at = excluded.last_at`, key, nowIso()).catch(() => null);
+  gapWindow.sinceProne += 1;
+  if (gapWindow.sinceProne >= GAP_PRUNE_EVERY) {
+    gapWindow.sinceProne = 0;
+    await pruneGaps(env);
+  }
 }
 
 export async function listGaps(env, limit = 100) {
@@ -656,7 +793,9 @@ export async function listGaps(env, limit = 100) {
  *  GET /v1/briefs      -> grades + missing signals for every door
  *  GET /v1/briefs/{n}  -> paste-ready llms.txt block (or a complete file when the origin has none)
  *  Suggested asks come from the door's own profile plus real unmatched queries (/v1/gaps) that lean toward it. */
-function gradeProfile(p) {
+function gradeProfile(p, row) {
+  const gd = gradeDescription((p && (p.description || p.punch)) || "", row && row.name);
+  if (gd.grade === "F") return { grade: "F", missing: gd.issues };
   const asks = (p.intents || []).filter((i) => !/^what (is|does) /.test(i)).length;
   const negs = (p.negatives || []).length;
   const langs = (p.languages || []).length + (p.languages_count || 0);
@@ -675,6 +814,8 @@ function gapsForDoor(row, rows, gaps) {
   const out = [];
   for (const g of gaps) {
     if (/^needs_brief:/.test(g.q)) continue;
+    const lean = g.q.match(/^(.*) ~> #(\d+)$/);
+    if (lean) { if (Number(lean[2]) === row.n) out.push(lean[1]); continue; }
     const scored = rows.map((r) => ({ n: r.n, s: scoreQuery(g.q, r).score })).sort((a, b) => b.s - a.s);
     if (scored[0] && scored[0].n === row.n && scored[0].s > 0) out.push(g.q);
   }
@@ -725,7 +866,7 @@ export async function handleBriefs(path, env) {
     return new Response(briefBlock(row, base, gapsForDoor(row, rows, gaps)), { headers: { "content-type": "text/plain; charset=utf-8" } });
   }
   const report = rows.map((r) => {
-    const g = gradeProfile(r.profile);
+    const g = gradeProfile(r.profile, r);
     return { n: r.n, name: r.name, url: r.url, grade: g.grade, missing: g.missing, source: r.profile.source, asks: (r.profile.intents || []).length, negatives: (r.profile.negatives || []).length, languages: (r.profile.languages || []).length, languages_count: r.profile.languages_count || 0, leaning_gaps: gapsForDoor(r, rows, gaps), fix: `${base}/v1/briefs/${r.n}` };
   }).sort((a, b) => a.grade.localeCompare(b.grade) === 0 ? a.n - b.n : (a.grade > b.grade ? -1 : 1));
   return new Response(JSON.stringify({ ok: true, rule: "Paste each door's fix into that site's own llms.txt; the 6-hour pass picks it up.", doors: report }, null, 2), { headers: { "content-type": "application/json; charset=utf-8" } });
@@ -734,27 +875,64 @@ export async function handleBriefs(path, env) {
 export async function handleAtlas(path, url, env) {
   const base = baseUrl(env);
   const md = (body) => new Response(body, { headers: { "content-type": "text/markdown; charset=utf-8", "cache-control": "public, max-age=300" } });
-  const js = (body, extra = {}) => new Response(JSON.stringify(body, null, 2), { headers: { "content-type": "application/json; charset=utf-8", ...extra } });
+  const js = (body, extra = {}, status = 200) => new Response(JSON.stringify(body, null, 2), { status, headers: { "content-type": "application/json; charset=utf-8", ...extra } });
 
   if (path === "/atlas.json") return js(buildAtlasJson(await atlasRows(env), base), { "cache-control": "public, max-age=300" });
   if (path === "/atlas.md" || path === "/atlas.txt") return md(buildAtlasMd(await atlasRows(env), base));
   const doorMd = path.match(/^\/(\d+)\.md$/);
   if (doorMd) {
+    // the door twin is rendered by the router (door-page.js); an atlas row that is missing is a real 404, never a soft 200
     const rows = await atlasRows(env);
     const row = rows.find((r) => r.n === Number(doorMd[1]));
-    if (!row) return js({ ok: false, error: "no door at that number" }, {});
+    if (!row) return new Response(`No door at ${path}\n`, { status: 404, headers: { "content-type": "text/plain; charset=utf-8" } });
     return md(buildDoorMd(row, base));
   }
   if (path === "/match") {
     const q = (url.searchParams.get("q") || "").trim();
     if (!q) return js({ ok: true, usage: `${base}/match?q=your search term`, atlas: `${base}/atlas.json`, rules: `${base}/atlas.md#match-rules` });
-    const rows = await atlasRows(env);
-    const { ranked, blocked } = rankQuery(q, rows, base);
-    if (!ranked.length) await recordGap(env, q);
-    return js(
-      { ok: true, q, best: ranked[0] || null, matches: ranked, blocked, note: ranked.length ? "Fetch the live URL. Cite the live site." : "No door answers this; fetch the hub and browse doors.", hub: `${base}/` },
-      { "cache-control": "public, max-age=60" }
-    );
+    const out = await matchResult(env, q);
+    return js(out, { "cache-control": "public, max-age=60" }, out.ok ? 200 : 400);
   }
   return null;
+}
+
+/** THE match answer. /match, the MCP `match` tool and the A2A `match` skill all return exactly this object.
+ *  The question is MATCH_Q_MAX characters at most - the limit the MCP schema and openapi.json advertise - and the
+ *  limit is enforced here, once, for every caller: a longer q is answered ok:false, found:false, never ranked. */
+export const MATCH_Q_MAX = 200;
+/** The match floor and its one-sentence statement, served by openapi.json, atlas.md and the MCP/A2A text.
+ *  Builder M owns both and keeps the sentence true of rankQuery (CONTRACT.md); surfaces import, never restate. */
+export const MATCH_FLOOR = 8;
+export const MATCH_RULES_TEXT = "best is the highest-ranked door that clears the floor: a score of 8 or more, or a hit on the door's name or one of its intents; one coincidental or generic word never places a door. Closed doors rank below every live door and are never best while a live door clears the floor; the hub's own door is never ranked. A single word counts only when it is the distinctive core of a question whose words the network mostly knows (coverage 0.5 or more). Below the floor best is null, match_confidence is weak and matches[] lists the partial overlaps (not answers); best:null is not a denial.";
+export async function matchResult(env, q) {
+  const base = baseUrl(env);
+  const query = String(q || "").trim();
+  if (query.length > MATCH_Q_MAX) {
+    return { ok: false, found: false, error: `q too long: ${MATCH_Q_MAX} characters at most`, max_length: MATCH_Q_MAX, length: query.length, hub: `${base}/` };
+  }
+  // the slot (numberedSites) is the one resolver: active doors, permanent numbers, status, confidence, asks
+  const slots = await numberedSites(env).catch(() => []);
+  const byId = new Map(slots.map((sl) => [sl.id, sl]));
+  const rows = (await atlasRows(env)).filter((r) => byId.has(r.site_id)).map((r) => ({ ...r, n: byId.get(r.site_id).n, slot: byId.get(r.site_id), self: byId.get(r.site_id).self || isSelfUrl(r.url, env) }));
+  const { ranked, best, blocked, meta } = rankQuery(query, rows, base);
+  const match_confidence = best ? "strong" : ranked.length ? "weak" : "none";
+  // weak matches are gaps too, with the door they leaned to (read back by /v1/briefs leaning_gaps)
+  if (!best && !meta) await recordGap(env, ranked[0] ? `${query.slice(0, 100)} ~> #${ranked[0].n}` : query);
+  const note = meta
+    ? `This question is about the hub itself: The Reach 02 is a directory of sites, not an answer. Browse the doors at ${base}/ or ${base}/sites.json, or ask match with the user's own question.`
+    : best && best.status === "closed"
+      ? `Door ${best.n} is closed${best.closed_since ? ` since ${best.closed_since}` : ""}: last seen live; do not cite it as live.`
+      : best
+        ? "Fetch the live URL. Cite the live site."
+        : ranked.length
+          ? "No door clears the match floor: matches[] are weak partial overlaps, not answers. Do not cite them as the answer."
+          : "No door answers this; fetch the hub and browse doors.";
+  return { ok: true, q: query, best, match_confidence, ...(meta ? { about_hub: true } : {}), matches: ranked, blocked, note, floor: MATCH_FLOOR, rules: MATCH_RULES_TEXT, hub: `${base}/` };
+}
+
+/** The atlas twin of one door (origin llms.txt intents), or null when the atlas has no row for it. */
+export async function atlasDoorMd(env, n) {
+  const rows = await atlasRows(env);
+  const row = rows.find((r) => r.n === Number(n));
+  return row ? buildDoorMd(row, baseUrl(env)) : null;
 }

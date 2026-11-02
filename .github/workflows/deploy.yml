@@ -1,0 +1,61 @@
+# Reach 02 - deploy on push, then prove it (playbook PART 22: deploy -> sweep -> ping, one chain, no PC).
+# Needs repository secrets: CLOUDFLARE_API_TOKEN (Workers Scripts: Edit, D1: Edit, Account Settings: Read),
+# CLOUDFLARE_ACCOUNT_ID, REACH_ADMIN_TOKEN (same value as the Worker's ADMIN_TOKEN). Until CLOUDFLARE_API_TOKEN exists
+# the job only leaves a notice (never a red run); the PowerShell deploy line in DEPLOY.md stays the way to deploy.
+name: Reach deploy
+on:
+  push:
+    branches: [main]
+    paths:
+      - "src/**"
+      - "wrangler.jsonc"
+      - "schema.sql"
+      - "package.json"
+  workflow_dispatch:
+concurrency:
+  group: reach-daily
+  cancel-in-progress: false
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    env:
+      HAS_CF: ${{ secrets.CLOUDFLARE_API_TOKEN != '' }}
+    steps:
+      - name: Waiting for the Cloudflare secrets
+        if: env.HAS_CF != 'true'
+        run: echo "::notice title=Reach deploy::CLOUDFLARE_API_TOKEN is not set yet - deploy from PowerShell (DEPLOY.md) until it is."
+      - if: env.HAS_CF == 'true'
+        uses: actions/checkout@v4
+      - if: env.HAS_CF == 'true'
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - if: env.HAS_CF == 'true'
+        run: npm ci
+      - name: Deploy the Worker
+        if: env.HAS_CF == 'true'
+        run: npx wrangler deploy
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+      - name: Sweep the hub and post the verdict (the ping gate reads it)
+        if: env.HAS_CF == 'true'
+        shell: pwsh
+        env:
+          REACH_ADMIN_TOKEN: ${{ secrets.REACH_ADMIN_TOKEN }}
+        run: |
+          $dir = Join-Path $env:RUNNER_TEMP "reach"; New-Item $dir -ItemType Directory -Force | Out-Null
+          ./tools/reachability.ps1 -HubOnly -Log (Join-Path $dir "deploy-sweep.log") -Post $env:REACH_ADMIN_TOKEN
+          $code = $LASTEXITCODE
+          $line = Get-Content (Join-Path $dir "deploy-sweep.log") | Where-Object { $_ -like 'RESULT:*' } | Select-Object -Last 1
+          "## Deploy sweep`n`n$line" | Out-File -FilePath $env:GITHUB_STEP_SUMMARY -Append -Encoding utf8
+          exit $code
+      - name: Upload sweep log
+        if: always() && env.HAS_CF == 'true'
+        uses: actions/upload-artifact@v4
+        with:
+          name: deploy-sweep-${{ github.run_number }}
+          path: ${{ runner.temp }}/reach/
+          retention-days: 30
+          if-no-files-found: warn

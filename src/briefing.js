@@ -1,8 +1,9 @@
 import { all, one, run } from "./db.js";
-import { asArray, detectLanguagesFromHtml, nowIso, parseJsonLoose, stripHtml } from "./util.js";
+import { asArray, decodeBody, detectLanguagesFromHtml, discardBody, nowIso, parseJsonLoose, readResponseCapped, stripHtml } from "./util.js";
 import { applyFullStack, ensureAnswerChannel } from "./stack.js";
 import { rebuildReachMap } from "./map.js";
 import { isSelfUrl, selfExcerpt } from "./self.js";
+import { gradeDescription } from "./capture.js";
 
 const SYSTEM = `You extract product intelligence from a website excerpt.
 Return ONLY a JSON object with keys:
@@ -35,9 +36,14 @@ export async function fetchExcerpt(url) {
   const res = await fetch(url, {
     redirect: "follow",
     headers: { "user-agent": "TheReach02/1.1", accept: "text/html" },
+    signal: AbortSignal.timeout(9000),
   });
-  if (!res.ok) throw new Error(`fetch ${url} failed: ${res.status}`);
-  const html = await res.text();
+  if (!res.ok) {
+    await discardBody(res);
+    throw new Error(`fetch ${url} failed: ${res.status}`);
+  }
+  // read to 512 KB at most, whatever the origin streams; the declared charset, with a mojibake repair
+  const html = decodeBody(await readResponseCapped(res, 512 * 1024), res.headers.get("content-type") || "");
   const title = (html.match(/<title[^>]*>([\s\S]*?)<\/title>/i) || ["", ""])[1];
   const desc = (html.match(/<meta[^>]+name=["']description["'][^>]+content=["']([^"']+)/i) || ["", ""])[1];
   const languages = detectLanguagesFromHtml(html, res.headers.get("content-language"));
@@ -47,6 +53,16 @@ export async function fetchExcerpt(url) {
     text: stripHtml(html).slice(0, 8000),
     languages,
   };
+}
+
+/** PART 21.2: the briefing's description line must complete "if a user asks X, fetch Y". Grade F when it
+ *  is shorter than 60 characters, is the site's own name, or is a bare "If the question …" trigger. */
+export function gradeBriefing(row, siteName) {
+  if (!row) return { grade: "F", issues: ["no briefing"] };
+  const summary = gradeDescription(row.summary, siteName);
+  const punch = gradeDescription(row.punch_line, siteName);
+  const issues = [...summary.issues.map((i) => `summary ${i}`), ...(punch.issues.length && summary.grade === "F" ? punch.issues.map((i) => `punch ${i}`) : [])];
+  return { grade: summary.grade === "ok" ? "ok" : "F", issues };
 }
 
 export async function analyzeSite(env, site, excerpt) {
@@ -184,10 +200,13 @@ export async function runFullStack(env, site, force = true) {
   return { briefing: out.briefing, intel: out.intel, pack, map };
 }
 
-export function briefingPublic(row) {
+export function briefingPublic(row, siteName = "") {
   if (!row) return null;
+  const g = gradeBriefing(row, siteName);
   return {
     site_id: row.site_id,
+    description_grade: g.grade,
+    ...(g.issues.length ? { description_issues: g.issues } : {}),
     category: row.category,
     services: JSON.parse(row.services_json || "[]"),
     languages_present: JSON.parse(row.languages_present || "[]"),

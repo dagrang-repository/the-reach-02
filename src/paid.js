@@ -1,9 +1,9 @@
 import { runFullStack } from "./briefing.js";
 import { all, one, run } from "./db.js";
 import { rebuildAtlas } from "./atlas.js";
-import { numberedSites } from "./hill.js";
+import { ensureDoorNumbers, numberedSites } from "./hill.js";
 import { rebuildReachMap } from "./map.js";
-import { announceReachFeed, pingReachMesh, reachAnnounceUrls } from "./announce.js";
+import { announceReachFeed, pingReachMesh, reachAnnounceItems } from "./mesh.js";
 import { keyForUrl } from "./known-keys.js";
 import { readKeyFromOrigin, rememberOriginKey, verifyOriginKey } from "./ping.js";
 import { ensureAnswerChannel } from "./stack.js";
@@ -43,7 +43,12 @@ export async function slotsOpen(env) {
   return (await activeCount(env)) < PAID_SLOTS;
 }
 
+/* the OAuth token lives for its expires_in (PayPal: hours) and is kept in the isolate for that long, less a minute;
+   one token request per isolate lifetime instead of one per status poll */
+let tokenCache = { key: "", token: "", until: 0 };
 async function paypalToken(env) {
+  const key = String(env.PAYPAL_CLIENT_ID || "");
+  if (tokenCache.token && tokenCache.key === key && Date.now() < tokenCache.until) return tokenCache.token;
   const res = await fetch(api(env) + "/v1/oauth2/token", {
     method: "POST",
     headers: {
@@ -54,8 +59,13 @@ async function paypalToken(env) {
   });
   const data = await res.json().catch(() => ({}));
   if (!data.access_token) throw new Error("paypal auth failed");
+  const ttl = Math.max(60, Number(data.expires_in || 0) - 60);
+  tokenCache = { key, token: data.access_token, until: Date.now() + ttl * 1000 };
   return data.access_token;
 }
+
+/** How often one join id may drive a PayPal subscription lookup from the public status poll. */
+const STATUS_LOOKUP_GAP_MS = 10000;
 
 async function addSite(env, input) {
   const parsed = new URL(input.url);
@@ -76,6 +86,7 @@ async function addSite(env, input) {
       ts,
       ts
     );
+    await ensureDoorNumbers(env); /* the new door's permanent number: MAX(door_n)+1, never a reused one */
   }
   let site = await one(env, "SELECT * FROM sites WHERE id = ?", id);
   const injected = normalizeOriginKey(input.key || "");
@@ -91,11 +102,11 @@ async function addSite(env, input) {
   }
   await runFullStack(env, site, true);
   const keyCheck = site.indexnow_key
-    ? (isSelfUrl(site.url, env) ? { ok: true } : await verifyOriginKey(site).catch(() => ({ ok: false })))
+    ? (isSelfUrl(site.url, env) ? { ok: true } : await verifyOriginKey(site, env).catch(() => ({ ok: false }))) /* recorded as door_status.key_ok */
     : { ok: false };
   const slots = await numberedSites(env, all);
-  await pingReachMesh(env, reachAnnounceUrls(env, slots), uid("paid")).catch(() => null);
-  await announceReachFeed(env).catch(() => null);
+  const announced = await pingReachMesh(env, await reachAnnounceItems(env, slots), uid("paid")).catch(() => null);
+  if (announced?.doors_changed) await announceReachFeed(env).catch(() => null);
   await rebuildAtlas(env, [await one(env, "SELECT * FROM sites WHERE id = ?", id)]).catch(() => null);
   const slot = slots.find((s) => s.url === site.url) || null;
   return { site_id: id, door_n: slot ? slot.n : null, key_ok: !!keyCheck.ok };
@@ -284,7 +295,11 @@ export async function handlePaid(path, request, url, env) {
     const id = url.searchParams.get("j") || "";
     let row = await one(env, "SELECT * FROM paid_subs WHERE id = ?", id).catch(() => null);
     if (!row) return json({ ok: false, error: "unknown" }, 404);
-    if (row.status === "pending" && row.sub_id && configured(env)) {
+    /* the page polls every 3 s for two minutes; PayPal is asked at most once per STATUS_LOOKUP_GAP_MS per join id
+       (updated_at is touched on every lookup), so a looping stranger cannot spend the merchant's API quota */
+    const sinceTouch = Date.now() - new Date(row.updated_at || 0).getTime();
+    if (row.status === "pending" && row.sub_id && configured(env) && !(sinceTouch >= 0 && sinceTouch < STATUS_LOOKUP_GAP_MS)) {
+      await run(env, "UPDATE paid_subs SET updated_at = ? WHERE id = ?", nowIso(), id).catch(() => null);
       try {
         const token = await paypalToken(env);
         const res = await fetch(api(env) + "/v1/billing/subscriptions/" + row.sub_id, { headers: { authorization: "Bearer " + token } });

@@ -1,6 +1,14 @@
-# Reach 02 — daily jobs on GitHub's clean IPs (no PC needed):
-#  1. Wikidata courier — one new door item per day + link/i18n steps (Wikimedia blocks Cloudflare Workers egress)
-#  2. Repo sync — README.md + sites.json rewritten from the hub and pushed
+# Reach 02 - daily jobs on GitHub's clean IPs (no PC needed):
+#  1. Wikidata courier - at most one new door item per day + link/i18n steps (Wikimedia blocks Cloudflare Workers
+#     egress). A deferral (AbuseFilter pacing, blocked runner IP) is recorded with its cause in runs/deferrals.json
+#     and reported; it never turns the run red on its own.
+#  2. Repo sync - README.md + sites.json rewritten from the hub and pushed (Join-Path, UTF-8 without BOM).
+#  3. Hub sweep - APPENDIX B over the hub; ITS verdict is posted and opens or closes the ping gate.
+#     Door sweep - the same checks over every door, reported in the summary and the artifact, never posted:
+#     one weak site never closes the gate for the whole network. Every step runs even when an earlier one failed.
+#  4. Verdict - the sweep line and the hub's own /status.json (health checks) go to the job summary; the run turns
+#     RED when the sweep failed or the hub reports a red check, so GitHub's failure e-mail is the alert.
+#     Nothing is pinged over a failing sweep.
 # Needs ONE repository secret: REACH_ADMIN_TOKEN (the hub hands the Wikidata bot credentials back to its admin).
 name: Reach daily
 on:
@@ -9,7 +17,11 @@ on:
   workflow_dispatch:
   push:
     branches: [main]
-    paths: [".github/workflows/reach-daily.yml"]
+    paths:
+      - ".github/workflows/reach-daily.yml"
+      - "tools/reachability.ps1"
+      - "tools/repo-sync.ps1"
+      - "tools/wd-courier.ps1"
 permissions:
   contents: write
 concurrency:
@@ -18,7 +30,7 @@ concurrency:
 jobs:
   daily:
     runs-on: ubuntu-latest
-    timeout-minutes: 20
+    timeout-minutes: 45
     steps:
       - uses: actions/checkout@v4
       - name: Wikidata courier
@@ -30,3 +42,57 @@ jobs:
         if: always()
         shell: pwsh
         run: ./tools/repo-sync.ps1
+      - name: Hub sweep (its verdict opens or closes the ping gate)
+        id: sweep
+        if: always()
+        continue-on-error: true
+        shell: pwsh
+        env:
+          REACH_ADMIN_TOKEN: ${{ secrets.REACH_ADMIN_TOKEN }}
+        run: |
+          $dir = Join-Path $env:RUNNER_TEMP "reach"
+          New-Item $dir -ItemType Directory -Force | Out-Null
+          $log = Join-Path $dir "reach-sweep.log"
+          ./tools/reachability.ps1 -HubOnly -Log $log -Post $env:REACH_ADMIN_TOKEN
+          $code = $LASTEXITCODE
+          Get-Content $log | Select-Object -Last 40
+          exit $code
+      - name: Door sweep (report only - one weak site never closes the hub's gate)
+        id: doors
+        if: always()
+        continue-on-error: true
+        shell: pwsh
+        run: |
+          $dir = Join-Path $env:RUNNER_TEMP "reach"
+          New-Item $dir -ItemType Directory -Force | Out-Null
+          $log = Join-Path $dir "reach-doors.log"
+          ./tools/reachability.ps1 -Log $log
+          Get-Content $log | Select-Object -Last 40
+          exit 0
+      - name: Upload sweep log
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: reachability-${{ github.run_number }}
+          path: ${{ runner.temp }}/reach/
+          retention-days: 30
+          if-no-files-found: warn
+      - name: Verdict (sweep + hub health)
+        if: always()
+        shell: pwsh
+        env:
+          SWEEP_OUTCOME: ${{ steps.sweep.outcome }}
+        run: |
+          $log = Join-Path $env:RUNNER_TEMP "reach/reach-sweep.log"
+          $line = if (Test-Path $log) { Get-Content $log | Where-Object { $_ -like 'RESULT:*' } | Select-Object -Last 1 } else { "RESULT: FAIL no sweep log" }
+          $status = $null
+          try { $status = Invoke-RestMethod -Uri "https://reach2.aplusz.app/status.json" -TimeoutSec 30 } catch { }
+          $dlog = Join-Path $env:RUNNER_TEMP "reach/reach-doors.log"
+          $dline = if (Test-Path $dlog) { Get-Content $dlog | Where-Object { $_ -like 'RESULT:*' } | Select-Object -Last 1 } else { "(no door sweep log)" }
+          $rows = @("## Reach daily verdict", "", "| check | ok | detail |", "|---|---|---|", "| hub sweep (ping gate) | $(if ($line -like 'RESULT: PASS*') { 'yes' } else { 'NO' }) | $line |", "| door sweep (report) | $(if ($dline -like 'RESULT: PASS*') { 'yes' } else { 'see log' }) | $($dline -replace '\|', '/') |")
+          if ($status) { foreach ($p in $status.checks.PSObject.Properties) { $rows += "| $($p.Name) | $(if ($p.Value.ok) { 'yes' } else { 'NO' }) | $($p.Value.detail -replace '\|', '/') |" } }
+          else { $rows += "| hub /status.json | NO | not reachable |" }
+          $rows -join "`n" | Out-File -FilePath $env:GITHUB_STEP_SUMMARY -Append -Encoding utf8
+          $red = ($line -notlike 'RESULT: PASS*') -or (-not $status) -or (-not $status.ok)
+          if ($red) { Write-Host "::error title=Reach daily::$line | hub red: $(if ($status) { $status.red -join ', ' } else { 'status.json unreachable' })"; exit 1 }
+          "all green"

@@ -4,3 +4,20 @@ node_modules/
 .DS_Store
 dist/
 *.bak
+
+# per-site pack output (tools/pack-install.ps1 writes it into the target site, never here)
+_reach-pack/
+
+# pack-install output for the hub's own door. The Worker (src/) is the only source of these files;
+# a static copy in the repo contradicts what the hub serves (manifest icons, llms.txt, opensearch).
+/llms.txt
+/llms-full.txt
+/llms-small.txt
+/llms/
+/manifest.json
+/opensearch.xml
+/sw.js
+
+# the reachability sweep's local output (tools/reachability.ps1)
+reach-*.log
+reach-doors.json

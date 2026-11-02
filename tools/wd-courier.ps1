@@ -10,7 +10,8 @@ param([switch]$Local)
 $ErrorActionPreference = "Stop"
 if (-not $env:GITHUB_ACTIONS -and -not $Local) { "RESULT: PASS"; "wikidata: skipped — this courier runs on GitHub Actions (pass -Local to override)"; return }
 $hub = "https://reach2.aplusz.app"; $api = "https://www.wikidata.org/w/api.php"; $ua = "VergeHeightsHub/1.0 (dagrang@gmail.com)"
-$STALL_DAYS = 14   # a door deferred this many days running is stalled, not paced — fail loudly again
+$STALL_DAYS = 14   # a door deferred this many days running is stalled, not paced: say so loudly in the summary (never a red run)
+$MAX_CREATES = 1   # at most one new item per run = per day; the hub enforces it too, this is the belt to its braces
 $homeDir = if ($env:USERPROFILE) { $env:USERPROFILE } else { $HOME }
 $dir = Join-Path $homeDir ".reach"; $log = Join-Path $dir "wd-courier.log"; $envFile = Join-Path $dir "wd.env.json"
 if (!(Test-Path $dir)) { New-Item $dir -ItemType Directory -Force | Out-Null }
@@ -47,7 +48,7 @@ function Invoke-Wd($body) {
   $names = @($r.error.messages | ForEach-Object { $_.name }) -join ","; throw "$($body.action): $($r.error.code) [$names] $($r.error.info)"
 }
 function Send-Record($n, $qs) { Invoke-RestMethod -Uri "$hub/v1/wikidata/record?n=$n&$qs" -Method Post -Headers $script:hdr -UserAgent $ua -TimeoutSec 120 }
-$it = $null; $qid = ""; $summary = @(); $failed = @(); $deferred = @()
+$it = $null; $qid = ""; $summary = @(); $failed = @(); $deferred = @(); $deferCause = @{}; $created = 0
 function Get-Session() {
   $t = Invoke-RestMethod -Uri "${api}?action=query&meta=tokens&type=login&format=json" -UserAgent $ua -SessionVariable ws -TimeoutSec 60
   $script:ws = $ws
@@ -117,8 +118,10 @@ try {
       if (-not $script:ws) { Get-Session }
       $qid = $it.qid
       if ($it.phase -eq "create") {
+        if ($created -ge $MAX_CREATES) { Write-Log "#$($it.n) create cap reached ($MAX_CREATES per day) - the rest waits for tomorrow"; break }
         $r = Invoke-Wd @{ action = "wbeditentity"; new = "item"; data = $it.entity_json; token = $script:csrf; summary = $it.summary; assert = "user"; maxlag = "8"; format = "json" }
         $qid = $r.entity.id; if (-not $qid) { throw "wbeditentity: no entity id in reply" }
+        $created++
         Send-Record $it.n "qid=$qid&action=created&statements=$($it.statements)" | Out-Null
         Write-Log "#$($it.n) $($it.name) created $qid (link-free)"
         Start-Sleep -Seconds 3
@@ -142,6 +145,7 @@ try {
         # this runner drew an IP in a range Wikimedia blocks globally. Nothing about the door is wrong
         # and nothing on the hub should change — tomorrow's run gets a different runner.
         $deferred += "#$($it.n) $($it.name) (blocked runner IP)"
+        $deferCause[[string]$it.n] = @{ cause = "blocked-ip"; detail = $m.Substring(0, [Math]::Min(160, $m.Length)) }
         Write-Log "#$($it.n) $($it.name) DEFER blocked IP range"
         Write-Note "warning" "Wikidata deferred — runner IP in a Wikimedia-blocked range" $m
       } elseif ($it.phase -eq "create" -and $m -match "abusefilter-(warning|throttle|disallow)") {
@@ -150,6 +154,8 @@ try {
         # attempt counter so the hub does not retire this door after 6 tries.
         try { Send-Record $it.n "action=reset" | Out-Null } catch {}
         $deferred += "#$($it.n) $($it.name)"
+        $fid = if ($m -match "abusefilter-(?:warning|throttle|disallow)-?(\d+)") { $Matches[1] } elseif ($m -match "\b(\d{3})\b") { $Matches[1] } else { "296" }
+        $deferCause[[string]$it.n] = @{ cause = "abusefilter-$fid"; detail = $m.Substring(0, [Math]::Min(160, $m.Length)) }
         Write-Log "#$($it.n) $($it.name) DEFER $m"
         Write-Note "warning" "Wikidata door #$($it.n) deferred by filter" $m
       } else {
@@ -161,9 +167,12 @@ try {
     }
     Start-Sleep -Seconds 3
   }
-  # Deferral ledger. Deferring quietly is right for days and wrong for weeks: a door that has been
-  # put off this long is stalled, not paced, and silence would hide that forever. runs/deferrals.json
-  # carries the first-deferred date per door and rides along in the repo-sync commit.
+  # Deferral ledger. runs/deferrals.json carries, per door still waiting, the first-deferred date, the last
+  # run that deferred it, the day count and the CAUSE: abusefilter-<id> (Wikidata filter 296 throttles item
+  # creation by new editors - pacing) or blocked-ip (the runner drew an IP in a range Wikimedia blocks
+  # globally - tomorrow's runner is different). Deferring is never a red run: a long deferral is reported
+  # as a stall in the job summary and in this file, and everything else keeps running. The file rides
+  # along in the repo-sync commit, so the public repo shows why a door has no item yet.
   $stale = @()
   try {
     $ledgerDir = Join-Path (Split-Path -Parent $PSScriptRoot) "runs"
@@ -171,19 +180,26 @@ try {
     $today = (Get-Date).ToUniversalTime().ToString("yyyy-MM-dd")
     $seen = @{}
     if (Test-Path $ledgerPath) {
-      (Get-Content $ledgerPath -Raw | ConvertFrom-Json).PSObject.Properties | ForEach-Object { $seen[$_.Name] = [string]$_.Value }
+      (Get-Content $ledgerPath -Raw | ConvertFrom-Json).PSObject.Properties | ForEach-Object {
+        if ($_.Name -notmatch '^\d+$') { return }
+        # old shape: "5": "2026-10-21"; new shape: "5": { since, last, days, cause, detail }
+        $seen[$_.Name] = $(if ($_.Value -is [string]) { $_.Value } else { [string]$_.Value.since })
+      }
     }
-    $next = @{}
+    $next = [ordered]@{}
+    $next["_about"] = "Wikidata courier deferral ledger, rewritten by tools/wd-courier.ps1 on every run. One entry per door still waiting; a door disappears when it is created or the deferral ends. A deferral is pacing, not a fault: it never turns the daily run red. cause: abusefilter-<id> (Wikidata throttles item creation by new editors, filter 296) or blocked-ip (the runner drew an IP in a range Wikimedia blocks globally; tomorrow's runner is different)."
     foreach ($d in $deferred) {
       if ($d -match '#(\d+)') {
         $n = $Matches[1]
-        $next[$n] = $(if ($seen.ContainsKey($n)) { $seen[$n] } else { $today })
-        $age = ([datetime]$today - [datetime]$next[$n]).Days
-        if ($age -ge $STALL_DAYS) { $stale += "#$n stalled $age days" }
+        $since = $(if ($seen.ContainsKey($n)) { $seen[$n] } else { $today })
+        $age = ([datetime]$today - [datetime]$since).Days
+        $c = $deferCause[$n]
+        $next[$n] = [ordered]@{ since = $since; last = $today; days = $age; cause = $(if ($c) { $c.cause } else { "unknown" }); detail = $(if ($c) { $c.detail } else { "" }) }
+        if ($age -ge $STALL_DAYS) { $stale += "#$n deferred $age days ($(if ($c) { $c.cause } else { 'unknown cause' }))" }
       }
     }
     if (!(Test-Path $ledgerDir)) { New-Item $ledgerDir -ItemType Directory -Force | Out-Null }
-    [IO.File]::WriteAllText($ledgerPath, (($next | ConvertTo-Json -Depth 3) + "`n"), (New-Object Text.UTF8Encoding($false)))
+    [IO.File]::WriteAllText($ledgerPath, ((($next | ConvertTo-Json -Depth 4) -replace "`r`n", "`n") + "`n"), (New-Object Text.UTF8Encoding($false)))
   } catch { Write-Log "ledger skipped: $($_.Exception.Message)" }
 
   if ($failed.Count -and -not $summary.Count) {
@@ -193,11 +209,10 @@ try {
     return
   }
   if ($stale.Count) {
-    "RESULT: FAIL $($stale -join '; ')"
-    Write-Note "error" "Wikidata stalled — deferred too long to still be pacing" ($stale -join "; ")
+    # a stall is reported, not a red run: the courier, the repo sync and the sweep all keep running
+    "wikidata-stalled: $($stale -join '; ') - still pacing? check runs/deferrals.json and the Wikidata account's edit count"
+    Write-Note "warning" "Wikidata stalled - deferred too long to still be pacing" ($stale -join "; ")
     Write-Log "STALLED $($stale -join '; ')"
-    if ($env:GITHUB_ACTIONS) { exit 1 }
-    return
   }
   if ($failed.Count) { "wikidata-skipped: $($failed -join ' · ')" }
   if ($deferred.Count) { "wikidata-deferred: $($deferred -join ' · ') (Wikidata is pacing new-editor item creation)" }

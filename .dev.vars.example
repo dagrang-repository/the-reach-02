@@ -1,2 +1,11 @@
 ADMIN_TOKEN=your-admin-token
 INDEXNOW_KEY=your-32-hex-indexnow-key
+# optional (all off when absent; set each with: npx wrangler secret put NAME)
+# GSC_SA_JSON={"client_email":"...","private_key":"-----BEGIN PRIVATE KEY-----\n...","token_uri":"https://oauth2.googleapis.com/token"}
+# GSC_PROPERTIES=sc-domain:aplusz.app,https://urgentvisa.org/
+# GOOGLE_SITE_VERIFICATION=the-content-of-google's-meta-tag
+# GOOGLE_SITE_VERIFICATION_FILE=google0123456789abcdef.html
+# BING_SITE_AUTH=the-msvalidate-token
+# BING_WEBMASTER_KEY=bing-webmaster-api-key
+# SWEEP_MAX_AGE_HOURS=36
+# ALLOW_UNSWEPT_PINGS=1   (first run only, before any sweep has been posted)
