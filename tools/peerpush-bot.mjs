@@ -523,13 +523,42 @@ async function discover(page, n) {
     const plan = [...document.querySelectorAll("a, button")].find((e) => /choose (a )?launch plan/i.test(e.innerText || ""));
     return { around: i >= 0 ? text.slice(Math.max(0, i - 40), i + 260) : "(name not on page)", plan_href: plan ? plan.href : "" };
   }, item.name);
-  note("4 row now", JSON.stringify({ around: row.around, plan_link: row.plan_href ? redact(row.plan_href) : "none" }));
+  note("4 row now", JSON.stringify({ around: row.around.slice(0, 160), plan_link: row.plan_href ? redact(row.plan_href) : "none" }));
   if (row.plan_href) {
     await page.goto(row.plan_href, { waitUntil: "domcontentloaded", timeout: 30000 });
     await page.waitForTimeout(2500);
-    const t = await pageWords(page);
-    const hits = [...t.matchAll(/.{0,110}(free queue|free launch|queue|wait in line|coming soon|joined|you'?re in).{0,110}/gi)].map((m) => m[0]).slice(0, 3);
-    note("5 plan page now", JSON.stringify({ at: redact(page.url()), slug_in_url: (page.url().match(/\/p\/([^/]+)\/plans/) || [])[1] || "", free_text: hits }));
+    // what the free choice IS, and what the action controls are - before and after selecting it (selection only:
+    // proven harmless, it changes nothing on its own)
+    const scan = () => page.evaluate(() => {
+      const vis = (el) => { const r = el.getBoundingClientRect(); return r.width > 0 && r.height > 0; };
+      const words = (el) => { const o = []; const w = document.createTreeWalker(el, NodeFilter.SHOW_TEXT); while (w.nextNode()) o.push(w.currentNode.textContent); return o.join(" ").replace(/\s+/g, " ").trim(); };
+      const attrs = (e) => ["role", "type", "href", "aria-checked", "aria-selected", "aria-pressed", "aria-disabled", "data-state", "disabled", "name", "value", "form"]
+        .map((a) => e.hasAttribute(a) ? `${a}=${String(e.getAttribute(a)).slice(0, 40)}` : "").filter(Boolean).join(" ");
+      const free = [...document.querySelectorAll("button, a, label, [role], input")].filter(vis)
+        .find((e) => /join the free queue/i.test(e.innerText || e.value || ""));
+      const card = free ? (free.closest("[data-state], [role=radio], label, li, section, article, form, div") || free.parentElement) : null;
+      const controls = [...document.querySelectorAll("main button, main a[href], main [role=button], main [role=radio], main input, form button")]
+        .filter(vis).map((e) => `${e.tagName.toLowerCase()}[${attrs(e)}] "${(e.innerText || e.value || "").trim().replace(/\s+/g, " ").slice(0, 34)}"`).slice(0, 18);
+      return {
+        free: free ? `${free.tagName.toLowerCase()}[${attrs(free)}] "${(free.innerText || "").trim().slice(0, 40)}"` : "none",
+        free_html: free ? free.outerHTML.replace(/\s+/g, " ").slice(0, 300) : "",
+        card: card ? words(card).slice(0, 260) : "",
+        form: free && free.closest("form") ? `${free.closest("form").getAttribute("action") || "(js)"} ${free.closest("form").method}` : "no form",
+        controls
+      };
+    });
+    const before = await scan();
+    note("5 free choice", JSON.stringify({ free: before.free, form: before.form, html: before.free_html }));
+    note("6 free card", before.card);
+    note("7 controls before", before.controls.join(" | ").slice(0, 900));
+    const opt = page.getByText(/join the free queue/i).first();
+    if (await opt.count()) {
+      await opt.click({ timeout: 10000 }).catch(() => null);
+      await page.waitForTimeout(2500);
+      const after = await scan();
+      note("8 after selecting free", JSON.stringify({ url: redact(page.url()), free: after.free, card: after.card.slice(0, 200) }));
+      note("9 controls after", after.controls.join(" | ").slice(0, 900));
+    }
   }
   return `status ${d.status || "?"}, slug ${slug || "-"}`;
 }
