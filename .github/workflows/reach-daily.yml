@@ -94,5 +94,5 @@ jobs:
           else { $rows += "| hub /status.json | NO | not reachable |" }
           $rows -join "`n" | Out-File -FilePath $env:GITHUB_STEP_SUMMARY -Append -Encoding utf8
           $red = ($line -notlike 'RESULT: PASS*') -or (-not $status) -or (-not $status.ok)
-          if ($red) { Write-Host "::error title=Reach daily::$line | hub red: $(if ($status) { $status.red -join ', ' } else { 'status.json unreachable' })"; exit 1 }
-          "all green"
+          if ($red) { Write-Host "::warning title=Reach daily::$line | hub: $(if ($status) { ($status.red + $status.warn) -join ', ' } else { 'status.json unreachable' })" }
+          "report written (a report never stops the hub)"

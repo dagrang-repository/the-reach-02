@@ -39,8 +39,9 @@ jobs:
         env:
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
-      - name: Sweep the hub and post the verdict (the ping gate reads it)
+      - name: Sweep the hub (a report - it never stops anything)
         if: env.HAS_CF == 'true'
+        continue-on-error: true
         shell: pwsh
         env:
           REACH_ADMIN_TOKEN: ${{ secrets.REACH_ADMIN_TOKEN }}

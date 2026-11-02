@@ -13,17 +13,17 @@ const ageH = (iso) => {
 
 export async function healthReport(env, slots = null) {
   const checks = {};
-  const maxSweepH = Number(env?.SWEEP_MAX_AGE_HOURS || 36);
+  const maxSweepH = Number(env?.SWEEP_MAX_AGE_HOURS || 48);
 
   const sweep = await latestSweep(env).catch(() => null);
   if (!sweep) {
-    checks.sweep = { ok: false, critical: true, detail: "no reachability sweep recorded: run tools/reachability.ps1 -Post (the daily CI does); nothing is pinged until one passes" };
+    checks.sweep = { ok: false, critical: false, detail: "no reachability sweep recorded yet (report only: pings never wait on it)" };
   } else {
     const h = ageH(sweep.swept_at);
     const pass = /^RESULT: PASS/.test(sweep.verdict || "");
     checks.sweep = {
       ok: pass && h !== null && h <= maxSweepH,
-      critical: true,
+      critical: false, // a report, never a switch: pings never wait on it
       detail: `${sweep.verdict} (${h === null ? "unknown age" : `${Math.round(h)} h ago`}, limit ${maxSweepH} h)`,
       since: sweep.swept_at,
     };

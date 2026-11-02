@@ -72,6 +72,10 @@ export async function latestSweep(env) {
  *  No sweep at all keeps the gate closed (playbook PART 22: deploy -> sweep -> ping), unless the owner sets
  *  ALLOW_UNSWEPT_PINGS = "1" for a first run. */
 export async function sweepAllowsPing(env) {
+  /* THE OWNER'S RULE: the chain never stops. Pings go out every hour whatever a sweep says or however old it is;
+     the sweep is a report (/status.json, the GitHub summary), never a switch. SWEEP_GATE = "1" turns the old gate
+     back on (the test rig sets it to prove the gate itself still works). */
+  if (String(env?.SWEEP_GATE || "") !== "1") return { ok: true, reason: "pings never wait on a sweep (owner's rule)" };
   const s = await latestSweep(env).catch(() => null);
   if (!s) {
     return String(env?.ALLOW_UNSWEPT_PINGS || "") === "1"
