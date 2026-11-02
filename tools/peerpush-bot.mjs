@@ -551,13 +551,34 @@ async function discover(page, n) {
     note("5 free choice", JSON.stringify({ free: before.free, form: before.form, html: before.free_html }));
     note("6 free card", before.card);
     note("7 controls before", before.controls.join(" | ").slice(0, 900));
-    const opt = page.getByText(/join the free queue/i).first();
+    const opt = page.getByRole("button", { name: /^\s*join the free queue\s*$/i }).first();
     if (await opt.count()) {
-      await opt.click({ timeout: 10000 }).catch(() => null);
-      await page.waitForTimeout(2500);
+      // what the click does: every fetch/XHR it sends with PeerPush's reply, console errors, and any toast or
+      // message that appears (a MutationObserver catches one that vanishes within seconds)
+      const net = [];
+      const onResp = async (r) => {
+        const req = r.request();
+        if (!["fetch", "xhr"].includes(req.resourceType())) return;
+        let body = ""; try { body = (await r.text()).replace(/\s+/g, " ").slice(0, 220); } catch { body = "(no body)"; }
+        net.push(`${req.method()} ${redact(r.url())} -> ${r.status()} ${body}`);
+      };
+      const cons = [];
+      const onCons = (m) => { if (["error", "warning"].includes(m.type())) cons.push(m.text().slice(0, 160)); };
+      page.on("response", onResp); page.on("console", onCons);
+      await page.evaluate(() => {
+        window.__reachToasts = [];
+        new MutationObserver((ms) => { for (const m of ms) for (const n of m.addedNodes) {
+          const t = (n.innerText || n.textContent || "").trim().replace(/\s+/g, " ");
+          if (t && t.length < 300 && (n.nodeType === 1) && (n.matches?.("[role=status], [role=alert], [aria-live], [data-sonner-toast], [class*=toast], [role=dialog]") || n.querySelector?.("[role=status], [role=alert], [data-sonner-toast], [role=dialog]"))) window.__reachToasts.push(t);
+        } }).observe(document.body, { childList: true, subtree: true });
+      });
+      await opt.click({ timeout: 10000 }).catch((e) => cons.push("click failed: " + e.message.slice(0, 100)));
+      await page.waitForTimeout(6000);
+      page.off("response", onResp); page.off("console", onCons);
+      const toasts = await page.evaluate(() => window.__reachToasts || []);
       const after = await scan();
-      note("8 after selecting free", JSON.stringify({ url: redact(page.url()), free: after.free, card: after.card.slice(0, 200) }));
-      note("9 controls after", after.controls.join(" | ").slice(0, 900));
+      note("8 click sent", (net.length ? net.join(" || ") : "no fetch/XHR at all").slice(0, 900));
+      note("9 click said", JSON.stringify({ url: redact(page.url()), toasts: toasts.slice(0, 4), console: cons.slice(0, 4), card: after.card.slice(0, 160) }).slice(0, 900));
     }
   }
   return `status ${d.status || "?"}, slug ${slug || "-"}`;
