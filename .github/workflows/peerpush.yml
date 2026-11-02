@@ -8,7 +8,7 @@ on:
   workflow_dispatch:
     inputs:
       mode:
-        description: "signup | signin | list"
+        description: "signup | signin | list | discover"
         required: true
         default: "list"
       door:
@@ -43,6 +43,6 @@ jobs:
           MODE: ${{ inputs.mode }}
           PEERPUSH_DOOR: ${{ inputs.door }}
         run: |
-          case "$MODE" in signup|signin|list) ;; *) echo "::error::mode must be signup, signin or list"; exit 1;; esac
+          case "$MODE" in signup|signin|list|discover) ;; *) echo "::error::mode must be signup, signin, list or discover"; exit 1;; esac
           case "$PEERPUSH_DOOR" in ''|*[!0-9]*) echo "::error::door must be a number"; exit 1;; esac
           node peerpush-bot.mjs "$MODE"

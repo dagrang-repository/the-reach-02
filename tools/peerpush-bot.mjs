@@ -266,6 +266,28 @@ async function safeClick(page, loc) {
 
 const DONE = /in (the )?(publishing )?queue|coming soon|scheduled|submitted|thank you|you'?re all set|is (now )?live|launched|waiting (in line|to be published)/i;
 
+/* What a free PLAN choice reads like - "Launch for free", "Free launch", "Free plan", "Join the free queue", "$0" -
+ * as opposed to a menu entry such as "Free Tools". Searched only outside the site's nav, header and footer. */
+const FREE_PLAN = /^\s*(free|\$\s?0|launch (for )?free|free launch|free (plan|listing|tier|option)|(submit|list|publish|continue|start|choose|select|join)( (for|the))? free( (queue|launch|plan))?|wait in line( for free)?)\b/i;
+export async function freePlanOption(page) {
+  const found = await page.evaluate((src) => {
+    const re = new RegExp(src, "i");
+    const money = /[$€£]\s?[1-9]|upgrade|promot|featured|sponsor|boost/i;
+    const vis = (el) => { const r = el.getBoundingClientRect(); return r.width > 0 && r.height > 0; };
+    const inChrome = (el) => !!el.closest("nav, header, footer, [role=navigation], [role=banner], [role=contentinfo], [role=menu]");
+    document.querySelectorAll("[data-reach-free]").forEach((e) => e.removeAttribute("data-reach-free"));
+    for (const el of document.querySelectorAll('button, [role="radio"], [role="button"], label, input[type="radio"], a')) {
+      const text = (el.innerText || el.value || el.getAttribute("aria-label") || "").trim().replace(/\s+/g, " ");
+      if (!vis(el) || inChrome(el) || !text || text.length > 60 || money.test(text) || !re.test(text)) continue;
+      if (el.tagName === "A" && !/claim|launch|plan|free|submit|queue/i.test(el.getAttribute("href") || "")) continue;
+      el.setAttribute("data-reach-free", "1");
+      return true;
+    }
+    return false;
+  }, FREE_PLAN.source);
+  return found ? page.locator('[data-reach-free="1"]').first() : null;
+}
+
 /** Claim with the private link, confirm the details, choose the FREE plan. Returns what it reached. */
 export async function claimListing(page, item, trail) {
   await page.goto(item.claim_url, { waitUntil: "domcontentloaded", timeout: 45000 });
@@ -273,18 +295,21 @@ export async function claimListing(page, item, trail) {
   if (/\/auth\//.test(page.url())) { await signIn(page); await page.goto(item.claim_url, { waitUntil: "domcontentloaded", timeout: 45000 }); await page.waitForTimeout(3000); }
   trail.push(["claim page", await seen(page)]);
   const claimBtn = page.getByRole("button", { name: /^\s*claim\b/i }).first();
-  if (await claimBtn.count()) trail.push(["clicked", await safeClick(page, claimBtn)]);
+  if (await claimBtn.count()) {
+    trail.push(["clicked", await safeClick(page, claimBtn)]);
+    trail.push(["after claim", { ...(await seen(page)), path: redact(page.url().split(item.product_id || "\u0000").join("{id}")) }]);
+  }
 
   let free = false, last = "";
   for (let step = 0; step < 7; step++) {
     const body = await page.evaluate(() => document.body.innerText.slice(0, 4000));
     if (free && DONE.test(body)) return { reached: "submitted", free };
-    // the free plan, when it is on screen and not chosen yet
+    // the free plan, when it is on screen and not chosen yet - a plan option, never a menu link ("Free Tools")
     if (!free) {
-      const option = page.locator('button, [role="radio"], [role="button"], label, a').filter({ hasText: /\bfree\b|\$\s?0\b/i })
-        .filter({ hasNotText: /[$€£]\s?[1-9]|upgrade|promot|featured|sponsor/i }).first();
-      if ((await option.count()) && (await option.isVisible().catch(() => false))) {
+      const option = await freePlanOption(page);
+      if (option) {
         trail.push(["free plan", await safeClick(page, option)]);
+        trail.push(["after free", await seen(page)]);
         free = true;
         continue;
       }
@@ -332,9 +357,10 @@ async function listing(page, { only = 0 } = {}) {
       }
       if (item.phase === "claim") {
         const r = await claimListing(page, item, trail);
-        await hub("/v1/peerpush/record", "POST", { n: item.n, status: r.reached, detail: r.free ? "free plan chosen" : "claimed - plan step not reached" });
-        for (const [k, v] of trail.slice(-5)) note(`4 #${item.n} ${k}`, typeof v === "string" ? v : JSON.stringify(v));
-        done.push(`#${item.n} ${r.reached}${r.free ? " (free)" : ""}`);
+        await hub("/v1/peerpush/record", "POST", { n: item.n, status: r.reached,
+          detail: r.reached === "submitted" ? "free plan chosen, in the queue" : "claimed - free plan not reached yet" });
+        for (const [k, v] of trail.slice(-7)) note(`4 #${item.n} ${k}`, typeof v === "string" ? v : JSON.stringify(v));
+        done.push(`#${item.n} ${r.reached === "submitted" ? "in the free queue" : "claimed, free plan not reached"}`);
         if (r.reached === "submitted") item.phase = "watch";
         else continue;
       }
@@ -359,6 +385,35 @@ async function listing(page, { only = 0 } = {}) {
   return done.length ? done.join(" · ") : "nothing to do today";
 }
 
+/** Read-only: where does PeerPush keep a claimed product, and which links lead to its editor / launch flow?
+ *  Navigates and reads only - no click on PeerPush. */
+async function discover(page, n) {
+  const { key } = await ensureKey(page);
+  const item = (await hub(`/v1/peerpush/queue?n=${n}`)).items.find((i) => i.n === n);
+  if (!item?.product_id) return "no product recorded for that door";
+  const s = await pp(`/products/${encodeURIComponent(item.product_id)}/status`, key);
+  const d = s.j?.data || {};
+  const slug = d.slug || "";
+  note("2 api status", JSON.stringify({ http: s.status, ...Object.fromEntries(Object.entries(d).filter(([k]) => !/claim|token|url/i.test(k))) }).slice(0, 600));
+  const id = item.product_id;
+  const mask = (u) => redact(String(u).split(id).join("{id}"));
+  const paths = ["/user", "/user/products", "/dashboard", "/user/launches", ...(slug ? [`/products/${slug}`, `/p/${slug}`, `/${slug}`] : []), `/products/${id}/edit`, `/user/products/${id}`];
+  for (const p of paths) {
+    try {
+      await page.goto(PP + p, { waitUntil: "domcontentloaded", timeout: 30000 });
+      await page.waitForTimeout(2000);
+      const links = await page.evaluate(([idv, slugv]) => [...document.querySelectorAll("a[href]")]
+        .map((a) => [(a.innerText || "").trim().replace(/\s+/g, " ").slice(0, 28), a.getAttribute("href")])
+        .filter(([t, h]) => h && (h.includes(idv) || (slugv && h.includes(slugv)) || /edit|launch|plan|claim|submit|dashboard|my-?products/i.test(h + " " + t)))
+        .slice(0, 10), [id, slug]);
+      const v = await seen(page);
+      note(`3 ${p.split(id).join("{id}")}`, JSON.stringify({ at: mask(page.url()), title: v.title, buttons: v.buttons.filter((b) => !/^(Browse|Integrate|1)$/.test(b)).slice(0, 8), links: links.map(([t, h]) => `${t}=${mask(h)}`) }));
+    } catch (e) { note(`3 ${p}`, "error " + String(e.message).slice(0, 80)); }
+  }
+  await hub("/v1/peerpush/record", "POST", { n, status: d.status === "claimed" ? "claimed" : "created", detail: "claimed - free plan not reached yet" });
+  return `status ${d.status || "?"}, slug ${slug || "-"}`;
+}
+
 async function main(mode) {
   if (!TOKEN) throw new Error("REACH_ADMIN_TOKEN missing");
   const box = await hub("/v1/inbox?service=peerpush&limit=1");           // proves the deployed inbox answers
@@ -374,6 +429,12 @@ async function main(mode) {
       else throw e;
     }
     note("1 code loop", `code travelled PeerPush -> peerpush@aplusz.app -> Worker -> bot in ${Math.round(r.ms / 1000)} s`);
+    if (mode === "discover") {
+      const n = Number(process.env.PEERPUSH_DOOR || 0);
+      if (!n) throw new Error("discover needs a door number");
+      note("verdict", `RESULT: PASS discover door ${n}: ${await discover(page, n)}`);
+      return true;
+    }
     if (mode === "list") {
       const only = Number(process.env.PEERPUSH_DOOR || 0);
       const said = await listing(page, { only });
