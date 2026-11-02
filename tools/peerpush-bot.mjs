@@ -446,6 +446,14 @@ async function listing(page, { only = 0 } = {}) {
         Object.assign(item, { phase: "claim", product_id: c.id, claim_url: c.claimUrl });
         note(`3 #${item.n} created`, `product ${c.id}, tagline "${item.tagline}", logo ${redact(c.logoUrl)}`);
       }
+      if (item.phase === "watch") {
+        // PeerPush is the truth, not the hub's record: a listing its own row still offers a plan for is not queued
+        const truth = await rowState(page, item.name);
+        if (truth.listed && (truth.plan || truth.ready)) {
+          note(`3 #${item.n} corrected`, `hub said queued, PeerPush shows "${truth.ready ? "Ready to launch" : "Choose launch plan"}" - finishing it now`);
+          Object.assign(item, { phase: "claim", status: "claimed" });
+        }
+      }
       if (item.phase === "claim") {
         // a link already used to claim no longer opens: a claimed listing is finished from /user/products
         const r = item.status === "claimed" ? await finishListing(page, item, trail) : await claimListing(page, item, trail);
