@@ -206,3 +206,17 @@ CREATE TABLE IF NOT EXISTS origin_urls (
   pinged_at TEXT,
   PRIMARY KEY (site_id, url)
 );
+
+-- inbox (src/inbox.js, self-creating): Email Routing -> peerpush@aplusz.app -> this Worker. One row per accepted
+-- PeerPush mail (code or notice), per refused sender (service 'rejected', kept 2 days) and per bot announcement
+-- (service 'expect:peerpush'). Kept 30 days. Codes are handed out once, never listed, never public.
+CREATE TABLE IF NOT EXISTS inbox (
+  id TEXT PRIMARY KEY,
+  service TEXT NOT NULL,
+  received_at TEXT NOT NULL,
+  from_addr TEXT,
+  subject TEXT,
+  code TEXT,
+  used_at TEXT,
+  snippet TEXT
+);

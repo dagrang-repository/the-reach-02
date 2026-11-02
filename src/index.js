@@ -26,6 +26,7 @@ import { sweepAllowsPing } from "./sweep.js";
 import { healthReport } from "./health.js";
 import { a2a } from "./a2a.js";
 import { safeUrl } from "./seo.js";
+import { handleEmail, handleInbox } from "./inbox.js";
 import { decorate, doorDateOf, doorHtmlOf, doorJsonOf, doorMarkdownOf, etagOf, homeMarkdownOf, hubSurfaces, isNoindex, loadA, preflight, tagged } from "./surfaces.js";
 
 const { atomXml, feedXml, jsonLdHill } = announce;
@@ -45,6 +46,11 @@ function notFound(path) {
 }
 
 export default {
+  /* Cloudflare Email Routing -> peerpush@aplusz.app lands here (src/inbox.js). Forwards nothing. */
+  async email(message, env) {
+    await handleEmail(message, env);
+  },
+
   async scheduled(controller, env) {
     if (controller && controller.cron === "0 */6 * * *") {
       /* the six-hourly run leaves its own runs row (trigger 'atlas'), so the health report can see it ran */
@@ -268,6 +274,8 @@ async function route(request, env, url, path) {
   if (wd) return wd;
   const wb = await handleWayback(path, request, url, env);
   if (wb) return wb;
+  const ib = await handleInbox(path, request, url, env);
+  if (ib) return ib;
 
   if (path === "/v1/doors" && method === "POST") {
     return json(await refreshSweeps(env, slots, base));
