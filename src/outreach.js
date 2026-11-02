@@ -162,6 +162,42 @@ export async function pingWebSub(env, site, feedUrl, runId, recordPing) {
 }
 
 let bingRefused = false;
+
+/* ---------------- Bing Webmaster: sitemaps (SubmitFeed) ----------------
+   Bing already gets every page through IndexNow; this adds the sitemap itself, the way Search Console gets it.
+   The owner stores the Bing Webmaster API key once (npx wrangler secret put BING_WEBMASTER_KEY). A site Bing has
+   not verified in that account answers with an error and is simply recorded; only an invalid key stops Bing calls. */
+const BING_API = "https://ssl.bing.com/webmaster/api.svc/json";
+export async function bingSubmitSitemap(env, siteUrl, sitemapUrl) {
+  if (!env.BING_WEBMASTER_KEY) return { skipped: true, reason: "BING_WEBMASTER_KEY not set" };
+  if (bingRefused) return { skipped: true, reason: "Bing refused the API key" };
+  try {
+    const res = await fetch(`${BING_API}/SubmitFeed?apikey=${encodeURIComponent(env.BING_WEBMASTER_KEY)}`, {
+      method: "POST",
+      headers: { "content-type": "application/json; charset=utf-8" },
+      body: JSON.stringify({ siteUrl, feedUrl: sitemapUrl }),
+      signal: AbortSignal.timeout(9000),
+    });
+    const text = new TextDecoder().decode(await readResponseCapped(res, 4096));
+    if (/InvalidApiKey/i.test(text)) bingRefused = true;
+    const ok = res.ok && !/ErrorCode/i.test(text);
+    return { ok, status: res.status, detail: ok ? "sitemap submitted" : text.slice(0, 160) };
+  } catch (err) {
+    return { ok: false, status: 0, reason: String(err.message || err).slice(0, 160) };
+  }
+}
+
+/** The rotated origin's sitemap to Bing, at most once a day per site. */
+export async function pingBingSitemap(env, site, runId, recordPing) {
+  if (!env.BING_WEBMASTER_KEY || !site.sitemap_url) return;
+  const recent = await env.DB.prepare("SELECT created_at FROM pings WHERE site_id = ? AND kind = 'bing-sitemap' AND ok = 1 ORDER BY created_at DESC LIMIT 1").bind(site.id).first().catch(() => null);
+  if (recent && Date.now() - new Date(recent.created_at).getTime() < 24 * 3600 * 1000) return;
+  let siteUrl = "";
+  try { siteUrl = `${new URL(site.url).origin}/`; } catch { return; }
+  const out = await bingSubmitSitemap(env, siteUrl, site.sitemap_url);
+  if (out.skipped) return;
+  await recordPing({ runId, siteId: site.id, kind: "bing-sitemap", endpoint: "bing.SubmitFeed", url: site.sitemap_url, status: out.status || 0, ok: !!out.ok, detail: out.detail || out.reason || "" });
+}
 export async function pingBingSubmit(env, site, urls, runId, recordPing) {
   const key = env.BING_WEBMASTER_KEY;
   if (!key || bingRefused) return;

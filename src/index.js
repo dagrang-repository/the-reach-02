@@ -21,7 +21,7 @@ import { pingAllSites, readKeyFromOrigin, recentPings, rememberOriginKey, verify
 import { ensureAnswerChannel, loadPack, SITE_FEATURES, STACK_VERSION } from "./stack.js";
 import { json, normalizeOriginKey, nowIso, readBodyCapped, requireAdmin, uid, unauthorized } from "./util.js";
 import { mcp } from "./mcp.js";
-import { gscSubmitSitemap } from "./outreach.js";
+import { bingSubmitSitemap, gscSubmitSitemap } from "./outreach.js";
 import { sweepAllowsPing } from "./sweep.js";
 import { healthReport } from "./health.js";
 import { a2a } from "./a2a.js";
@@ -61,7 +61,7 @@ export default {
         detail = `atlas failed: ${String(err?.message || err).slice(0, 300)}`;
       }
       const g = await submitHubSitemap(env).catch((err) => ({ ok: false, reason: String(err?.message || err) }));
-      detail += ` · search console: ${g.skipped ? `skipped (${g.reason})` : g.ok ? "hub sitemap submitted" : `failed ${g.status || ""} ${g.reason || ""}`}`;
+      detail += ` · sitemaps: ${g.skipped ? `skipped (${g.reason})` : g.reason}`;
       await run(env, `INSERT INTO runs (id, started_at, finished_at, trigger, ok, attempted, delivered, skipped, failed, detail) VALUES (?, ?, ?, 'atlas', ?, 0, 0, 0, 0, ?)`, runId, started, nowIso(), ok ? 1 : 0, detail.slice(0, 800)).catch(() => null);
       return;
     }
@@ -496,16 +496,24 @@ function packFileType(key) {
 /** Search Console: the hub's own sitemap index, submitted when the map's content moved since the last accepted
  *  submission (never on a schedule alone), never over a failing sweep. Off until the owner sets GSC_SA_JSON. */
 async function submitHubSitemap(env) {
-  if (!env.GSC_SA_JSON) return { skipped: true, reason: "GSC_SA_JSON not set" };
   const gate = await sweepAllowsPing(env);
   if (!gate.ok) return { skipped: true, reason: gate.reason };
+  const base = publicBase(env);
+  const sitemap = `${base}/sitemap.xml`;
   const map = await one(env, "SELECT updated_at FROM reach_map WHERE id = 'reach'").catch(() => null);
-  const last = await one(env, "SELECT created_at FROM pings WHERE kind = 'gsc-hub' AND ok = 1 ORDER BY created_at DESC LIMIT 1").catch(() => null);
-  if (last && map?.updated_at && last.created_at >= map.updated_at) return { skipped: true, reason: "sitemap unchanged since the last submission" };
-  const sitemap = `${publicBase(env)}/sitemap.xml`;
-  const out = await gscSubmitSitemap(env, sitemap);
-  if (!out.skipped) {
-    await run(env, `INSERT INTO pings (id, run_id, site_id, kind, endpoint, url, status, ok, detail, created_at) VALUES (?, NULL, NULL, 'gsc-hub', 'webmasters.sitemaps.put', ?, ?, ?, ?, ?)`, uid("ping"), sitemap, out.status || 0, out.ok ? 1 : 0, out.property ? `property ${out.property}` : out.reason || "", nowIso()).catch(() => null);
+  const engines = [
+    { kind: "gsc-hub", endpoint: "webmasters.sitemaps.put", on: !!env.GSC_SA_JSON, send: () => gscSubmitSitemap(env, sitemap) },
+    { kind: "bing-hub", endpoint: "bing.SubmitFeed", on: !!env.BING_WEBMASTER_KEY, send: () => bingSubmitSitemap(env, `${base}/`, sitemap) },
+  ];
+  const said = [];
+  for (const e of engines) {
+    if (!e.on) { said.push(`${e.kind}: off`); continue; }
+    const last = await one(env, "SELECT created_at FROM pings WHERE kind = ? AND ok = 1 ORDER BY created_at DESC LIMIT 1", e.kind).catch(() => null);
+    if (last && map?.updated_at && last.created_at >= map.updated_at) { said.push(`${e.kind}: unchanged`); continue; }
+    const out = await e.send();
+    if (out.skipped) { said.push(`${e.kind}: ${out.reason}`); continue; }
+    await run(env, `INSERT INTO pings (id, run_id, site_id, kind, endpoint, url, status, ok, detail, created_at) VALUES (?, NULL, NULL, ?, ?, ?, ?, ?, ?, ?)`, uid("ping"), e.kind, e.endpoint, sitemap, out.status || 0, out.ok ? 1 : 0, out.property ? `property ${out.property}` : out.detail || out.reason || "", nowIso()).catch(() => null);
+    said.push(`${e.kind}: ${out.ok ? "submitted" : `failed ${out.status || ""}`}`);
   }
-  return out;
+  return { ok: true, reason: said.join(", ") };
 }

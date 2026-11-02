@@ -4,6 +4,7 @@ import { discardBody, extractIndexNowKeyFromHtml, normalizeOriginKey, nowIso, re
 import { homeOk, recordDoorStatus, recordKeyStatus } from "./liveness.js";
 import {
   markDoor,
+  pingBingSitemap,
   pingBingSubmit,
   pingSearchConsoleSitemap,
   pingWebSub,
@@ -364,6 +365,7 @@ export async function pingAllSites(env, runId, onlySites = null) {
     }
     await pingBingSubmit(env, site, pingList, runId, rec);
     await pingSearchConsoleSitemap(env, site, runId, rec);
+    await pingBingSitemap(env, site, runId, rec);
     }
     /* rank 5: the origin's own sitemap - every new or changed page, not only the homepage. Same gates as above
        (sweep PASS is checked at the top of pingAllSites; the key must verify on the key host). */
