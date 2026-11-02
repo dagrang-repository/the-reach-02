@@ -123,7 +123,7 @@ export async function provenSession(page) {
  * ------------------------------------------------------------------------------------------------------------ */
 const API = PP + "/api/v1";
 const PAY_URL = /checkout|stripe|paypal|billing|payment|lemonsqueezy|paddle|\/pay(\/|$)/i;
-const MONEY = /[$€£]\s?[1-9]|\bpay\b|checkout|purchase|\bbuy\b|upgrade|promot|featured|sponsor|boost|\bcard\b|subscribe|outrank/i;
+const MONEY = /[$€£]\s?[1-9]|\bpay\b|checkout|purchase|\bbuy\b|upgrade|promot|featured|sponsor|boost|\bcard\b|subscribe|outrank|\blaunch now\b|always-on|one-time/i;
 const FREE = /\bfree\b|[$€£]\s?0(?![\d.,]*[1-9])/i;
 
 export async function pp(path, key, { method = "GET", body = null, idem = "" } = {}) {
@@ -274,7 +274,6 @@ async function pageWords(page) {
   });
 }
 
-const DONE = /in (the )?(publishing )?queue|coming soon|scheduled|submitted|thank you|you'?re all set|is (now )?live|launched|waiting (in line|to be published)/i;
 
 /* What a free PLAN choice reads like - "Launch for free", "Free launch", "Free plan", "Join the free queue", "$0" -
  * as opposed to a menu entry such as "Free Tools". Searched only outside the site's nav, header and footer. */
@@ -312,19 +311,16 @@ export async function claimListing(page, item, trail) {
   return planLoop(page, item, trail);
 }
 
-/** A claimed listing whose plan is not chosen yet: its "Choose launch plan" on /user/products, then the free plan.
- *  If PeerPush already shows it waiting (coming soon / in the queue), that is recorded instead - nothing re-chosen. */
-export async function finishListing(page, item, trail) {
+/** The product's own row on /user/products: does it still offer a launch plan, and what state does it show?
+ *  The row is the repeated list item holding the product's name (or the block around a lone product). The plan link
+ *  inside that row - and only that one - is marked for a click. */
+async function rowState(page, name) {
   await page.goto(PP + "/user/products", { waitUntil: "domcontentloaded", timeout: 45000 });
   await page.waitForTimeout(2500);
-  const row = await page.evaluate((name) => {
+  return page.evaluate((name) => {
     document.querySelectorAll("[data-reach-plan]").forEach((e) => e.removeAttribute("data-reach-plan"));
-    const isPlan = (e) => /choose (a )?launch plan|choose (a )?plan|^\s*launch\s*$/i.test((e.innerText || "").trim());
-    const pick = [...document.querySelectorAll("a, button")].filter(isPlan);
+    const isPlan = (e) => /choose (a )?launch plan|choose (a )?plan/i.test((e.innerText || "").trim());
     const chrome = "nav, header, footer, [role=navigation], [role=banner], [role=contentinfo]";
-    // this product's own ROW: from the element showing its name, climb to the first ancestor that is one item of a
-    // repeated list (siblings with the same tag and class). A lone product (no list) uses the block around its name
-    // that holds at most one plan link. Only what is INSIDE that row is ever read or pressed.
     const sig = (e) => e.tagName + "." + (typeof e.className === "string" ? e.className : "");
     const rowOf = (leaf) => {
       for (let el = leaf; el && el.parentElement && el !== document.body; el = el.parentElement) {
@@ -335,45 +331,80 @@ export async function finishListing(page, item, trail) {
         && [...el.parentElement.querySelectorAll("a, button")].filter(isPlan).length <= 1) el = el.parentElement;
       return el;
     };
+    // text node by node, space-separated: innerText glues inline neighbours ("Coming soon"+"Actions")
+    const words = (el) => { const out = []; const w = document.createTreeWalker(el, NodeFilter.SHOW_TEXT); while (w.nextNode()) out.push(w.currentNode.textContent); return out.join(" ").replace(/\s+/g, " ").trim(); };
     const leaves = [...document.querySelectorAll("body *")].filter((el) => !el.closest(chrome)
       && [...el.childNodes].some((n) => n.nodeType === 3 && (n.textContent || "").includes(name)));
-    // text node by node, space-separated: innerText glues inline neighbours ("Coming soon"+"Actions" = "Coming soonActions")
-    const words = (el) => { const out = []; const w = document.createTreeWalker(el, NodeFilter.SHOW_TEXT); while (w.nextNode()) out.push(w.currentNode.textContent); return out.join(" ").replace(/\s+/g, " "); };
-    let mine = null, state = "";
-    for (const leaf of leaves) {
-      const row = rowOf(leaf);
-      const plan = [...row.querySelectorAll("a, button")].find(isPlan);
-      const m = words(row).match(/\bcoming soon\b|\bin (the )?queue\b|\bscheduled\b|\bwaiting\b|\bpublished\b|\blive\b/i);
-      if (plan) { mine = plan; break; }
-      if (m && !state) state = m[0];
-    }
-    if (mine) mine.setAttribute("data-reach-plan", "1");
-    return { found: !!mine, many: pick.length, state };
-  }, item.name);
-  trail.push(["products page", { ...(await seen(page)), plan_links: row.many, state: row.state }]);
-  if (!row.found) return { reached: row.state && !/live|published/i.test(row.state) ? "submitted" : "claimed", free: false, note: row.state || "no launch-plan link for it" };
+    if (!leaves.length) return { listed: false, plan: false, ready: false, state: "", text: "" };
+    const row = rowOf(leaves[0]);
+    const plan = [...row.querySelectorAll("a, button")].find(isPlan);
+    if (plan) plan.setAttribute("data-reach-plan", "1");
+    const text = words(row).slice(0, 300);
+    const ready = /\bready to launch\b/i.test(text);
+    const m = text.match(/\bcoming soon\b|\bin (the )?(free )?queue\b|\bqueued\b|\bscheduled\b|\bwaiting\b|\bpublished\b|\blive\b|\blaunch(es|ing) (on|in)\b/i);
+    return { listed: true, plan: !!plan, ready, state: m ? m[0] : "", text };
+  }, name);
+}
+
+/** A claimed listing whose plan is not chosen yet: its own row's "Choose launch plan", then the free plan.
+ *  A row no longer offering a plan is already past this step - nothing is chosen again. */
+export async function finishListing(page, item, trail) {
+  const r = await rowState(page, item.name);
+  trail.push(["products page", { plan: r.plan, ready: r.ready, state: r.state, row: r.text.slice(0, 160) }]);
+  if (!r.listed) return { reached: "claimed", free: false, note: "product not on /user/products" };
+  if (!r.plan) return { reached: r.ready ? "claimed" : "submitted", free: false, note: r.state || r.text.slice(0, 80) };
   trail.push(["choose plan", await safeClick(page, page.locator('[data-reach-plan="1"]').first())]);
   trail.push(["plan page", { ...(await seen(page)), path: redact(page.url().split(item.product_id || "\u0000").join("{id}")) }]);
   return planLoop(page, item, trail);
 }
 
-/** Confirm details and take the FREE plan, never anything that costs money. Only a queue screen counts as done. */
+/** A confirmation the free choice opened (a dialog), and its confirm button - never one that costs money. */
+async function dialogConfirm(page) {
+  const found = await page.evaluate(() => {
+    document.querySelectorAll("[data-reach-ok]").forEach((e) => e.removeAttribute("data-reach-ok"));
+    const vis = (el) => { const r = el.getBoundingClientRect(); return r.width > 0 && r.height > 0; };
+    const boxes = [...document.querySelectorAll('[role="dialog"], [role="alertdialog"], dialog[open], [aria-modal="true"]')].filter(vis);
+    for (const box of boxes) {
+      for (const b of box.querySelectorAll("button, [role=button], input[type=submit]")) {
+        const t = (b.innerText || b.value || "").trim().replace(/\s+/g, " ");
+        if (!vis(b) || !t || /[$€£]\s?[1-9]|pay|checkout|upgrade|promot|featured|launch now|cancel|close|back/i.test(t)) continue;
+        if (/^(join( the)?( free)?( launch)? queue|confirm|yes|continue|submit|ok|join|launch for free|use free|free)\b/i.test(t)) {
+          b.setAttribute("data-reach-ok", "1");
+          return { text: t, dialog: (box.innerText || "").replace(/\s+/g, " ").slice(0, 200) };
+        }
+      }
+    }
+    return null;
+  });
+  return found ? { loc: page.locator('[data-reach-ok="1"]').first(), ...found } : null;
+}
+
+const priced = (page) => page.locator("button, a, [role=button]").filter({ hasText: /[$€£]\s?[1-9]/ }).count();
+
+/** Take the FREE plan, never anything that costs money, then prove it on the product's own row.
+ *  - editor screens (no prices on them): Save / Continue / Next / Confirm / Submit / Done / Finish only
+ *  - a page showing prices (the plan page): ONLY the free option and the confirmation it opens may be pressed
+ *  - success is decided by /user/products alone: the row no longer offers a launch plan and is not "Ready to launch" */
 async function planLoop(page, item, trail) {
   let free = false, last = "";
+  const slugOf = () => (page.url().match(/\/p\/([^/?#]+)\/plans/) || [])[1] || "";
+  let slug = slugOf();
   for (let step = 0; step < 7; step++) {
-    const body = await pageWords(page);
-    if (free && DONE.test(body)) return { reached: "submitted", free };
-    // the free plan, when it is on screen and not chosen yet - a plan option, never a menu link ("Free Tools")
+    if (PAY_URL.test(page.url())) throw new Error("a payment page opened - stopped, nothing paid");
+    slug = slug || slugOf();
     if (!free) {
       const option = await freePlanOption(page);
       if (option) {
         trail.push(["free plan", await safeClick(page, option)]);
-        trail.push(["after free", await seen(page)]);
+        const dlg = await dialogConfirm(page);
+        trail.push(["after free", { ...(await seen(page)), dialog: dlg ? dlg.dialog : "" }]);
+        if (dlg) trail.push(["confirmed", await safeClick(page, dlg.loc)]);
         free = true;
-        continue;
+        break;
       }
     }
-    const go = page.getByRole("button", { name: /^\s*(save( and continue| changes)?|continue|next|confirm|submit|launch|publish|done|finish|get started|join (the )?queue)\b/i }).first();
+    if ((await priced(page)) > 0) { trail.push(["priced page", "no free option found - nothing pressed"]); break; }
+    const go = page.getByRole("button", { name: /^\s*(save( and continue| changes)?|continue|next|confirm|submit|done|finish)\b/i }).first();
     if (!(await go.count()) || !(await go.isVisible().catch(() => false))) break;
     const label = await safeClick(page, go);
     const now = JSON.stringify(await seen(page));
@@ -381,9 +412,10 @@ async function planLoop(page, item, trail) {
     if (now === last) { trail.push(["stuck", await seen(page)]); break; }   // the same screen twice: a field needs attention
     last = now;
   }
-  const body = await pageWords(page);
-  trail.push(["end", { ...(await seen(page)), path: redact(page.url().split(item.product_id || "\u0000").join("{id}")) }]);
-  return { reached: free && DONE.test(body) ? "submitted" : "claimed", free };
+  const v = await rowState(page, item.name);
+  trail.push(["verified on /user/products", { plan: v.plan, ready: v.ready, state: v.state, row: v.text.slice(0, 160) }]);
+  const queued = v.listed && !v.plan && !v.ready;
+  return { reached: queued ? "submitted" : "claimed", free, slug, note: v.state || v.text.slice(0, 80) };
 }
 
 /** REST status; live once PeerPush reports a published date. */
@@ -417,10 +449,12 @@ async function listing(page, { only = 0 } = {}) {
       if (item.phase === "claim") {
         // a link already used to claim no longer opens: a claimed listing is finished from /user/products
         const r = item.status === "claimed" ? await finishListing(page, item, trail) : await claimListing(page, item, trail);
-        await hub("/v1/peerpush/record", "POST", { n: item.n, status: r.reached,
-          detail: r.reached === "submitted" ? "free plan chosen, in the queue" : "claimed - free plan not reached yet" });
+        if (r.slug) item.slug = r.slug;
+        await hub("/v1/peerpush/record", "POST", { n: item.n, status: r.reached, slug: r.slug || item.slug || "",
+          detail: r.reached === "submitted" ? `in the free queue - row shows: ${r.note || "no plan to choose"}`.slice(0, 280)
+            : `claimed, not queued yet - row shows: ${r.note || "?"}`.slice(0, 280) });
         for (const [k, v] of trail.slice(-7)) note(`4 #${item.n} ${k}`, typeof v === "string" ? v : JSON.stringify(v));
-        done.push(`#${item.n} ${r.reached === "submitted" ? "in the free queue" : "claimed, free plan not reached"}`);
+        done.push(`#${item.n} ${r.reached === "submitted" ? "in the free queue (verified on /user/products)" : "claimed, NOT queued - " + (r.note || "?")}`);
         if (r.reached === "submitted") item.phase = "watch";
         else continue;
       }
