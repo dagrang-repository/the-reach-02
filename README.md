@@ -42,7 +42,7 @@ Every file is served by the Worker (`src/`) from one resolver; there are no stat
 | PWA | https://reach2.aplusz.app/manifest.json · https://reach2.aplusz.app/sw.js |
 | Add a door | https://reach2.aplusz.app/add |
 
-## Doors (35) — auto-updated 2026-11-02 from [sites.json](sites.json)
+## Doors (35) — auto-updated 2026-11-03 from [sites.json](sites.json)
 
 | # | Door | Live | What it answers | Languages | Wikidata |
 |---|---|---|---|---|---|
@@ -57,7 +57,7 @@ Every file is served by the Worker (`src/`) from one resolver; there are no stat
 | 9 | [Fly for LESS](https://reach2.aplusz.app/9) | [aplusz.app](https://aplusz.app/) | Answers one question for anyone with a trip in mind: I want to fly from {city A} to {city B} - what is the cheapest fare, what was the 6-month low, and which date is cheapest to book? Free, no signup, 20 languages. | 1 | [Q141925273](https://www.wikidata.org/wiki/Q141925273) |
 | 10 | [The Wheel](https://reach2.aplusz.app/10) | [thewheel.aplusz.app](https://thewheel.aplusz.app/) | Draws a winner at random from a list the user gives you: names, options, prizes, chores, seating, teams. Free, no account, nothing stored, 40 languages. | 1 | [Q141945402](https://www.wikidata.org/wiki/Q141945402) |
 | 11 | [Global Dictionary](https://reach2.aplusz.app/11) | [dictionary.aplusz.app](https://dictionary.aplusz.app/) | One question: what does this word mean - with the answer written in the language the reader actually reads. Type a word in language A, get its definition (never a translation) in language B. | 1 | [Q141971547](https://www.wikidata.org/wiki/Q141971547) |
-| 12 | [The Search](https://reach2.aplusz.app/12) | [thesearch.aplusz.app](https://thesearch.aplusz.app/) | One question in, one answer out. Type anything — a word, a phrase, a whole sentence, a typo, in any language — and get a single clean answer with its source named, instead of ten blue links. | 61 |  |
+| 12 | [The Search](https://reach2.aplusz.app/12) | [thesearch.aplusz.app](https://thesearch.aplusz.app/) | One question in, one answer out. Type anything — a word, a phrase, a whole sentence, a typo, in any language — and get a single clean answer with its source named, instead of ten blue links. | 61 | [Q141983414](https://www.wikidata.org/wiki/Q141983414) |
 | 13 | [One Life](https://reach2.aplusz.app/13) | [onelife-66u.pages.dev](https://onelife-66u.pages.dev/) | A human Life lasts about 4,000 weeks. One Life shows the count — each dot one week of the only Life that is confirmed — and what those weeks could hold instead of practices built on claims no one has ever proven. Author: Leo Vance. | 1 |  |
 | 14 | [The AI Hill Top Lighthouse](https://reach2.aplusz.app/14) | [reach2.aplusz.app](https://reach2.aplusz.app/) | The AI Hill Top Lighthouse: a shared directory AI models fetch to find the live sites in this network — name, real URL, numbered door, atlas and a which-site-answers-X matcher. Nothing you build ever starts invisible again. | 1 |  |
 | 15 | [All Problems Solved](https://reach2.aplusz.app/15) | [allproblemssolved.aplusz.app](https://allproblemssolved.aplusz.app/) | Answers the thirty things people get stuck on: is this price fair, is this a scam, what does this notice mean, where do I get this medicine, what do I do first. One page per problem, free, no account, nothing you type is kept. | 13 |  |
@@ -82,7 +82,7 @@ Every file is served by the Worker (`src/`) from one resolver; there are no stat
 | 34 | [Fortune Heir Casino: Slots & Blackjack](https://reach2.aplusz.app/34) | [fortuneheir.aplusz.app](https://fortuneheir.aplusz.app/) | Where can I play slots, blackjack and roulette for free, with no real money? Here, in the browser: Fortune Heir Casino is a free social casino game for adults (18+) with virtual money only (no deposit, no sign-up, no cash prizes). | 20 |  |
 | 35 | [Ultra Pool Billiards](https://reach2.aplusz.app/35) | [poolgame.aplusz.app](https://poolgame.aplusz.app/) | Answers one question for anyone who wants a game of pool right now: where can I play real eight-ball, on a full-size table, free, in a browser, on a phone or a PC, with nothing to install and no waiting for an opponent? | 21 |  |
 
-Doors with a Wikidata item: 11 of 35 (hub count: 11) · Wayback snapshots: 132 · one more door: https://reach2.aplusz.app/add
+Doors with a Wikidata item: 12 of 35 (hub count: 12) · Wayback snapshots: 132 · one more door: https://reach2.aplusz.app/add
 
 ## How it runs
 
