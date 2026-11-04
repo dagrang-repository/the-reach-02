@@ -67,6 +67,7 @@ export const SELF_OPEN = new Set([
   "/rss.xml",
   "/feed.json",
   "/status.json",
+  "/crawlers.json",
   "/api/oembed",
   "/ai-catalog.json",
   "/.well-known/llms.txt",

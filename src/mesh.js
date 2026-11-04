@@ -2,7 +2,7 @@
  *  Split out of announce.js (which is now rendering only: JSON-LD, feeds, link headers). Every caller - the hourly
  *  cycle, an admin add, a paid join, a Wikidata link - comes through pingReachMesh / announceReachFeed, and the
  *  sweep gate (src/sweep.js) lives inside them: never over a failing sweep, never for an unchanged list. */
-import { INDEXNOW_ENDPOINTS, postIndexNowRaw } from "./ping.js";
+import { INDEXNOW_ENDPOINTS, postIndexNowPolite } from "./ping.js";
 import { markDoor, pingWebSub, recordChange, shouldPingUrl } from "./outreach.js";
 import { publicBase } from "./hill.js";
 import { sweepAllowsPing } from "./sweep.js";
@@ -102,7 +102,7 @@ export async function pingReachMesh(env, urlsOrItems, runId) {
     let detail = "";
     for (const chunk of chunks) {
       try {
-        const out = await postIndexNowRaw(endpoint, host, key, keyLocation, chunk);
+        const out = await postIndexNowPolite(env, endpoint, host, key, keyLocation, chunk);
         status = out.status;
         ok = ok && out.ok;
       } catch (err) {

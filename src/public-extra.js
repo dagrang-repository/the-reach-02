@@ -1,4 +1,5 @@
 /** Public, no-token hub endpoints. Rule: a path named in llms.txt / robots / sitemap / catalogs never 401s. */
+import { crawlersJson } from "./crawlers.js";
 import { sitesJson, sitesMd } from "./capture.js";
 import { loadSweep } from "./doors.js";
 import { publicBase } from "./hill.js";
@@ -106,6 +107,10 @@ export async function publicExtra(path, env, slots, publicMap) {
       { "content-type": "application/feed+json; charset=utf-8" }
     );
   }
+  if (path === "/crawlers.json") {
+    /* proof that AI crawlers read this hub: verified visits per bot, class and door (src/crawlers.js) */
+    return json(await crawlersJson(env, slots));
+  }
   if (path === "/status.json") {
     /* the hub's one self-report (src/health.js): ok is the health verdict, not "a site exists" */
     return json(await statusJson(env, slots, publicMap));
@@ -138,7 +143,7 @@ export async function publicExtra(path, env, slots, publicMap) {
 - Site records (name, URL, sitemap, IndexNow key + key URL, llms.txt, description, languages, feed): ${base}/sites.json · ${base}/sites.md
 - Wikidata items per door: ${base}/wikidata.json
 - Wayback snapshots of every door, site and llms.txt: ${base}/wayback.json
-- Feeds: ${base}/feed.xml (Atom) · ${base}/rss.xml (RSS 2.0) · ${base}/feed.json (JSON Feed, WebSub hub) · status: ${base}/status.json
+- Feeds: ${base}/feed.xml (Atom) · ${base}/rss.xml (RSS 2.0) · ${base}/feed.json (JSON Feed, WebSub hub) · status: ${base}/status.json · AI-crawler proof: ${base}/crawlers.json
 - Last stored door sweep and AI-crawler check of the origins: ${base}/doors · ${base}/crawler-check
 - Atlas (every site: what it is, keywords, questions it answers): ${base}/atlas.md · ${base}/atlas.json
 - Which site answers X: ${base}/match?q=X

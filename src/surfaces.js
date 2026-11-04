@@ -565,6 +565,9 @@ export function openapiJson(base, slots, env = null) {
         "/atlas.json": {
           get: { operationId: "getAtlas", summary: "The network atlas: what each site is, its keywords and the questions it answers", responses: { 200: { description: "{ specVersion, match_endpoint, sites[] } - fields from each origin's own llms.txt are marked by source." } } },
         },
+        "/crawlers.json": {
+          get: { operationId: "getCrawlers", summary: "AI and search crawler visits to this hub, verified by published IP ranges or Web Bot Auth", responses: { 200: { description: "{ about, generated_at, by_class_30d, bots[], doors[] }" } } },
+        },
         "/status.json": {
           get: { operationId: "getStatus", summary: "Liveness and counts", responses: { 200: { description: "{ ok, service, doors, records_captured, wikidata_items, checked_at }" } } },
         },

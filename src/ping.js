@@ -1,3 +1,4 @@
+import { politePost, drainIndexNow } from "./indexnow.js";
 import { all, one, run } from "./db.js";
 import { keyForUrl } from "./known-keys.js";
 import { discardBody, extractIndexNowKeyFromHtml, normalizeOriginKey, nowIso, readResponseCapped, uid } from "./util.js";
@@ -211,6 +212,19 @@ export async function postIndexNowRaw(endpoint, host, key, keyLocation, urlList)
   return postIndexNow(endpoint, host, key, keyLocation, urlList);
 }
 
+/** Every hub IndexNow send: polite (src/indexnow.js) - 24 h per URL per engine, 429 backoff, a queue that loses nothing. */
+export async function postIndexNowPolite(env, endpoint, host, key, keyLocation, urlList) {
+  return politePost(env, postIndexNow, endpoint, host, key, keyLocation, urlList);
+}
+
+/** Hourly: send the IndexNow queue that is due, each send recorded like any other ping. */
+export async function drainQueuedIndexNow(env, runId) {
+  return drainIndexNow(env, postIndexNow, (row, out, urls) => record(env, {
+    runId, siteId: null, kind: "indexnow-queue", endpoint: row.endpoint, url: urls[0] || "", status: out.status ?? 0, ok: !!out.ok && !out.recent,
+    detail: `${urls.length} queued URL(s) for ${row.host}: ${String(out.body || "").slice(0, 200)}`,
+  }));
+}
+
 async function postIndexNow(endpoint, host, key, keyLocation, urlList) {
   const res = await fetch(endpoint, {
     method: "POST",
@@ -219,7 +233,9 @@ async function postIndexNow(endpoint, host, key, keyLocation, urlList) {
     signal: AbortSignal.timeout(ORIGIN_TIMEOUT_MS),
   });
   const text = utf8(await readResponseCapped(res, INDEXNOW_REPLY_MAX).catch(() => new Uint8Array(0)));
-  return { status: res.status, ok: res.status === 200 || res.status === 202, body: text.slice(0, 200) };
+  const ra = res.headers.get("retry-after") || "";
+  const retryAfter = /^\d+$/.test(ra) ? Number(ra) : ra ? Math.max(0, Math.round((Date.parse(ra) - Date.now()) / 1000)) || 0 : 0;
+  return { status: res.status, ok: res.status === 200 || res.status === 202, body: text.slice(0, 200), retryAfter };
 }
 
 async function fetchDoor(url) {
@@ -334,7 +350,7 @@ export async function pingAllSites(env, runId, onlySites = null) {
     if (keyCheck.ok && pingList.length) {
     for (const endpoint of endpoints) {
       try {
-        const out = await postIndexNow(endpoint, host, site.indexnow_key, keyLocation, pingList);
+        const out = await postIndexNowPolite(env, endpoint, host, site.indexnow_key, keyLocation, pingList);
         siteReport.indexnow.push({ endpoint, status: out.status, ok: out.ok });
         if (out.ok) stats.indexnow += 1;
         else stats.failed += 1;
@@ -379,7 +395,7 @@ export async function pingAllSites(env, runId, onlySites = null) {
             for (let i = 0; i < deltas.length; i += 10000) {
               const chunk = deltas.slice(i, i + 10000).map((u) => u.url);
               try {
-                const out = await postIndexNow(endpoint, smHost, site.indexnow_key, keyLocation, chunk);
+                const out = await postIndexNowPolite(env, endpoint, smHost, site.indexnow_key, keyLocation, chunk);
                 accepted = accepted || out.ok;
                 await record(env, { runId, siteId: site.id, kind: "indexnow-sitemap", endpoint, url: chunk[0], status: out.status, ok: out.ok, detail: `${chunk.length} sitemap urls` });
               } catch (err) {

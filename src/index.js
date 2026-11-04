@@ -17,7 +17,7 @@ import * as announce from "./announce.js";
 import { announceReachFeed, pingReachMesh, reachAnnounceItems, reachKey } from "./mesh.js";
 import { keyForUrl } from "./known-keys.js";
 import { catalogFromSlots, changesTxt, listChanges, publicPings } from "./outreach.js";
-import { pingAllSites, readKeyFromOrigin, recentPings, rememberOriginKey, verifyOriginKey } from "./ping.js";
+import { drainQueuedIndexNow, pingAllSites, readKeyFromOrigin, recentPings, rememberOriginKey, verifyOriginKey } from "./ping.js";
 import { ensureAnswerChannel, loadPack, SITE_FEATURES, STACK_VERSION } from "./stack.js";
 import { json, normalizeOriginKey, nowIso, readBodyCapped, requireAdmin, uid, unauthorized } from "./util.js";
 import { mcp } from "./mcp.js";
@@ -28,6 +28,7 @@ import { a2a } from "./a2a.js";
 import { safeUrl } from "./seo.js";
 import { handleEmail, handleInbox } from "./inbox.js";
 import { handlePeerPush } from "./peerpush.js";
+import { crawlerTick, handleCrawlersAdmin, logCrawlerHit, maybeCrawler } from "./crawlers.js";
 import { decorate, doorDateOf, doorHtmlOf, doorJsonOf, doorMarkdownOf, etagOf, homeMarkdownOf, hubSurfaces, isNoindex, loadA, preflight, tagged } from "./surfaces.js";
 
 const { atomXml, feedXml, jsonLdHill } = announce;
@@ -79,11 +80,13 @@ export default {
     await recheckPaidKeys(env).catch(() => null);
     await captureBatch(env, 3, 24).catch(() => null);
     await runCycle(env, "cron");
+    await drainQueuedIndexNow(env, uid("run")).catch(() => null);   // IndexNow pushes held by a 429 or the 24 h rule
+    await crawlerTick(env).catch(() => null);                      // crawler IP ranges (daily) + 90-day hit retention
     await wikidataTick(env).catch(() => null);
     await waybackTick(env).catch(() => null);
   },
 
-  async fetch(request, env) {
+  async fetch(request, env, ctx) {
     const url = new URL(request.url);
     const path = url.pathname.replace(/\/+$/, "") || "/";
 
@@ -107,6 +110,8 @@ export default {
       res = json({ ok: false, error: requireAdmin(request, env) ? String(err?.message || err).slice(0, 400) : "internal error" }, 500);
     }
     res = decorate(res, path, env, request.method);
+    /* AI-crawler proof (src/crawlers.js): logged after the response is sent, never in its way */
+    if (ctx && typeof ctx.waitUntil === "function" && maybeCrawler(request)) ctx.waitUntil(logCrawlerHit(env, request, path, res.status).catch(() => null));
     return isHead ? new Response(null, { status: res.status, statusText: res.statusText, headers: res.headers }) : res;
   },
 };
@@ -279,6 +284,8 @@ async function route(request, env, url, path) {
   if (ib) return ib;
   const pp = await handlePeerPush(path, request, url, env);
   if (pp) return pp;
+  const cw = await handleCrawlersAdmin(path, request, url, env);
+  if (cw) return cw;
 
   if (path === "/v1/doors" && method === "POST") {
     return json(await refreshSweeps(env, slots, base));
