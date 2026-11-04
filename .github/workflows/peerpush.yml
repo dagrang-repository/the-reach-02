@@ -32,6 +32,7 @@ jobs:
         with:
           node-version: 22
       - name: Install a browser (outside the repo, so package-lock stays untouched)
+        continue-on-error: true
         run: |
           mkdir -p "$RUNNER_TEMP/pw" && cd "$RUNNER_TEMP/pw"
           npm init -y >/dev/null

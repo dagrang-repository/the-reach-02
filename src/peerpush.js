@@ -168,8 +168,8 @@ export async function listingFor(slot, env, { ai = false } = {}) {
   };
 }
 
-/* NEVER: doors the owner keeps out of PeerPush for good - no setting can put them back (Nov 3 2026: #13 One Life). */
-export const NEVER = new Set([13]);
+/* NEVER: doors the owner keeps out of PeerPush for good - no setting can put them back (#13 One Life, #36 We push your site to the World). */
+export const NEVER = new Set([13, 36]);   // #36 We push your site to the World (owner, Nov 5 2026)
 const skipSet = (env) => new Set([...NEVER, ...String(env.PEERPUSH_SKIP ?? SKIP_DEFAULT).split(",").map((s) => Number(s.trim())).filter(Boolean)]);
 const perDay = (env) => Math.max(0, Math.min(20, Number(env.PEERPUSH_PER_DAY ?? PER_DAY_DEFAULT)));
 
@@ -212,7 +212,9 @@ export async function queueFor(env, { limit = 3, only = 0 } = {}) {
   for (const slot of slots) {
     if (room <= 0 || items.filter((i) => i.phase === "create").length >= limit) break;
     if (only && slot.n !== only) continue;
-    if (rows.has(slot.n)) continue;
+    const prev = rows.get(slot.n);
+    if (prev && !(prev.status === "error" && !prev.product_id && Number(prev.attempts || 0) < 30
+      && (!prev.checked_at || now - Date.parse(prev.checked_at) > 20 * 3600000))) continue;   // a failed create retries ~daily, on its own
     if (!eligible(slot, env).ok) continue;
     const L = await listingFor(slot, env, { ai: true });
     if (!L) continue;                       // no copy good enough yet: the door waits, nothing goes out with junk

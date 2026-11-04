@@ -197,12 +197,12 @@ export async function ensureKey(page) {
   return { key, made };
 }
 
-async function isImage(url) {
+async function isImage(url, any = false) {
   try {
     const r = await fetch(url, { headers: { "user-agent": UA_HUB }, redirect: "follow" });
     const type = r.headers.get("content-type") || "";
-    await r.arrayBuffer().catch(() => null);
-    return r.ok && /^image\/(png|jpe?g|webp)/i.test(type);
+    const size = (await r.arrayBuffer().catch(() => new ArrayBuffer(0))).byteLength;
+    return r.ok && size > 0 && (any ? /^image\//i : /^image\/(png|jpe?g|webp)/i).test(type);
   } catch { return false; }
 }
 
@@ -210,6 +210,7 @@ async function isImage(url) {
  *  then the usual /icon-512.png paths, then its social image. Every candidate is fetched and must be a PNG/JPEG/WebP. */
 export async function logoFor(site) {
   const cands = [];
+  const fallbacks = [];
   try {
     const res = await fetch(site.websiteUrl, { headers: { "user-agent": UA_HUB, accept: "text/html" }, redirect: "follow" });
     const html = (await res.text()).slice(0, 400000);
@@ -227,11 +228,13 @@ export async function logoFor(site) {
     }
     for (const l of links) {
       const rel = attr(l, "rel").toLowerCase(), href = attr(l, "href");
-      if (!href || /\.(svg|ico)(\?|$)/i.test(href)) continue;
+      if (!href) continue;
+      if (/\.(svg|ico)(\?|$)/i.test(href)) { if (/icon/.test(rel)) fallbacks.push(new URL(href, base).href); continue; }
       if (rel.includes("apple-touch-icon")) cands.push({ url: new URL(href, base).href, size: size(attr(l, "sizes")) || 180, pref: 1 });
       else if (/\bicon\b/.test(rel)) cands.push({ url: new URL(href, base).href, size: size(attr(l, "sizes")) || 32, pref: 1 });
     }
     for (const p of ["/icon-512.png", "/icons/icon-512.png", "/icon-192.png", "/apple-touch-icon.png"]) cands.push({ url: new URL(p, base).href, size: 100, pref: 0 });
+    for (const p of ["/logo.png", "/favicon.png", "/favicon-32x32.png", "/favicon.svg", "/favicon.ico"]) fallbacks.push(new URL(p, base).href);
   } catch { /* site unreachable from here: fall back to its social image */ }
   cands.sort((a, b) => (b.size >= 128) - (a.size >= 128) || b.pref - a.pref || b.size - a.size);
   const seenUrl = new Set();
@@ -241,6 +244,8 @@ export async function logoFor(site) {
     if (await isImage(c.url)) return c.url;
   }
   if (site.og_image && (await isImage(site.og_image))) return site.og_image;
+  // last resorts: what the site still publishes as its icon - an SVG icon, a .ico, /favicon.ico
+  for (const c of fallbacks) if (await isImage(c, true)) return c;
   return "";
 }
 

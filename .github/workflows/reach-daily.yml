@@ -34,12 +34,14 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - name: Wikidata courier
+        continue-on-error: true   # works on its own; a problem is retried next day, never an e-mail (owner, Nov 5 2026)
         shell: pwsh
         env:
           REACH_ADMIN_TOKEN: ${{ secrets.REACH_ADMIN_TOKEN }}
         run: ./tools/wd-courier.ps1
       - name: Repo sync
         if: always()
+        continue-on-error: true
         shell: pwsh
         run: ./tools/repo-sync.ps1
       - name: Hub sweep (its verdict opens or closes the ping gate)

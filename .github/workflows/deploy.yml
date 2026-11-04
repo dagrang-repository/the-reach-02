@@ -32,9 +32,11 @@ jobs:
         with:
           node-version: 22
       - if: env.HAS_CF == 'true'
+        continue-on-error: true   # never a failure e-mail (owner, Nov 5 2026); a failed deploy leaves the live Worker as it was
         run: npm ci
       - name: Deploy the Worker
         if: env.HAS_CF == 'true'
+        continue-on-error: true
         run: npx wrangler deploy
         env:
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
