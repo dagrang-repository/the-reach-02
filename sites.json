@@ -1,7 +1,7 @@
 {
   "name": "The AI Hill Top Lighthouse",
   "tagline": "Nothing you build ever starts invisible again.",
-  "generated": "2026-11-04T17:13:17.140Z",
+  "generated": "2026-11-05T07:57:50.730Z",
   "count": 36,
   "record_fields": [
     "n",
@@ -511,6 +511,7 @@
       "door": "https://reach2.aplusz.app/13",
       "door_md": "https://reach2.aplusz.app/13.md",
       "hash": "https://reach2.aplusz.app/#13",
+      "wikidata": "https://www.wikidata.org/wiki/Q142027585",
       "localized": 0,
       "captured_at": "2026-11-02T06:01:32.497Z"
     },

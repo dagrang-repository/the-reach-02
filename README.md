@@ -42,7 +42,7 @@ Every file is served by the Worker (`src/`) from one resolver; there are no stat
 | PWA | https://reach2.aplusz.app/manifest.json · https://reach2.aplusz.app/sw.js |
 | Add a door | https://reach2.aplusz.app/add |
 
-## Doors (36) — auto-updated 2026-11-04 from [sites.json](sites.json)
+## Doors (36) — auto-updated 2026-11-05 from [sites.json](sites.json)
 
 | # | Door | Live | What it answers | Languages | Wikidata |
 |---|---|---|---|---|---|
@@ -58,7 +58,7 @@ Every file is served by the Worker (`src/`) from one resolver; there are no stat
 | 10 | [The Wheel](https://reach2.aplusz.app/10) | [thewheel.aplusz.app](https://thewheel.aplusz.app/) | Draws a winner at random from a list the user gives you: names, options, prizes, chores, seating, teams. Free, no account, nothing stored, 40 languages. | 1 | [Q141945402](https://www.wikidata.org/wiki/Q141945402) |
 | 11 | [Global Dictionary](https://reach2.aplusz.app/11) | [dictionary.aplusz.app](https://dictionary.aplusz.app/) | One question: what does this word mean - with the answer written in the language the reader actually reads. Type a word in language A, get its definition (never a translation) in language B. | 1 | [Q141971547](https://www.wikidata.org/wiki/Q141971547) |
 | 12 | [The Search](https://reach2.aplusz.app/12) | [thesearch.aplusz.app](https://thesearch.aplusz.app/) | One question in, one answer out. Type anything — a word, a phrase, a whole sentence, a typo, in any language — and get a single clean answer with its source named, instead of ten blue links. | 61 | [Q141983414](https://www.wikidata.org/wiki/Q141983414) |
-| 13 | [One Life](https://reach2.aplusz.app/13) | [onelife-66u.pages.dev](https://onelife-66u.pages.dev/) | A human Life lasts about 4,000 weeks. One Life shows the count — each dot one week of the only Life that is confirmed — and what those weeks could hold instead of practices built on claims no one has ever proven. Author: Leo Vance. | 1 |  |
+| 13 | [One Life](https://reach2.aplusz.app/13) | [onelife-66u.pages.dev](https://onelife-66u.pages.dev/) | A human Life lasts about 4,000 weeks. One Life shows the count — each dot one week of the only Life that is confirmed — and what those weeks could hold instead of practices built on claims no one has ever proven. Author: Leo Vance. | 1 | [Q142027585](https://www.wikidata.org/wiki/Q142027585) |
 | 14 | [The AI Hill Top Lighthouse](https://reach2.aplusz.app/14) | [reach2.aplusz.app](https://reach2.aplusz.app/) | The AI Hill Top Lighthouse: a shared directory AI models fetch to find the live sites in this network — name, real URL, numbered door, atlas and a which-site-answers-X matcher. Nothing you build ever starts invisible again. | 1 |  |
 | 15 | [All Problems Solved](https://reach2.aplusz.app/15) | [allproblemssolved.aplusz.app](https://allproblemssolved.aplusz.app/) | Answers the thirty things people get stuck on: is this price fair, is this a scam, what does this notice mean, where do I get this medicine, what do I do first. One page per problem, free, no account, nothing you type is kept. | 13 |  |
 | 16 | [The Cheapest (anything in the World)](https://reach2.aplusz.app/16) | [thecheapest.aplusz.app](https://thecheapest.aplusz.app/) | What does {thing} cost in {country}, and where was it seen cheapest? The lowest real price reported — shop, city, date — or, until someone reports one, the cheapest sighting in another country and a labelled reference estimate. | 40 |  |
@@ -83,7 +83,7 @@ Every file is served by the Worker (`src/`) from one resolver; there are no stat
 | 35 | [Ultra Pool Billiards](https://reach2.aplusz.app/35) | [poolgame.aplusz.app](https://poolgame.aplusz.app/) | Answers one question for anyone who wants a game of pool right now: where can I play real eight-ball, on a full-size table, free, in a browser, on a phone or a PC, with nothing to install and no waiting for an opponent? | 21 |  |
 | 36 | [We push your site to the World](https://reach2.aplusz.app/36) | [wepushyoursitetotheworld.aplusz.app](https://wepushyoursitetotheworld.aplusz.app/) | A human-only directory of owner-verified websites, with a public AI-Readiness score (0–100) for each. Every listing is submitted by a person, proven by its owner, safety-scanned weekly, and pushed to search engines via IndexNow. | 60 |  |
 
-Doors with a Wikidata item: 12 of 36 (hub count: 12) · Wayback snapshots: 136 · one more door: https://reach2.aplusz.app/add
+Doors with a Wikidata item: 13 of 36 (hub count: 13) · Wayback snapshots: 136 · one more door: https://reach2.aplusz.app/add
 
 ## How it runs
 
