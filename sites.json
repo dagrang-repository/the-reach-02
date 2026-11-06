@@ -1,7 +1,7 @@
 {
   "name": "The AI Hill Top Lighthouse",
   "tagline": "Nothing you build ever starts invisible again.",
-  "generated": "2026-11-05T07:57:50.730Z",
+  "generated": "2026-11-06T07:59:48.021Z",
   "count": 36,
   "record_fields": [
     "n",
@@ -833,13 +833,13 @@
         "WebSite",
         "WebApplication"
       ],
-      "title": "My Assistant — your own AI assistant with your own API key",
+      "title": "My Assistant — bring your own API key: OpenAI, Claude, DeepSeek, Kimi, Qwen — €1.99 a month",
       "canonical": "https://myassistant.aplusz.app/en/",
       "door": "https://reach2.aplusz.app/23",
       "door_md": "https://reach2.aplusz.app/23.md",
       "hash": "https://reach2.aplusz.app/#23",
       "localized": 19,
-      "captured_at": "2026-11-03T16:02:09.378Z"
+      "captured_at": "2026-11-05T18:01:52.196Z"
     },
     {
       "n": 24,
@@ -1431,11 +1431,12 @@
         "bg"
       ],
       "languages_count": 60,
-      "feed": "",
+      "feed": "https://wepushyoursitetotheworld.aplusz.app/feed.xml",
       "og_image": "https://wepushyoursitetotheworld.aplusz.app/og.svg",
       "jsonld_types": [
-        "WebSite",
         "Organization",
+        "Person",
+        "WebSite",
         "Service",
         "WebApplication",
         "DefinedTermSet"
@@ -1445,8 +1446,8 @@
       "door": "https://reach2.aplusz.app/36",
       "door_md": "https://reach2.aplusz.app/36.md",
       "hash": "https://reach2.aplusz.app/#36",
-      "localized": 24,
-      "captured_at": "2026-11-04T11:01:43.806Z"
+      "localized": 36,
+      "captured_at": "2026-11-05T11:01:44.897Z"
     }
   ]
 }
