@@ -1,3 +1,10 @@
 {
-  "_about": "Wikidata courier deferral ledger, rewritten by tools/wd-courier.ps1 on every run. One entry per door still waiting; a door disappears when it is created or the deferral ends. A deferral is pacing, not a fault: it never turns the daily run red. cause: abusefilter-<id> (Wikidata throttles item creation by new editors, filter 296) or blocked-ip (the runner drew an IP in a range Wikimedia blocks globally; tomorrow's runner is different)."
+  "_about": "Wikidata courier deferral ledger, rewritten by tools/wd-courier.ps1 on every run. One entry per door still waiting; a door disappears when it is created or the deferral ends. A deferral is pacing, not a fault: it never turns the daily run red. cause: abusefilter-<id> (Wikidata throttles item creation by new editors, filter 296) or blocked-ip (the runner drew an IP in a range Wikimedia blocks globally; tomorrow's runner is different).",
+  "2": {
+    "since": "2026-11-08",
+    "last": "2026-11-08",
+    "days": 0,
+    "cause": "blocked-ip",
+    "detail": "wbeditentity: permissiondenied [wikibase-api-permissiondenied,globalblocking-blockedtext-range] You do not have the permissions needed to carry out this action."
+  }
 }

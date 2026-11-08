@@ -1,8 +1,8 @@
 {
   "name": "The AI Hill Top Lighthouse",
   "tagline": "Nothing you build ever starts invisible again.",
-  "generated": "2026-11-07T07:14:39.842Z",
-  "count": 36,
+  "generated": "2026-11-08T07:25:04.125Z",
+  "count": 37,
   "record_fields": [
     "n",
     "name",
@@ -94,20 +94,43 @@
       "llms_txt": "https://urgentvisa.org/llms.txt",
       "description": "One question, answered for every traveller on earth: \"I hold a {nationality} passport and I want to travel to {destination} — do I need a visa, what does it cost, how long does it take, which documents do I need, and can I extend my stay?\" 197 passports x 196 destinations = ~36,800 pairs, published in 20 languages, ~135,000 URLs.",
       "languages": [
-        "en"
+        "en",
+        "fr",
+        "es",
+        "de",
+        "it",
+        "pt",
+        "nl",
+        "pl",
+        "ru",
+        "tr",
+        "ar",
+        "fa",
+        "hi",
+        "bn",
+        "th",
+        "vi",
+        "id",
+        "ja",
+        "ko",
+        "zh"
       ],
-      "languages_count": 1,
-      "feed": "",
+      "languages_count": 20,
+      "feed": "https://urgentvisa.org/feed.xml",
       "og_image": "https://urgentvisa.org/assets/og-image.png",
-      "jsonld_types": [],
+      "jsonld_types": [
+        "Organization",
+        "WebSite",
+        "WebPage"
+      ],
       "title": "UrgentVisa — Emergency Visas, Sorted Fast",
-      "canonical": "https://urgentvisa.org/",
+      "canonical": "https://urgentvisa.org/en/",
       "door": "https://reach2.aplusz.app/2",
       "door_md": "https://reach2.aplusz.app/2.md",
       "hash": "https://reach2.aplusz.app/#2",
       "wikidata": "https://www.wikidata.org/wiki/Q141775151",
-      "localized": 0,
-      "captured_at": "2026-11-02T12:27:18.587Z"
+      "localized": 12,
+      "captured_at": "2026-11-08T02:01:47.849Z"
     },
     {
       "n": 3,
@@ -1126,7 +1149,7 @@
       "indexnow_key": "fc0141c4ba85e5f86c3ec77d71beb0cc",
       "key_url": "https://thecentralwebhub.aplusz.app/fc0141c4ba85e5f86c3ec77d71beb0cc.txt",
       "llms_txt": "https://thecentralwebhub.aplusz.app/llms.txt",
-      "description": "One address that lists every live site in this network, what each one answers, and where a model should fetch the answer instead of guessing. 36 sites, published in 61 languages.",
+      "description": "One address that lists every live site in this network, what each one answers, and where a model should fetch the answer instead of guessing. 37 sites, published in 61 languages.",
       "languages": [
         "en",
         "ar",
@@ -1203,7 +1226,7 @@
       "door_md": "https://reach2.aplusz.app/32.md",
       "hash": "https://reach2.aplusz.app/#32",
       "localized": 60,
-      "captured_at": "2026-11-03T13:01:47.052Z"
+      "captured_at": "2026-11-07T14:01:41.984Z"
     },
     {
       "n": 33,
@@ -1447,8 +1470,45 @@
       "door": "https://reach2.aplusz.app/36",
       "door_md": "https://reach2.aplusz.app/36.md",
       "hash": "https://reach2.aplusz.app/#36",
-      "localized": 48,
+      "localized": 59,
       "captured_at": "2026-11-05T11:01:44.897Z"
+    },
+    {
+      "n": 37,
+      "name": "The Secret",
+      "url": "https://thesecret.aplusz.app/",
+      "sitemap": "https://thesecret.aplusz.app/sitemap.xml",
+      "indexnow_key": "e6bf9e636059127a1c33c0684c71c1f4",
+      "key_url": "https://thesecret.aplusz.app/e6bf9e636059127a1c33c0684c71c1f4.txt",
+      "llms_txt": "https://thesecret.aplusz.app/llms.txt",
+      "description": "Answers one question: \"How do I get an invitation code for The Secret (thesecret.aplusz.app), where do I enter it, and what is inside?\"",
+      "languages": [
+        "en",
+        "tl",
+        "ceb",
+        "hi",
+        "es",
+        "fr",
+        "bn",
+        "id",
+        "ru",
+        "de",
+        "ja",
+        "ko"
+      ],
+      "languages_count": 12,
+      "feed": "",
+      "og_image": "https://thesecret.aplusz.app/icons/og.png",
+      "jsonld_types": [
+        "WebSite"
+      ],
+      "title": "The Secret — by invitation only",
+      "canonical": "https://thesecret.aplusz.app/en/",
+      "door": "https://reach2.aplusz.app/37",
+      "door_md": "https://reach2.aplusz.app/37.md",
+      "hash": "https://reach2.aplusz.app/#37",
+      "localized": 11,
+      "captured_at": "2026-11-07T10:37:03.067Z"
     }
   ]
 }

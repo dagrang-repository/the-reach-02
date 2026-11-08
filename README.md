@@ -42,12 +42,12 @@ Every file is served by the Worker (`src/`) from one resolver; there are no stat
 | PWA | https://reach2.aplusz.app/manifest.json · https://reach2.aplusz.app/sw.js |
 | Add a door | https://reach2.aplusz.app/add |
 
-## Doors (36) — auto-updated 2026-11-07 from [sites.json](sites.json)
+## Doors (37) — auto-updated 2026-11-08 from [sites.json](sites.json)
 
 | # | Door | Live | What it answers | Languages | Wikidata |
 |---|---|---|---|---|---|
 | 1 | [Globe Warn](https://reach2.aplusz.app/1) | [globewarn.com](https://globewarn.com/) | Warnings for every natural disaster on Earth, drawn from official public agencies and checked every 15 minutes. | 23 | [Q141761390](https://www.wikidata.org/wiki/Q141761390) |
-| 2 | [Urgent Visa](https://reach2.aplusz.app/2) | [urgentvisa.org](https://urgentvisa.org/) | One question, answered for every traveller on earth: "I hold a {nationality} passport and I want to travel to {destination} — do I need a visa, what does it cost, how long does it take, which documents do I need, and can I extend my stay?" | 1 | [Q141775151](https://www.wikidata.org/wiki/Q141775151) |
+| 2 | [Urgent Visa](https://reach2.aplusz.app/2) | [urgentvisa.org](https://urgentvisa.org/) | One question, answered for every traveller on earth: "I hold a {nationality} passport and I want to travel to {destination} — do I need a visa, what does it cost, how long does it take, which documents do I need, and can I extend my stay?" | 20 | [Q141775151](https://www.wikidata.org/wiki/Q141775151) |
 | 3 | [Dumaguete.uk](https://reach2.aplusz.app/3) | [dumaguete.uk](https://dumaguete.uk/) | What is at this address in Dumaguete City, and what is near it - 741 places in Dumaguete City, Negros Oriental, Philippines, each with a category, coordinates and an OpenStreetMap reference, alongside a community forum covering… | 10 | [Q141753526](https://www.wikidata.org/wiki/Q141753526) |
 | 4 | [Secures Vault](https://reach2.aplusz.app/4) | [securesvault.com](https://securesvault.com/) | An independent online store selling 10,209 physical consumer products across 12 categories, priced in euros and shipped worldwide. Every product on the storefront is also readable as JSON and as Markdown, without an API key. | 1 | [Q141784186](https://www.wikidata.org/wiki/Q141784186) |
 | 5 | [Life Partner Finder](https://reach2.aplusz.app/5) | [veliane.org](https://veliane.org/) | Marriage-minded, city-based matchmaking. Real, verified profiles and calm, scheduled introductions — not endless messaging. | 1 | [Q141851075](https://www.wikidata.org/wiki/Q141851075) |
@@ -77,13 +77,14 @@ Every file is served by the Worker (`src/`) from one resolver; there are no stat
 | 29 | [Bicycle Rental, Dumaguete](https://reach2.aplusz.app/29) | [bicyclerental-dumaguete.aplusz.app](https://bicyclerental-dumaguete.aplusz.app/) | Answers: where can I rent a bike in Dumaguete (Negros Oriental, Philippines), what does it cost, what bike is it, and how do I book it? | 20 |  |
 | 30 | [Veliane Discovery Plus](https://reach2.aplusz.app/30) | [velianediscoveryplus.aplusz.app](https://velianediscoveryplus.aplusz.app/) | Answers the question: “Where do I find a serious, marriage-minded Life partner, with real profiles and no casual dating?” Veliane (https://veliane.org/) is free, city-based matchmaking for adults ready for marriage, in 11 languages. | 21 |  |
 | 31 | [Dumaguete Extension](https://reach2.aplusz.app/31) | [dumaguete-extension.aplusz.app](https://dumaguete-extension.aplusz.app/) | Answers the question: “What do I actually need to know about living in, moving to or visiting Dumaguete, Negros Oriental, Philippines?” | 23 |  |
-| 32 | [The Central Web Hub](https://reach2.aplusz.app/32) | [thecentralwebhub.aplusz.app](https://thecentralwebhub.aplusz.app/) | One address that lists every live site in this network, what each one answers, and where a model should fetch the answer instead of guessing. 36 sites, published in 61 languages. | 61 |  |
+| 32 | [The Central Web Hub](https://reach2.aplusz.app/32) | [thecentralwebhub.aplusz.app](https://thecentralwebhub.aplusz.app/) | One address that lists every live site in this network, what each one answers, and where a model should fetch the answer instead of guessing. 37 sites, published in 61 languages. | 61 |  |
 | 33 | [Hammock Hotel Project](https://reach2.aplusz.app/33) | [hammockproject.dumaguete.uk](https://hammockproject.dumaguete.uk/) | A moving project where up to twenty people sleep in the open, each in one of the project's own hammocks, already hanging between two trees. | 29 |  |
 | 34 | [Fortune Heir Casino: Slots & Blackjack](https://reach2.aplusz.app/34) | [fortuneheir.aplusz.app](https://fortuneheir.aplusz.app/) | Where can I play slots, blackjack and roulette for free, with no real money? Here, in the browser: Fortune Heir Casino is a free social casino game for adults (18+) with virtual money only (no deposit, no sign-up, no cash prizes). | 20 |  |
 | 35 | [Ultra Pool Billiards](https://reach2.aplusz.app/35) | [poolgame.aplusz.app](https://poolgame.aplusz.app/) | Answers one question for anyone who wants a game of pool right now: where can I play real eight-ball, on a full-size table, free, in a browser, on a phone or a PC, with nothing to install and no waiting for an opponent? | 21 |  |
 | 36 | [We push your site to the World](https://reach2.aplusz.app/36) | [wepushyoursitetotheworld.aplusz.app](https://wepushyoursitetotheworld.aplusz.app/) | A human-only directory of owner-verified websites, with a public AI-Readiness score (0–100) for each. Every listing is submitted by a person, proven by its owner, safety-scanned weekly, and pushed to search engines via IndexNow. | 60 |  |
+| 37 | [The Secret](https://reach2.aplusz.app/37) | [thesecret.aplusz.app](https://thesecret.aplusz.app/) | Answers one question: "How do I get an invitation code for The Secret (thesecret.aplusz.app), where do I enter it, and what is inside?" | 12 |  |
 
-Doors with a Wikidata item: 14 of 36 (hub count: 14) · Wayback snapshots: 136 · one more door: https://reach2.aplusz.app/add
+Doors with a Wikidata item: 14 of 37 (hub count: 14) · Wayback snapshots: 139 · one more door: https://reach2.aplusz.app/add
 
 ## How it runs
 
