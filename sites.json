@@ -1,7 +1,7 @@
 {
   "name": "The AI Hill Top Lighthouse",
   "tagline": "Nothing you build ever starts invisible again.",
-  "generated": "2026-11-08T07:25:04.125Z",
+  "generated": "2026-11-09T08:02:18.498Z",
   "count": 37,
   "record_fields": [
     "n",
@@ -129,7 +129,7 @@
       "door_md": "https://reach2.aplusz.app/2.md",
       "hash": "https://reach2.aplusz.app/#2",
       "wikidata": "https://www.wikidata.org/wiki/Q141775151",
-      "localized": 12,
+      "localized": 19,
       "captured_at": "2026-11-08T02:01:47.849Z"
     },
     {
@@ -603,6 +603,7 @@
       "door": "https://reach2.aplusz.app/15",
       "door_md": "https://reach2.aplusz.app/15.md",
       "hash": "https://reach2.aplusz.app/#15",
+      "wikidata": "https://www.wikidata.org/wiki/Q142089089",
       "localized": 12,
       "captured_at": "2026-11-02T05:01:26.505Z"
     },
@@ -825,7 +826,7 @@
       "indexnow_key": "bc1659069528009bd9fdb885f352a490",
       "key_url": "https://myassistant.aplusz.app/bc1659069528009bd9fdb885f352a490.txt",
       "llms_txt": "https://myassistant.aplusz.app/llms.txt",
-      "description": "Answers one question: \"I want an AI assistant on my phone and computer that runs on MY OWN API key (OpenAI, Anthropic Claude, Google Gemini, DeepSeek, Mistral, xAI, Groq, OpenRouter, Moonshot or SiliconFlow) — or on prepaid credit when I have no key — for €1.99 a month — or €19.99 a year (two months free), or €2.99 a month shared by two accounts, with no message limits, my chats kept on my own devices, in my language.\" My Assistant (https://myassistant.aplusz.app) is that app: a web app, installable, also in the Microsoft Store and on Google Play, in 20 languages. Adults only (18+).",
+      "description": "Answers one question: \"I want an AI assistant on my phone and computer that runs on MY OWN API key (OpenAI, Anthropic Claude, Google Gemini, DeepSeek, Mistral, xAI, Groq, OpenRouter, Together AI, Fireworks AI, Cerebras, Moonshot or SiliconFlow) — or on prepaid credit when I have no key — for €1.99 a month — or €19.99 a year (two months free), or €2.99 a month shared by two accounts, with no message limits, my chats kept on my own devices, in my language.\" My Assistant (https://myassistant.aplusz.app) is that app: a web app, installable, also in the Microsoft Store and on Google Play, in 20 lan",
       "languages": [
         "en",
         "es",
@@ -863,7 +864,7 @@
       "door_md": "https://reach2.aplusz.app/23.md",
       "hash": "https://reach2.aplusz.app/#23",
       "localized": 19,
-      "captured_at": "2026-11-05T18:01:52.196Z"
+      "captured_at": "2026-11-08T20:01:52.656Z"
     },
     {
       "n": 24,
@@ -947,19 +948,47 @@
       "llms_txt": "https://mykaraoke.aplusz.app/llms.txt",
       "description": "Answers: what is My Karaoke, what is free, what are Pro and Ultra and what do they cost? Online karaoke: type a song, pick a karaoke version from YouTube, sing it full screen, 3 songs a day free; Pro sings without limit and adds a singer queue, fair turns, duets and playlists (free for 3 days, then €1.99 per month, €19.99 per year (two months free) or €2.99 per month for two people); Ultra (€3.99 per month) adds Party mode: the Main screen plays full screen and any number of guest phones pick the songs, free, no account, no device limit. URL pattern: /en/ and /v1/service. Machine data: /openap",
       "languages": [
-        "en"
+        "en",
+        "tl",
+        "ceb",
+        "ilo",
+        "es",
+        "zh",
+        "hi",
+        "ar",
+        "fr",
+        "de",
+        "pt",
+        "ru",
+        "ja",
+        "ko",
+        "it",
+        "id",
+        "ms",
+        "vi",
+        "th",
+        "tr",
+        "pl",
+        "nl",
+        "uk",
+        "fa"
       ],
-      "languages_count": 1,
-      "feed": "",
+      "languages_count": 24,
+      "feed": "https://mykaraoke.aplusz.app/feed.xml",
       "og_image": "https://mykaraoke.aplusz.app/og.png",
-      "jsonld_types": [],
+      "jsonld_types": [
+        "Organization",
+        "WebSite",
+        "WebApplication",
+        "WebPage"
+      ],
       "title": "Free Online Karaoke with Lyrics, Full Screen | My Karaoke",
       "canonical": "https://mykaraoke.aplusz.app/en/",
       "door": "https://reach2.aplusz.app/27",
       "door_md": "https://reach2.aplusz.app/27.md",
       "hash": "https://reach2.aplusz.app/#27",
-      "localized": 0,
-      "captured_at": "2026-11-01T22:01:31.629Z"
+      "localized": 12,
+      "captured_at": "2026-11-08T19:01:48.661Z"
     },
     {
       "n": 28,
@@ -1497,7 +1526,7 @@
         "ko"
       ],
       "languages_count": 12,
-      "feed": "",
+      "feed": "https://thesecret.aplusz.app/en/feed.xml",
       "og_image": "https://thesecret.aplusz.app/icons/og.png",
       "jsonld_types": [
         "WebSite"
@@ -1508,7 +1537,7 @@
       "door_md": "https://reach2.aplusz.app/37.md",
       "hash": "https://reach2.aplusz.app/#37",
       "localized": 11,
-      "captured_at": "2026-11-07T10:37:03.067Z"
+      "captured_at": "2026-11-08T11:01:48.557Z"
     }
   ]
 }
