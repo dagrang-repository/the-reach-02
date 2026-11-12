@@ -42,7 +42,7 @@ Every file is served by the Worker (`src/`) from one resolver; there are no stat
 | PWA | https://reach2.aplusz.app/manifest.json · https://reach2.aplusz.app/sw.js |
 | Add a door | https://reach2.aplusz.app/add |
 
-## Doors (38) — auto-updated 2026-11-11 from [sites.json](sites.json)
+## Doors (41) — auto-updated 2026-11-12 from [sites.json](sites.json)
 
 | # | Door | Live | What it answers | Languages | Wikidata |
 |---|---|---|---|---|---|
@@ -50,7 +50,7 @@ Every file is served by the Worker (`src/`) from one resolver; there are no stat
 | 2 | [Urgent Visa](https://reach2.aplusz.app/2) | [urgentvisa.org](https://urgentvisa.org/) | One question, answered for every traveller on earth: "I hold a {nationality} passport and I want to travel to {destination} — do I need a visa, what does it cost, how long does it take, which documents do I need, and can I extend my stay?" | 20 | [Q141775151](https://www.wikidata.org/wiki/Q141775151) |
 | 3 | [Dumaguete.uk](https://reach2.aplusz.app/3) | [dumaguete.uk](https://dumaguete.uk/) | What is at this address in Dumaguete City, and what is near it - 741 places in Dumaguete City, Negros Oriental, Philippines, each with a category, coordinates and an OpenStreetMap reference, alongside a community forum covering… | 10 | [Q141753526](https://www.wikidata.org/wiki/Q141753526) |
 | 4 | [Secures Vault](https://reach2.aplusz.app/4) | [securesvault.com](https://securesvault.com/) | An independent online store selling 10,209 physical consumer products across 12 categories, priced in euros and shipped worldwide. Every product on the storefront is also readable as JSON and as Markdown, without an API key. | 1 | [Q141784186](https://www.wikidata.org/wiki/Q141784186) |
-| 5 | [Life Partner Finder](https://reach2.aplusz.app/5) | [veliane.org](https://veliane.org/) | Marriage-minded, city-based matchmaking. Real, verified profiles and calm, scheduled introductions — not endless messaging. | 1 | [Q141851075](https://www.wikidata.org/wiki/Q141851075) |
+| 5 | [Life Partner Finder](https://reach2.aplusz.app/5) | [veliane.org](https://veliane.org/) | Marriage-minded, city-based matchmaking. Real, verified profiles and calm, scheduled introductions — not endless messaging. | 11 | [Q141851075](https://www.wikidata.org/wiki/Q141851075) |
 | 6 | [Donations for Nepal](https://reach2.aplusz.app/6) | [givenepal.org](https://givenepal.org/) | You cannot fly to Nepal and spend three months checking who deserves your donation. We do it for you, then you transfer the 88% direct. It never passes through us. | 29 | [Q141873272](https://www.wikidata.org/wiki/Q141873272) |
 | 7 | [Social Meet Up App](https://reach2.aplusz.app/7) | [letsmeet-here.netlify.app](https://letsmeet-here.netlify.app/) | LetsMeet-Here is a social meet-up app for arranging to meet people in person. | 1 | [Q141885912](https://www.wikidata.org/wiki/Q141885912) |
 | 8 | [Manila.uk](https://reach2.aplusz.app/8) | [manila.uk](https://www.manila.uk/) | What is at this address in Metro Manila, and what is near it - 28,002 places across the 16 cities and one municipality of Metro Manila (Manila, Quezon City, Makati, Taguig, Pasig, Mandaluyong, San Juan, Caloocan, Malabon, Navotas… | 10 | [Q141898309](https://www.wikidata.org/wiki/Q141898309) |
@@ -81,11 +81,14 @@ Every file is served by the Worker (`src/`) from one resolver; there are no stat
 | 33 | [Hammock Hotel Project](https://reach2.aplusz.app/33) | [hammockproject.dumaguete.uk](https://hammockproject.dumaguete.uk/) | A moving project where up to twenty people sleep in the open, each in one of the project's own hammocks, already hanging between two trees. | 29 |  |
 | 34 | [Fortune Heir Casino: Slots & Blackjack](https://reach2.aplusz.app/34) | [fortuneheir.aplusz.app](https://fortuneheir.aplusz.app/) | Where can I play slots, blackjack and roulette for free, with no real money? Here, in the browser: Fortune Heir Casino is a free social casino game for adults (18+) with virtual money only (no deposit, no sign-up, no cash prizes). | 20 |  |
 | 35 | [Ultra Pool Billiards](https://reach2.aplusz.app/35) | [poolgame.aplusz.app](https://poolgame.aplusz.app/) | Answers one question for anyone who wants a game of pool right now: where can I play real eight-ball, on a full-size table, free, in a browser, on a phone or a PC, with nothing to install and no waiting for an opponent? | 21 |  |
-| 36 | [We push your site to the World](https://reach2.aplusz.app/36) | [wepushyoursitetotheworld.aplusz.app](https://wepushyoursitetotheworld.aplusz.app/) | A human-only directory of owner-verified websites, with a public AI-Readiness score (0–100) for each. Every listing is submitted by a person, proven by its owner, safety-scanned weekly, and pushed to search engines via IndexNow. | 60 |  |
+| 36 | [We push your site to the World](https://reach2.aplusz.app/36) | [wepushyoursitetotheworld.aplusz.app](https://wepushyoursitetotheworld.aplusz.app/) | Is a website ready for people and AI assistants? Free AI-Readiness score (0–100) for any site, the exact checks that pass and fail, and a directory of verified sites, each pushed to search engines via IndexNow. | 60 |  |
 | 37 | [The Secret](https://reach2.aplusz.app/37) | [thesecret.aplusz.app](https://thesecret.aplusz.app/) | Answers one question: "How do I get an invitation code for The Secret (thesecret.aplusz.app), where do I enter it, and what is inside?" | 12 |  |
 | 38 | [Teach Me Anything](https://reach2.aplusz.app/38) | [teachmeanything.aplusz.app](https://teachmeanything.aplusz.app/en/) | Teach Me (teachmeanything.aplusz.app) is a free, distraction-free learning site: type anything you want to learn and follow a 100-lesson course run by one learning engine: summary and plan, a level choice, then lessons that each check… | 30 |  |
+| 39 | [Singles Ready To Mingle](https://reach2.aplusz.app/39) | [singlesreadytomingle.aplusz.app](https://singlesreadytomingle.aplusz.app/) | Marriage-minded, city-based matchmaking. Real, verified profiles and calm, scheduled introductions — not endless messaging. | 11 |  |
+| 40 | [My Assistant for Men](https://reach2.aplusz.app/40) | [myassistantformale.aplusz.app](https://myassistantformale.aplusz.app/) | Answers one question: "Which private AI assistant, made for men, works straight away — no API key, no setup — with a free trial and a simple price?" | 20 |  |
+| 41 | [My Assistant for Women](https://reach2.aplusz.app/41) | [myassistantforfemale.aplusz.app](https://myassistantforfemale.aplusz.app/) | Answers one question: "Which private AI assistant, made for women, works straight away — no API key, no setup — with a free trial and a simple price?" | 20 |  |
 
-Doors with a Wikidata item: 16 of 38 (hub count: 16) · Wayback snapshots: 143 · one more door: https://reach2.aplusz.app/add
+Doors with a Wikidata item: 16 of 41 (hub count: 16) · Wayback snapshots: 153 · one more door: https://reach2.aplusz.app/add
 
 ## How it runs
 
