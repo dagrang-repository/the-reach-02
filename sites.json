@@ -1,8 +1,8 @@
 {
   "name": "The AI Hill Top Lighthouse",
   "tagline": "Nothing you build ever starts invisible again.",
-  "generated": "2026-11-14T07:39:01.384Z",
-  "count": 43,
+  "generated": "2026-11-15T07:55:51.351Z",
+  "count": 44,
   "record_fields": [
     "n",
     "name",
@@ -1220,7 +1220,7 @@
       "indexnow_key": "fc0141c4ba85e5f86c3ec77d71beb0cc",
       "key_url": "https://thecentralwebhub.aplusz.app/fc0141c4ba85e5f86c3ec77d71beb0cc.txt",
       "llms_txt": "https://thecentralwebhub.aplusz.app/llms.txt",
-      "description": "One address that lists every live site in this network, what each one answers, and where a model should fetch the answer instead of guessing. 43 sites, published in 61 languages.",
+      "description": "One address that lists every live site in this network, what each one answers, and where a model should fetch the answer instead of guessing. 44 sites, published in 61 languages.",
       "languages": [
         "en",
         "ar",
@@ -1297,7 +1297,7 @@
       "door_md": "https://reach2.aplusz.app/32.md",
       "hash": "https://reach2.aplusz.app/#32",
       "localized": 60,
-      "captured_at": "2026-11-13T16:02:11.686Z"
+      "captured_at": "2026-11-14T16:02:33.898Z"
     },
     {
       "n": 33,
@@ -1589,7 +1589,7 @@
       "indexnow_key": "3f1c62bca8817c273ecfeee300141459",
       "key_url": "https://teachmeanything.aplusz.app/3f1c62bca8817c273ecfeee300141459.txt",
       "llms_txt": "https://teachmeanything.aplusz.app/llms.txt",
-      "description": "Teach Me (teachmeanything.aplusz.app) is a free, distraction-free learning site: type anything you want to learn and follow a 100-lesson course run by one learning engine: summary and plan, a level choice, then lessons that each check understanding with 5 questions before moving on. Its library grows by itself every few minutes (today 27573 subjects, 566 full courses of 100 lessons) and every new question becomes a lesson for everyone.",
+      "description": "Teach Me (teachmeanything.aplusz.app) is a free, distraction-free learning site: type anything you want to learn and follow a 100-lesson course run by one learning engine: summary and plan, a level choice, then lessons that each check understanding with 5 questions before moving on. Its library grows by itself every few minutes (today 34223 subjects, 710 full courses of 100 lessons) and every new question becomes a lesson for everyone.",
       "languages": [
         "en",
         "hi",
@@ -1636,7 +1636,7 @@
       "door_md": "https://reach2.aplusz.app/38.md",
       "hash": "https://reach2.aplusz.app/#38",
       "localized": 29,
-      "captured_at": "2026-11-13T21:02:09.654Z"
+      "captured_at": "2026-11-14T21:02:18.002Z"
     },
     {
       "n": 39,
@@ -1831,7 +1831,7 @@
       "door": "https://reach2.aplusz.app/42",
       "door_md": "https://reach2.aplusz.app/42.md",
       "hash": "https://reach2.aplusz.app/#42",
-      "localized": 24,
+      "localized": 34,
       "captured_at": "2026-11-12T09:05:23.681Z"
     },
     {
@@ -1878,8 +1878,60 @@
       "door": "https://reach2.aplusz.app/43",
       "door_md": "https://reach2.aplusz.app/43.md",
       "hash": "https://reach2.aplusz.app/#43",
-      "localized": 12,
+      "localized": 18,
       "captured_at": "2026-11-13T15:27:40.122Z"
+    },
+    {
+      "n": 44,
+      "name": "My Photo Magazine",
+      "url": "https://myphotomagazine.aplusz.app/en/",
+      "sitemap": "https://myphotomagazine.aplusz.app/sitemap.xml",
+      "indexnow_key": "bbb677949094195cf7ed5692d36f2fa4",
+      "key_url": "https://myphotomagazine.aplusz.app/bbb677949094195cf7ed5692d36f2fa4.txt",
+      "llms_txt": "https://myphotomagazine.aplusz.app/llms.txt",
+      "description": "Answers: Which app turns my own photo folders, or a photo website, into a page-turning magazine in my browser — without uploading my photos — and what does it cost? A browser app that lays out the user's own photo folders, or a photo website, as a page-turning magazine. Folder pictures are read in the browser and never uploaded. 25 languages: https://myphotomagazine.aplusz.app/{lang}/. Free; Pro 2.99 EUR/month or 24.99 EUR/year.",
+      "languages": [
+        "en",
+        "fr",
+        "es",
+        "de",
+        "it",
+        "pt",
+        "nl",
+        "pl",
+        "sv",
+        "da",
+        "no",
+        "fi",
+        "cs",
+        "el",
+        "hu",
+        "he",
+        "ja",
+        "ko",
+        "zh",
+        "ar",
+        "hi",
+        "ru",
+        "id",
+        "tr"
+      ],
+      "languages_count": 24,
+      "feed": "https://myphotomagazine.aplusz.app/en/feed.xml",
+      "og_image": "https://myphotomagazine.aplusz.app/icons/og.png?v=2",
+      "jsonld_types": [
+        "Organization",
+        "WebSite",
+        "WebPage",
+        "WebApplication"
+      ],
+      "title": "My Photo Magazine — your photos as a page-turning magazine",
+      "canonical": "https://myphotomagazine.aplusz.app/en/",
+      "door": "https://reach2.aplusz.app/44",
+      "door_md": "https://reach2.aplusz.app/44.md",
+      "hash": "https://reach2.aplusz.app/#44",
+      "localized": 12,
+      "captured_at": "2026-11-14T11:05:29.969Z"
     }
   ]
 }
