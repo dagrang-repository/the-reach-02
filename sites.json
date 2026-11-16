@@ -1,7 +1,7 @@
 {
   "name": "The AI Hill Top Lighthouse",
   "tagline": "Nothing you build ever starts invisible again.",
-  "generated": "2026-11-15T07:55:51.351Z",
+  "generated": "2026-11-16T08:01:43.479Z",
   "count": 44,
   "record_fields": [
     "n",
@@ -295,12 +295,12 @@
     },
     {
       "n": 7,
-      "name": "Social Meet Up App",
-      "url": "https://letsmeet-here.netlify.app/",
-      "sitemap": "https://letsmeet-here.app/sitemap-ar.xml",
+      "name": "Let’s Meet Here",
+      "url": "https://letsmeethere.aplusz.app/",
+      "sitemap": "https://letsmeethere.aplusz.app/sitemap-ar.xml",
       "indexnow_key": "5e615725d31745ebbc30287b7efed284",
-      "key_url": "https://letsmeet-here.netlify.app/5e615725d31745ebbc30287b7efed284.txt",
-      "llms_txt": "https://letsmeet-here.netlify.app/llms.txt",
+      "key_url": "https://letsmeethere.aplusz.app/5e615725d31745ebbc30287b7efed284.txt",
+      "llms_txt": "https://letsmeethere.aplusz.app/llms.txt",
       "description": "LetsMeet-Here is a social meet-up app for arranging to meet people in person.",
       "languages": [
         "en"
@@ -309,14 +309,14 @@
       "feed": "",
       "og_image": "",
       "jsonld_types": [],
-      "title": "letsmeet-here.app",
-      "canonical": "https://letsmeet-here.app/en/",
+      "title": "LetsMeetHere",
+      "canonical": "https://letsmeethere.aplusz.app/en/",
       "door": "https://reach2.aplusz.app/7",
       "door_md": "https://reach2.aplusz.app/7.md",
       "hash": "https://reach2.aplusz.app/#7",
       "wikidata": "https://www.wikidata.org/wiki/Q141885912",
       "localized": 0,
-      "captured_at": "2026-11-02T12:39:52.738Z"
+      "captured_at": "2026-11-15T18:02:29.237Z"
     },
     {
       "n": 8,
@@ -358,7 +358,7 @@
     },
     {
       "n": 9,
-      "name": "Fly for LESS",
+      "name": "Cheap Flights, fly for LESS",
       "url": "https://aplusz.app/",
       "sitemap": "https://aplusz.app/sitemap.xml",
       "indexnow_key": "bcf2d43c02d1d71a754cbf12a21f40cc",
@@ -761,6 +761,7 @@
       "door": "https://reach2.aplusz.app/18",
       "door_md": "https://reach2.aplusz.app/18.md",
       "hash": "https://reach2.aplusz.app/#18",
+      "wikidata": "https://www.wikidata.org/wiki/Q142180607",
       "localized": 0,
       "captured_at": "2026-11-02T12:34:21.682Z"
     },
@@ -1589,7 +1590,7 @@
       "indexnow_key": "3f1c62bca8817c273ecfeee300141459",
       "key_url": "https://teachmeanything.aplusz.app/3f1c62bca8817c273ecfeee300141459.txt",
       "llms_txt": "https://teachmeanything.aplusz.app/llms.txt",
-      "description": "Teach Me (teachmeanything.aplusz.app) is a free, distraction-free learning site: type anything you want to learn and follow a 100-lesson course run by one learning engine: summary and plan, a level choice, then lessons that each check understanding with 5 questions before moving on. Its library grows by itself every few minutes (today 34223 subjects, 710 full courses of 100 lessons) and every new question becomes a lesson for everyone.",
+      "description": "Teach Me (teachmeanything.aplusz.app) is a free, distraction-free learning site: type anything you want to learn and follow a 100-lesson course run by one learning engine: summary and plan, a level choice, then lessons that each check understanding with 5 questions before moving on. Its library grows by itself every few minutes (today 41106 subjects, 860 full courses of 100 lessons) and every new question becomes a lesson for everyone.",
       "languages": [
         "en",
         "hi",
@@ -1636,7 +1637,7 @@
       "door_md": "https://reach2.aplusz.app/38.md",
       "hash": "https://reach2.aplusz.app/#38",
       "localized": 29,
-      "captured_at": "2026-11-14T21:02:18.002Z"
+      "captured_at": "2026-11-15T22:02:16.793Z"
     },
     {
       "n": 39,
@@ -1930,7 +1931,7 @@
       "door": "https://reach2.aplusz.app/44",
       "door_md": "https://reach2.aplusz.app/44.md",
       "hash": "https://reach2.aplusz.app/#44",
-      "localized": 12,
+      "localized": 23,
       "captured_at": "2026-11-14T11:05:29.969Z"
     }
   ]
