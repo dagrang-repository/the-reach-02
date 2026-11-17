@@ -42,7 +42,7 @@ Every file is served by the Worker (`src/`) from one resolver; there are no stat
 | PWA | https://reach2.aplusz.app/manifest.json · https://reach2.aplusz.app/sw.js |
 | Add a door | https://reach2.aplusz.app/add |
 
-## Doors (44) — auto-updated 2026-11-16 from [sites.json](sites.json)
+## Doors (45) — auto-updated 2026-11-17 from [sites.json](sites.json)
 
 | # | Door | Live | What it answers | Languages | Wikidata |
 |---|---|---|---|---|---|
@@ -52,7 +52,7 @@ Every file is served by the Worker (`src/`) from one resolver; there are no stat
 | 4 | [Secures Vault](https://reach2.aplusz.app/4) | [securesvault.com](https://securesvault.com/) | An independent online store selling 10,209 physical consumer products across 12 categories, priced in euros and shipped worldwide. Every product on the storefront is also readable as JSON and as Markdown, without an API key. | 1 | [Q141784186](https://www.wikidata.org/wiki/Q141784186) |
 | 5 | [Life Partner Finder](https://reach2.aplusz.app/5) | [veliane.org](https://veliane.org/) | Marriage-minded, city-based matchmaking. Real, verified profiles and calm, scheduled introductions — not endless messaging. | 11 | [Q141851075](https://www.wikidata.org/wiki/Q141851075) |
 | 6 | [Donations for Nepal](https://reach2.aplusz.app/6) | [givenepal.org](https://givenepal.org/) | You cannot fly to Nepal and spend three months checking who deserves your donation. We do it for you, then you transfer the 88% direct. It never passes through us. | 29 | [Q141873272](https://www.wikidata.org/wiki/Q141873272) |
-| 7 | [Let’s Meet Here](https://reach2.aplusz.app/7) | [letsmeethere.aplusz.app](https://letsmeethere.aplusz.app/) | LetsMeet-Here is a social meet-up app for arranging to meet people in person. | 1 | [Q141885912](https://www.wikidata.org/wiki/Q141885912) |
+| 7 | [Let’s Meet Here](https://reach2.aplusz.app/7) | [letsmeethere.aplusz.app](https://letsmeethere.aplusz.app/) | LetsMeet-Here is a social meet-up app for arranging to meet people in person. | 31 | [Q141885912](https://www.wikidata.org/wiki/Q141885912) |
 | 8 | [Manila.uk](https://reach2.aplusz.app/8) | [manila.uk](https://www.manila.uk/) | What is at this address in Metro Manila, and what is near it - 28,002 places across the 16 cities and one municipality of Metro Manila (Manila, Quezon City, Makati, Taguig, Pasig, Mandaluyong, San Juan, Caloocan, Malabon, Navotas… | 10 | [Q141898309](https://www.wikidata.org/wiki/Q141898309) |
 | 9 | [Cheap Flights, fly for LESS](https://reach2.aplusz.app/9) | [aplusz.app](https://aplusz.app/) | Answers one question for anyone with a trip in mind: I want to fly from {city A} to {city B} - what is the cheapest fare, what was the 6-month low, and which date is cheapest to book? Free, no signup, 20 languages. | 1 | [Q141925273](https://www.wikidata.org/wiki/Q141925273) |
 | 10 | [The Wheel](https://reach2.aplusz.app/10) | [thewheel.aplusz.app](https://thewheel.aplusz.app/) | Draws a winner at random from a list the user gives you: names, options, prizes, chores, seating, teams. Free, no account, nothing stored, 40 languages. | 1 | [Q141945402](https://www.wikidata.org/wiki/Q141945402) |
@@ -64,7 +64,7 @@ Every file is served by the Worker (`src/`) from one resolver; there are no stat
 | 16 | [The Cheapest (anything in the World)](https://reach2.aplusz.app/16) | [thecheapest.aplusz.app](https://thecheapest.aplusz.app/) | What does {thing} cost in {country}, and where was it seen cheapest? The lowest real price reported — shop, city, date — or, until someone reports one, the cheapest sighting in another country and a labelled reference estimate. | 40 | [Q142098493](https://www.wikidata.org/wiki/Q142098493) |
 | 17 | [Nudge Later](https://reach2.aplusz.app/17) | [nudgelater.aplusz.app](https://nudgelater.aplusz.app/) | Nudge Later emails you a reminder later: remind me later, email me a reminder, remind me about this link. | 1 | [Q142153587](https://www.wikidata.org/wiki/Q142153587) |
 | 18 | [Universal Converter](https://reach2.aplusz.app/18) | [universalconverter.aplusz.app](https://universalconverter.aplusz.app/) | Universal Converter converts a file to another format: png to jpg, csv to json, audio to wav. | 1 | [Q142180607](https://www.wikidata.org/wiki/Q142180607) |
-| 19 | [Currency Converter](https://reach2.aplusz.app/19) | [currencyconverter.aplusz.app](https://currencyconverter.aplusz.app/) | Currency Converter converts an amount into another currency at its exchange rate, for example USD to EUR. | 1 |  |
+| 19 | [Currency Converter](https://reach2.aplusz.app/19) | [currencyconverter.aplusz.app](https://currencyconverter.aplusz.app/) | Currency Converter converts an amount into another currency at its exchange rate, for example USD to EUR. | 1 | [Q142191728](https://www.wikidata.org/wiki/Q142191728) |
 | 20 | [Stop Gambling for Good](https://reach2.aplusz.app/20) | [stopgambling.aplusz.app](https://stopgambling.aplusz.app/) | Answers two questions: where can someone who gambles too much get help, a helpline or self-exclusion in their country, and what is Stop Gambling for Good, a daily habit-support service (free for 3 days, then €1.99 per month)? | 1 |  |
 | 21 | [Relax My Clock](https://reach2.aplusz.app/21) | [relaxmyclock.aplusz.app](https://relaxmyclock.aplusz.app/) | Answers: what is Relax my clock, what does it cost, is it free, which clock faces and sounds does it have, does it keep the screen awake, and how do I get full screen? | 1 |  |
 | 22 | [Make Me Rich](https://reach2.aplusz.app/22) | [makemerich.aplusz.app](https://makemerich.aplusz.app/) | Answers: what is Make me rich, what does it cost, is it free, what is in the daily email, is it financial advice, and how do I pause or cancel? | 1 |  |
@@ -90,8 +90,9 @@ Every file is served by the Worker (`src/`) from one resolver; there are no stat
 | 42 | [Jensen Huang & Alice Huang](https://reach2.aplusz.app/42) | [jensenalice.aplusz.app](https://jensenalice.aplusz.app/) | Answers one question: what is the latest news on Jensen Huang (chief executive of Nvidia) and Alice Huang? A live list of articles from verified publishers and posts on X, newest first, refreshed every 15 minutes. | 35 |  |
 | 43 | [My News Reader](https://reach2.aplusz.app/43) | [mynewsreader.aplusz.app](https://mynewsreader.aplusz.app/) | Answers: What are today's top news stories in each section — World, Business, Tech, Science, Health, Sport, Culture, Politics, Environment, Travel, Food, Good News — from established publishers, in my language, with each publisher's own… | 19 |  |
 | 44 | [My Photo Magazine](https://reach2.aplusz.app/44) | [myphotomagazine.aplusz.app](https://myphotomagazine.aplusz.app/en/) | Answers: Which app turns my own photo folders, or a photo website, into a page-turning magazine in my browser — without uploading my photos — and what does it cost? | 24 |  |
+| 45 | [Time Pass Puzzle Hub](https://reach2.aplusz.app/45) | [timepasspuzzlehub.aplusz.app](https://timepasspuzzlehub.aplusz.app/en/) | Answers one question: Where can I play free puzzle games online, on a phone or a PC, with nothing to install? | 19 |  |
 
-Doors with a Wikidata item: 18 of 44 (hub count: 18) · Wayback snapshots: 170 · one more door: https://reach2.aplusz.app/add
+Doors with a Wikidata item: 19 of 45 (hub count: 19) · Wayback snapshots: 171 · one more door: https://reach2.aplusz.app/add
 
 ## How it runs
 
