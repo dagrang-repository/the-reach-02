@@ -1,8 +1,8 @@
 {
   "name": "The AI Hill Top Lighthouse",
   "tagline": "Nothing you build ever starts invisible again.",
-  "generated": "2026-11-17T09:17:25.293Z",
-  "count": 45,
+  "generated": "2026-11-18T08:37:14.316Z",
+  "count": 46,
   "record_fields": [
     "n",
     "name",
@@ -1256,7 +1256,7 @@
       "indexnow_key": "fc0141c4ba85e5f86c3ec77d71beb0cc",
       "key_url": "https://thecentralwebhub.aplusz.app/fc0141c4ba85e5f86c3ec77d71beb0cc.txt",
       "llms_txt": "https://thecentralwebhub.aplusz.app/llms.txt",
-      "description": "One address that lists every live site in this network, what each one answers, and where a model should fetch the answer instead of guessing. 44 sites, published in 61 languages.",
+      "description": "One address that lists every live site in this network, what each one answers, and where a model should fetch the answer instead of guessing. 45 sites, published in 61 languages.",
       "languages": [
         "en",
         "ar",
@@ -1333,7 +1333,7 @@
       "door_md": "https://reach2.aplusz.app/32.md",
       "hash": "https://reach2.aplusz.app/#32",
       "localized": 60,
-      "captured_at": "2026-11-14T16:02:33.898Z"
+      "captured_at": "2026-11-17T19:02:40.162Z"
     },
     {
       "n": 33,
@@ -1625,7 +1625,7 @@
       "indexnow_key": "3f1c62bca8817c273ecfeee300141459",
       "key_url": "https://teachmeanything.aplusz.app/3f1c62bca8817c273ecfeee300141459.txt",
       "llms_txt": "https://teachmeanything.aplusz.app/llms.txt",
-      "description": "Teach Me (teachmeanything.aplusz.app) is a free, distraction-free learning site: type anything you want to learn and follow a 100-lesson course run by one learning engine: summary and plan, a level choice, then lessons that each check understanding with 5 questions before moving on. Its library grows by itself every few minutes (today 48009 subjects, 1011 full courses of 100 lessons) and every new question becomes a lesson for everyone.",
+      "description": "Teach Me (teachmeanything.aplusz.app) is a free, distraction-free learning site: type anything you want to learn and follow a 100-lesson course run by one learning engine: summary and plan, a level choice, then lessons that each check understanding with 5 questions before moving on. Its library grows by itself every few minutes (today 54643 subjects, 1156 full courses of 100 lessons) and every new question becomes a lesson for everyone.",
       "languages": [
         "en",
         "hi",
@@ -1672,7 +1672,7 @@
       "door_md": "https://reach2.aplusz.app/38.md",
       "hash": "https://reach2.aplusz.app/#38",
       "localized": 29,
-      "captured_at": "2026-11-16T23:01:49.657Z"
+      "captured_at": "2026-11-17T23:03:03.937Z"
     },
     {
       "n": 39,
@@ -2000,7 +2000,7 @@
         "zh"
       ],
       "languages_count": 19,
-      "feed": "",
+      "feed": "https://timepasspuzzlehub.aplusz.app/feed.xml",
       "og_image": "https://timepasspuzzlehub.aplusz.app/assets/img/icon-512.png",
       "jsonld_types": [
         "Organization",
@@ -2014,8 +2014,61 @@
       "door": "https://reach2.aplusz.app/45",
       "door_md": "https://reach2.aplusz.app/45.md",
       "hash": "https://reach2.aplusz.app/#45",
+      "localized": 18,
+      "captured_at": "2026-11-18T00:01:21.614Z"
+    },
+    {
+      "n": 46,
+      "name": "Shoot Them",
+      "url": "https://shootthem.aplusz.app/",
+      "sitemap": "https://shootthem.aplusz.app/sitemap.xml",
+      "indexnow_key": "9d14b825126aa5e58f815060de622eb4",
+      "key_url": "https://shootthem.aplusz.app/9d14b825126aa5e58f815060de622eb4.txt",
+      "llms_txt": "https://shootthem.aplusz.app/llms.txt",
+      "description": "Answers one question: Where can I play a free shooting game with 100 levels, on a phone or a PC? Shoot Them is a first-person shooting game with 100 levels in 10 worlds, from a backyard with stones and a slingshot to orbit with a laser and a railgun. Every level is harder than the one before it. Play at https://shootthem.aplusz.app/en/ - in a browser on a PC, and as an installed game on a phone or tablet (the install is free and plays offline).",
+      "languages": [
+        "en",
+        "ar",
+        "bn",
+        "de",
+        "es",
+        "fa",
+        "fil",
+        "fr",
+        "hi",
+        "id",
+        "it",
+        "ja",
+        "ko",
+        "ms",
+        "nl",
+        "pl",
+        "pt",
+        "ru",
+        "sv",
+        "th",
+        "tr",
+        "uk",
+        "vi",
+        "zh"
+      ],
+      "languages_count": 24,
+      "feed": "https://shootthem.aplusz.app/feed.xml",
+      "og_image": "https://shootthem.aplusz.app/assets/img/icon-512.png",
+      "jsonld_types": [
+        "Organization",
+        "WebSite",
+        "WebPage",
+        "VideoGame",
+        "WebApplication"
+      ],
+      "title": "Free shooting game for phone and PC: 100 levels, 10 worlds",
+      "canonical": "https://shootthem.aplusz.app/",
+      "door": "https://reach2.aplusz.app/46",
+      "door_md": "https://reach2.aplusz.app/46.md",
+      "hash": "https://reach2.aplusz.app/#46",
       "localized": 12,
-      "captured_at": "2026-11-16T23:36:01.861Z"
+      "captured_at": "2026-11-18T06:41:43.677Z"
     }
   ]
 }

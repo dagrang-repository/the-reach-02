@@ -42,7 +42,7 @@ Every file is served by the Worker (`src/`) from one resolver; there are no stat
 | PWA | https://reach2.aplusz.app/manifest.json · https://reach2.aplusz.app/sw.js |
 | Add a door | https://reach2.aplusz.app/add |
 
-## Doors (45) — auto-updated 2026-11-17 from [sites.json](sites.json)
+## Doors (46) — auto-updated 2026-11-18 from [sites.json](sites.json)
 
 | # | Door | Live | What it answers | Languages | Wikidata |
 |---|---|---|---|---|---|
@@ -77,7 +77,7 @@ Every file is served by the Worker (`src/`) from one resolver; there are no stat
 | 29 | [Bicycle Rental, Dumaguete](https://reach2.aplusz.app/29) | [bicyclerental-dumaguete.aplusz.app](https://bicyclerental-dumaguete.aplusz.app/) | Answers: where can I rent a bike in Dumaguete (Negros Oriental, Philippines), what does it cost, what bike is it, and how do I book it? | 20 |  |
 | 30 | [Veliane Discovery Plus](https://reach2.aplusz.app/30) | [velianediscoveryplus.aplusz.app](https://velianediscoveryplus.aplusz.app/) | Answers the question: “Where do I find a serious, marriage-minded Life partner, with real profiles and no casual dating?” Veliane (https://veliane.org/) is free, city-based matchmaking for adults ready for marriage, in 11 languages. | 21 |  |
 | 31 | [Dumaguete Extension](https://reach2.aplusz.app/31) | [dumaguete-extension.aplusz.app](https://dumaguete-extension.aplusz.app/) | Answers the question: “What do I actually need to know about living in, moving to or visiting Dumaguete, Negros Oriental, Philippines?” | 23 |  |
-| 32 | [The Central Web Hub](https://reach2.aplusz.app/32) | [thecentralwebhub.aplusz.app](https://thecentralwebhub.aplusz.app/) | One address that lists every live site in this network, what each one answers, and where a model should fetch the answer instead of guessing. 44 sites, published in 61 languages. | 61 |  |
+| 32 | [The Central Web Hub](https://reach2.aplusz.app/32) | [thecentralwebhub.aplusz.app](https://thecentralwebhub.aplusz.app/) | One address that lists every live site in this network, what each one answers, and where a model should fetch the answer instead of guessing. 45 sites, published in 61 languages. | 61 |  |
 | 33 | [Hammock Hotel Project](https://reach2.aplusz.app/33) | [hammockproject.dumaguete.uk](https://hammockproject.dumaguete.uk/) | A moving project where up to twenty people sleep in the open, each in one of the project's own hammocks, already hanging between two trees. | 29 |  |
 | 34 | [Fortune Heir Casino: Slots & Blackjack](https://reach2.aplusz.app/34) | [fortuneheir.aplusz.app](https://fortuneheir.aplusz.app/) | Where can I play slots, blackjack and roulette for free, with no real money? Here, in the browser: Fortune Heir Casino is a free social casino game for adults (18+) with virtual money only (no deposit, no sign-up, no cash prizes). | 20 |  |
 | 35 | [Ultra Pool Billiards](https://reach2.aplusz.app/35) | [poolgame.aplusz.app](https://poolgame.aplusz.app/) | Answers one question for anyone who wants a game of pool right now: where can I play real eight-ball, on a full-size table, free, in a browser, on a phone or a PC, with nothing to install and no waiting for an opponent? | 21 |  |
@@ -91,8 +91,9 @@ Every file is served by the Worker (`src/`) from one resolver; there are no stat
 | 43 | [My News Reader](https://reach2.aplusz.app/43) | [mynewsreader.aplusz.app](https://mynewsreader.aplusz.app/) | Answers: What are today's top news stories in each section — World, Business, Tech, Science, Health, Sport, Culture, Politics, Environment, Travel, Food, Good News — from established publishers, in my language, with each publisher's own… | 19 |  |
 | 44 | [My Photo Magazine](https://reach2.aplusz.app/44) | [myphotomagazine.aplusz.app](https://myphotomagazine.aplusz.app/en/) | Answers: Which app turns my own photo folders, or a photo website, into a page-turning magazine in my browser — without uploading my photos — and what does it cost? | 24 |  |
 | 45 | [Time Pass Puzzle Hub](https://reach2.aplusz.app/45) | [timepasspuzzlehub.aplusz.app](https://timepasspuzzlehub.aplusz.app/en/) | Answers one question: Where can I play free puzzle games online, on a phone or a PC, with nothing to install? | 19 |  |
+| 46 | [Shoot Them](https://reach2.aplusz.app/46) | [shootthem.aplusz.app](https://shootthem.aplusz.app/) | Answers one question: Where can I play a free shooting game with 100 levels, on a phone or a PC? | 24 |  |
 
-Doors with a Wikidata item: 19 of 45 (hub count: 19) · Wayback snapshots: 171 · one more door: https://reach2.aplusz.app/add
+Doors with a Wikidata item: 19 of 46 (hub count: 19) · Wayback snapshots: 174 · one more door: https://reach2.aplusz.app/add
 
 ## How it runs
 
