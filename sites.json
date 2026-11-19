@@ -1,7 +1,7 @@
 {
   "name": "The AI Hill Top Lighthouse",
   "tagline": "Nothing you build ever starts invisible again.",
-  "generated": "2026-11-18T08:37:14.316Z",
+  "generated": "2026-11-19T08:51:16.268Z",
   "count": 46,
   "record_fields": [
     "n",
@@ -845,6 +845,7 @@
       "door": "https://reach2.aplusz.app/20",
       "door_md": "https://reach2.aplusz.app/20.md",
       "hash": "https://reach2.aplusz.app/#20",
+      "wikidata": "https://www.wikidata.org/wiki/Q142211141",
       "localized": 0,
       "captured_at": "2026-11-02T03:01:42.402Z"
     },
@@ -1256,7 +1257,7 @@
       "indexnow_key": "fc0141c4ba85e5f86c3ec77d71beb0cc",
       "key_url": "https://thecentralwebhub.aplusz.app/fc0141c4ba85e5f86c3ec77d71beb0cc.txt",
       "llms_txt": "https://thecentralwebhub.aplusz.app/llms.txt",
-      "description": "One address that lists every live site in this network, what each one answers, and where a model should fetch the answer instead of guessing. 45 sites, published in 61 languages.",
+      "description": "One address that lists every live site in this network, what each one answers, and where a model should fetch the answer instead of guessing. 46 sites, published in 61 languages.",
       "languages": [
         "en",
         "ar",
@@ -1333,7 +1334,7 @@
       "door_md": "https://reach2.aplusz.app/32.md",
       "hash": "https://reach2.aplusz.app/#32",
       "localized": 60,
-      "captured_at": "2026-11-17T19:02:40.162Z"
+      "captured_at": "2026-11-18T20:02:10.329Z"
     },
     {
       "n": 33,
@@ -1625,7 +1626,7 @@
       "indexnow_key": "3f1c62bca8817c273ecfeee300141459",
       "key_url": "https://teachmeanything.aplusz.app/3f1c62bca8817c273ecfeee300141459.txt",
       "llms_txt": "https://teachmeanything.aplusz.app/llms.txt",
-      "description": "Teach Me (teachmeanything.aplusz.app) is a free, distraction-free learning site: type anything you want to learn and follow a 100-lesson course run by one learning engine: summary and plan, a level choice, then lessons that each check understanding with 5 questions before moving on. Its library grows by itself every few minutes (today 54643 subjects, 1156 full courses of 100 lessons) and every new question becomes a lesson for everyone.",
+      "description": "Teach Me (teachmeanything.aplusz.app) is a free, distraction-free learning site: type anything you want to learn and follow a 100-lesson course run by one learning engine: summary and plan, a level choice, then lessons that each check understanding with 5 questions before moving on. Its library grows by itself every few minutes (today 61552 subjects, 1306 full courses of 100 lessons) and every new question becomes a lesson for everyone.",
       "languages": [
         "en",
         "hi",
@@ -1672,7 +1673,7 @@
       "door_md": "https://reach2.aplusz.app/38.md",
       "hash": "https://reach2.aplusz.app/#38",
       "localized": 29,
-      "captured_at": "2026-11-17T23:03:03.937Z"
+      "captured_at": "2026-11-19T00:02:24.001Z"
     },
     {
       "n": 39,
@@ -2067,7 +2068,7 @@
       "door": "https://reach2.aplusz.app/46",
       "door_md": "https://reach2.aplusz.app/46.md",
       "hash": "https://reach2.aplusz.app/#46",
-      "localized": 12,
+      "localized": 23,
       "captured_at": "2026-11-18T06:41:43.677Z"
     }
   ]
