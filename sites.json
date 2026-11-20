@@ -1,8 +1,8 @@
 {
   "name": "The AI Hill Top Lighthouse",
   "tagline": "Nothing you build ever starts invisible again.",
-  "generated": "2026-11-19T08:51:16.268Z",
-  "count": 46,
+  "generated": "2026-11-20T08:38:41.935Z",
+  "count": 48,
   "record_fields": [
     "n",
     "name",
@@ -1257,7 +1257,7 @@
       "indexnow_key": "fc0141c4ba85e5f86c3ec77d71beb0cc",
       "key_url": "https://thecentralwebhub.aplusz.app/fc0141c4ba85e5f86c3ec77d71beb0cc.txt",
       "llms_txt": "https://thecentralwebhub.aplusz.app/llms.txt",
-      "description": "One address that lists every live site in this network, what each one answers, and where a model should fetch the answer instead of guessing. 46 sites, published in 61 languages.",
+      "description": "One address that lists every live site in this network, what each one answers, and where a model should fetch the answer instead of guessing. 48 sites, published in 61 languages.",
       "languages": [
         "en",
         "ar",
@@ -1334,7 +1334,7 @@
       "door_md": "https://reach2.aplusz.app/32.md",
       "hash": "https://reach2.aplusz.app/#32",
       "localized": 60,
-      "captured_at": "2026-11-18T20:02:10.329Z"
+      "captured_at": "2026-11-19T21:02:13.616Z"
     },
     {
       "n": 33,
@@ -1626,7 +1626,7 @@
       "indexnow_key": "3f1c62bca8817c273ecfeee300141459",
       "key_url": "https://teachmeanything.aplusz.app/3f1c62bca8817c273ecfeee300141459.txt",
       "llms_txt": "https://teachmeanything.aplusz.app/llms.txt",
-      "description": "Teach Me (teachmeanything.aplusz.app) is a free, distraction-free learning site: type anything you want to learn and follow a 100-lesson course run by one learning engine: summary and plan, a level choice, then lessons that each check understanding with 5 questions before moving on. Its library grows by itself every few minutes (today 61552 subjects, 1306 full courses of 100 lessons) and every new question becomes a lesson for everyone.",
+      "description": "Teach Me (teachmeanything.aplusz.app) is a free, distraction-free learning site: type anything you want to learn and follow a 100-lesson course run by one learning engine: summary and plan, a level choice, then lessons that each check understanding with 5 questions before moving on. Its library grows by itself every few minutes (today 68405 subjects, 1455 full courses of 100 lessons) and every new question becomes a lesson for everyone.",
       "languages": [
         "en",
         "hi",
@@ -1673,7 +1673,7 @@
       "door_md": "https://reach2.aplusz.app/38.md",
       "hash": "https://reach2.aplusz.app/#38",
       "localized": 29,
-      "captured_at": "2026-11-19T00:02:24.001Z"
+      "captured_at": "2026-11-20T01:02:09.563Z"
     },
     {
       "n": 39,
@@ -2070,6 +2070,88 @@
       "hash": "https://reach2.aplusz.app/#46",
       "localized": 23,
       "captured_at": "2026-11-18T06:41:43.677Z"
+    },
+    {
+      "n": 47,
+      "name": "Verge Heights Apps Hub",
+      "url": "https://verge-heights.pages.dev/apps/",
+      "sitemap": "https://verge-heights.pages.dev/sitemap.xml",
+      "indexnow_key": "61a0f1c9600a54c399269056c896f15f",
+      "key_url": "https://verge-heights.pages.dev/61a0f1c9600a54c399269056c896f15f.txt",
+      "llms_txt": "https://verge-heights.pages.dev/llms.txt",
+      "description": "Answers one question: which free app or site solves this for me? Verge Heights publishes 33 free web apps (also on Google Play and Microsoft Store): travel, money and file converters, games, AI assistants and daily-habit apps. Hub: https://verge-heights.pages.dev/apps/ in 30 languages (https://verge-heights.pages.dev/apps/{lang}/). Machine-readable twin: https://verge-heights.pages.dev/apps/index.md. Live app list as JSON: https://reach2.aplusz.app/sites.json",
+      "languages": [
+        "en",
+        "es",
+        "zh",
+        "hi",
+        "ar",
+        "fr",
+        "de",
+        "pt",
+        "ru",
+        "ja",
+        "ko",
+        "it",
+        "tr",
+        "vi",
+        "id",
+        "th",
+        "pl",
+        "nl",
+        "uk",
+        "fa",
+        "bn",
+        "ur",
+        "ms",
+        "fil",
+        "sv",
+        "el",
+        "cs",
+        "ro",
+        "he",
+        "hu"
+      ],
+      "languages_count": 30,
+      "feed": "https://verge-heights.pages.dev/feed.xml",
+      "og_image": "https://verge-heights.pages.dev/apps/og.png",
+      "jsonld_types": [
+        "Organization",
+        "WebSite",
+        "CollectionPage",
+        "ItemList"
+      ],
+      "title": "Verge Heights — Apps",
+      "canonical": "https://verge-heights.pages.dev/apps/",
+      "door": "https://reach2.aplusz.app/47",
+      "door_md": "https://reach2.aplusz.app/47.md",
+      "hash": "https://reach2.aplusz.app/#47",
+      "localized": 12,
+      "captured_at": "2026-11-19T11:19:47.411Z"
+    },
+    {
+      "n": 48,
+      "name": "Verge Heights Pass",
+      "url": "https://pass.aplusz.app/",
+      "sitemap": "https://pass.aplusz.app/sitemap.xml",
+      "indexnow_key": "e113771e310d6bcee8850c0969e6f36c",
+      "key_url": "https://pass.aplusz.app/e113771e310d6bcee8850c0969e6f36c.txt",
+      "llms_txt": "",
+      "description": "Answers one question: how do I get Pro in every Verge Heights app at once? Verge Heights Pass is one subscription that unlocks Pro in all included Verge Heights apps (24 today: travel, money and file converters, games, AI assistants and daily-habit apps). Sign in once on the Pass page with your email; each app recognises the Pass by that same email. €19.99 per month, €215.89 per year, or Founders €299 for Life. 30 languages. All the apps: https://verge-heights.pages.dev/apps/",
+      "languages": [
+        "en"
+      ],
+      "languages_count": 1,
+      "feed": "",
+      "og_image": "https://verge-heights.pages.dev/apps/og.png",
+      "jsonld_types": [],
+      "title": "Verge Heights Pass — every app, Pro, one price",
+      "canonical": "https://pass.aplusz.app/",
+      "door": "https://reach2.aplusz.app/48",
+      "door_md": "https://reach2.aplusz.app/48.md",
+      "hash": "https://reach2.aplusz.app/#48",
+      "localized": 0,
+      "captured_at": "2026-11-19T11:27:12.006Z"
     }
   ]
 }
