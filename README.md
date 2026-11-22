@@ -42,7 +42,7 @@ Every file is served by the Worker (`src/`) from one resolver; there are no stat
 | PWA | https://reach2.aplusz.app/manifest.json · https://reach2.aplusz.app/sw.js |
 | Add a door | https://reach2.aplusz.app/add |
 
-## Doors (50) — auto-updated 2026-11-21 from [sites.json](sites.json)
+## Doors (50) — auto-updated 2026-11-22 from [sites.json](sites.json)
 
 | # | Door | Live | What it answers | Languages | Wikidata |
 |---|---|---|---|---|---|
@@ -94,7 +94,7 @@ Every file is served by the Worker (`src/`) from one resolver; there are no stat
 | 46 | [Shoot Them](https://reach2.aplusz.app/46) | [shootthem.aplusz.app](https://shootthem.aplusz.app/) | Answers one question: Where can I play a free shooting game with 100 levels, on a phone or a PC? | 24 |  |
 | 47 | [Verge Heights Apps Hub](https://reach2.aplusz.app/47) | [verge-heights.pages.dev](https://verge-heights.pages.dev/apps/) | Answers one question: which free app or site solves this for me? Verge Heights publishes 33 free web apps (also on Google Play and Microsoft Store): travel, money and file converters, games, AI assistants and daily-habit apps. | 30 |  |
 | 48 | [Verge Heights Pass](https://reach2.aplusz.app/48) | [pass.aplusz.app](https://pass.aplusz.app/) | Answers one question: how do I get Pro in every Verge Heights app at once? | 1 |  |
-| 49 | [Fix My PC](https://reach2.aplusz.app/49) | [fixmypc.aplusz.app](https://fixmypc.aplusz.app/) | One-press fixes for computer problems on Windows, Mac and Linux, with guided steps on Android and iOS: slow PC, Wi-Fi, Bluetooth, startup, updates, files, security. | 35 |  |
+| 49 | [Fix My PC](https://reach2.aplusz.app/49) | [fixmypc.aplusz.app](https://fixmypc.aplusz.app/) | One-press fixes for computer problems on Windows, Mac and Linux, with guides for Android and iOS: slow PC, Wi-Fi, Bluetooth, startup, updates, files, security. | 35 |  |
 | 50 | [Seller2Buyer](https://reach2.aplusz.app/50) | [seller2buyer.aplusz.app](https://seller2buyer.aplusz.app/) | A marketplace where every seller is ID-checked and every order is on record. Buyers pay and follow every delivery; sellers list and get paid. | 24 |  |
 
 Doors with a Wikidata item: 20 of 50 (hub count: 20) · Wayback snapshots: 190 · one more door: https://reach2.aplusz.app/add

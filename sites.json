@@ -1,7 +1,7 @@
 {
   "name": "The AI Hill Top Lighthouse",
   "tagline": "Nothing you build ever starts invisible again.",
-  "generated": "2026-11-21T08:21:23.304Z",
+  "generated": "2026-11-22T08:04:03.118Z",
   "count": 50,
   "record_fields": [
     "n",
@@ -1626,7 +1626,7 @@
       "indexnow_key": "3f1c62bca8817c273ecfeee300141459",
       "key_url": "https://teachmeanything.aplusz.app/3f1c62bca8817c273ecfeee300141459.txt",
       "llms_txt": "https://teachmeanything.aplusz.app/llms.txt",
-      "description": "Teach Me (teachmeanything.aplusz.app) is a free, distraction-free learning site: type anything you want to learn and follow a 100-lesson course run by one learning engine: summary and plan, a level choice, then lessons that each check understanding with 5 questions before moving on. Its library grows by itself every few minutes (today 75093 subjects, 1600 full courses of 100 lessons) and every new question becomes a lesson for everyone.",
+      "description": "Teach Me (teachmeanything.aplusz.app) is a free, distraction-free learning site: type anything you want to learn and follow a 100-lesson course run by one learning engine: summary and plan, a level choice, then lessons that each check understanding with 5 questions before moving on. Its library grows by itself every few minutes (today 81752 subjects, 1744 full courses of 100 lessons) and every new question becomes a lesson for everyone.",
       "languages": [
         "en",
         "hi",
@@ -1673,7 +1673,7 @@
       "door_md": "https://reach2.aplusz.app/38.md",
       "hash": "https://reach2.aplusz.app/#38",
       "localized": 29,
-      "captured_at": "2026-11-21T01:02:19.125Z"
+      "captured_at": "2026-11-22T01:02:37.272Z"
     },
     {
       "n": 39,
@@ -2126,7 +2126,7 @@
       "door": "https://reach2.aplusz.app/47",
       "door_md": "https://reach2.aplusz.app/47.md",
       "hash": "https://reach2.aplusz.app/#47",
-      "localized": 24,
+      "localized": 29,
       "captured_at": "2026-11-19T11:19:47.411Z"
     },
     {
@@ -2165,7 +2165,7 @@
       "indexnow_key": "5ef9671a08574ca9862bb4a8f69f0d7e",
       "key_url": "https://fixmypc.aplusz.app/5ef9671a08574ca9862bb4a8f69f0d7e.txt",
       "llms_txt": "https://fixmypc.aplusz.app/llms.txt",
-      "description": "One-press fixes for computer problems on Windows, Mac and Linux, with guided steps on Android and iOS: slow PC, Wi-Fi, Bluetooth, startup, updates, files, security.",
+      "description": "One-press fixes for computer problems on Windows, Mac and Linux, with guides for Android and iOS: slow PC, Wi-Fi, Bluetooth, startup, updates, files, security.",
       "languages": [
         "en",
         "ar",
@@ -2209,16 +2209,15 @@
       "jsonld_types": [
         "WebSite",
         "Organization",
-        "SoftwareApplication",
-        "WebPage"
+        "SoftwareApplication"
       ],
-      "title": "Paano ko aayusin ang PC ko? 144 solusyon sa isang pindot",
-      "canonical": "https://fixmypc.aplusz.app/tl/",
+      "title": "Fix My PC — Clear fixes for your PC",
+      "canonical": "https://fixmypc.aplusz.app/",
       "door": "https://reach2.aplusz.app/49",
       "door_md": "https://reach2.aplusz.app/49.md",
       "hash": "https://reach2.aplusz.app/#49",
-      "localized": 12,
-      "captured_at": "2026-11-20T10:40:13.007Z"
+      "localized": 24,
+      "captured_at": "2026-11-21T12:02:00.913Z"
     },
     {
       "n": 50,
@@ -2268,7 +2267,7 @@
       "door": "https://reach2.aplusz.app/50",
       "door_md": "https://reach2.aplusz.app/50.md",
       "hash": "https://reach2.aplusz.app/#50",
-      "localized": 12,
+      "localized": 23,
       "captured_at": "2026-11-20T18:52:00.709Z"
     }
   ]
