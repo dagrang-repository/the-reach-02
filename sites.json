@@ -1,8 +1,8 @@
 {
   "name": "The AI Hill Top Lighthouse",
   "tagline": "Nothing you build ever starts invisible again.",
-  "generated": "2026-11-22T08:04:03.118Z",
-  "count": 50,
+  "generated": "2026-11-23T09:11:22.984Z",
+  "count": 52,
   "record_fields": [
     "n",
     "name",
@@ -1257,7 +1257,7 @@
       "indexnow_key": "fc0141c4ba85e5f86c3ec77d71beb0cc",
       "key_url": "https://thecentralwebhub.aplusz.app/fc0141c4ba85e5f86c3ec77d71beb0cc.txt",
       "llms_txt": "https://thecentralwebhub.aplusz.app/llms.txt",
-      "description": "One address that lists every live site in this network, what each one answers, and where a model should fetch the answer instead of guessing. 50 sites, published in 61 languages.",
+      "description": "One address that lists every live site in this network, what each one answers, and where a model should fetch the answer instead of guessing. 51 sites, published in 61 languages.",
       "languages": [
         "en",
         "ar",
@@ -1334,7 +1334,7 @@
       "door_md": "https://reach2.aplusz.app/32.md",
       "hash": "https://reach2.aplusz.app/#32",
       "localized": 60,
-      "captured_at": "2026-11-20T21:02:21.074Z"
+      "captured_at": "2026-11-22T21:16:23.148Z"
     },
     {
       "n": 33,
@@ -1626,7 +1626,7 @@
       "indexnow_key": "3f1c62bca8817c273ecfeee300141459",
       "key_url": "https://teachmeanything.aplusz.app/3f1c62bca8817c273ecfeee300141459.txt",
       "llms_txt": "https://teachmeanything.aplusz.app/llms.txt",
-      "description": "Teach Me (teachmeanything.aplusz.app) is a free, distraction-free learning site: type anything you want to learn and follow a 100-lesson course run by one learning engine: summary and plan, a level choice, then lessons that each check understanding with 5 questions before moving on. Its library grows by itself every few minutes (today 81752 subjects, 1744 full courses of 100 lessons) and every new question becomes a lesson for everyone.",
+      "description": "Teach Me (teachmeanything.aplusz.app) is a free, distraction-free learning site: type anything you want to learn and follow a 100-lesson course run by one learning engine: summary and plan, a level choice, then lessons that each check understanding with 5 questions before moving on. Its library grows by itself every few minutes (today 88393 subjects, 1894 full courses of 100 lessons) and every new question becomes a lesson for everyone.",
       "languages": [
         "en",
         "hi",
@@ -1673,7 +1673,7 @@
       "door_md": "https://reach2.aplusz.app/38.md",
       "hash": "https://reach2.aplusz.app/#38",
       "localized": 29,
-      "captured_at": "2026-11-22T01:02:37.272Z"
+      "captured_at": "2026-11-23T01:08:46.851Z"
     },
     {
       "n": 39,
@@ -2216,7 +2216,7 @@
       "door": "https://reach2.aplusz.app/49",
       "door_md": "https://reach2.aplusz.app/49.md",
       "hash": "https://reach2.aplusz.app/#49",
-      "localized": 24,
+      "localized": 34,
       "captured_at": "2026-11-21T12:02:00.913Z"
     },
     {
@@ -2269,6 +2269,101 @@
       "hash": "https://reach2.aplusz.app/#50",
       "localized": 23,
       "captured_at": "2026-11-20T18:52:00.709Z"
+    },
+    {
+      "n": 51,
+      "name": "Writer2Reader",
+      "url": "https://writer2reader.aplusz.app/",
+      "sitemap": "https://writer2reader.aplusz.app/sitemap.xml",
+      "indexnow_key": "8c07087b4e115d7bc73cf706f35f8481",
+      "key_url": "https://writer2reader.aplusz.app/8c07087b4e115d7bc73cf706f35f8481.txt",
+      "llms_txt": "https://writer2reader.aplusz.app/llms.txt",
+      "description": "Answers: where can I read free stories, novels, essays and poems by independent writers, and pay the writer directly? Every piece is free to read, with no paywall and no account needed, in 25 languages, with public-domain classics in each language. Writers get a writing studio and their own page, and readers pay them directly.",
+      "languages": [
+        "en",
+        "ko",
+        "es",
+        "fr",
+        "de",
+        "it",
+        "pt",
+        "nl",
+        "pl",
+        "sv",
+        "da",
+        "no",
+        "cs",
+        "ro",
+        "tr",
+        "ar",
+        "hi",
+        "fil",
+        "id",
+        "ms",
+        "vi",
+        "th",
+        "ja",
+        "zh"
+      ],
+      "languages_count": 24,
+      "feed": "https://writer2reader.aplusz.app/feed.xml",
+      "og_image": "https://writer2reader.aplusz.app/icons/share.png",
+      "jsonld_types": [
+        "WebSite"
+      ],
+      "title": "Free stories, novels and essays by independent writers — Writer2Reader",
+      "canonical": "https://writer2reader.aplusz.app/en/",
+      "door": "https://reach2.aplusz.app/51",
+      "door_md": "https://reach2.aplusz.app/51.md",
+      "hash": "https://reach2.aplusz.app/#51",
+      "localized": 23,
+      "captured_at": "2026-11-22T12:35:55.920Z"
+    },
+    {
+      "n": 52,
+      "name": "My Party TV",
+      "url": "https://mypartytv.aplusz.app/",
+      "sitemap": "https://mypartytv.aplusz.app/sitemap.xml",
+      "indexnow_key": "3dba27bd17bd52a0e50cf4ea6b4a11e4",
+      "key_url": "https://mypartytv.aplusz.app/3dba27bd17bd52a0e50cf4ea6b4a11e4.txt",
+      "llms_txt": "https://mypartytv.aplusz.app/llms.txt",
+      "description": "Turn your TV into the party screen. Your phone is the remote, guests join with one scan, and everyone plays the quiz and shares photos.",
+      "languages": [
+        "en",
+        "es",
+        "de",
+        "fr",
+        "pt",
+        "it",
+        "pl",
+        "nl",
+        "ar",
+        "tr",
+        "ru",
+        "sv",
+        "da",
+        "no",
+        "fi",
+        "cs",
+        "hu",
+        "ro",
+        "el",
+        "he"
+      ],
+      "languages_count": 20,
+      "feed": "https://mypartytv.aplusz.app/feed.xml",
+      "og_image": "https://mypartytv.aplusz.app/assets/icons/icon-512.png",
+      "jsonld_types": [
+        "WebApplication",
+        "Organization"
+      ],
+      "title": "How can we play a party quiz on our TV with our phones? | My Party TV",
+      "canonical": "https://mypartytv.aplusz.app/",
+      "door": "https://reach2.aplusz.app/52",
+      "door_md": "https://reach2.aplusz.app/52.md",
+      "hash": "https://reach2.aplusz.app/#52",
+      "localized": 12,
+      "captured_at": "2026-11-23T08:35:08.602Z"
     }
   ]
 }
