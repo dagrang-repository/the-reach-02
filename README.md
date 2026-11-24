@@ -42,7 +42,7 @@ Every file is served by the Worker (`src/`) from one resolver; there are no stat
 | PWA | https://reach2.aplusz.app/manifest.json · https://reach2.aplusz.app/sw.js |
 | Add a door | https://reach2.aplusz.app/add |
 
-## Doors (52) — auto-updated 2026-11-23 from [sites.json](sites.json)
+## Doors (53) — auto-updated 2026-11-24 from [sites.json](sites.json)
 
 | # | Door | Live | What it answers | Languages | Wikidata |
 |---|---|---|---|---|---|
@@ -77,7 +77,7 @@ Every file is served by the Worker (`src/`) from one resolver; there are no stat
 | 29 | [Bicycle Rental, Dumaguete](https://reach2.aplusz.app/29) | [bicyclerental-dumaguete.aplusz.app](https://bicyclerental-dumaguete.aplusz.app/) | Answers: where can I rent a bike in Dumaguete (Negros Oriental, Philippines), what does it cost, what bike is it, and how do I book it? | 20 |  |
 | 30 | [Veliane Discovery Plus](https://reach2.aplusz.app/30) | [velianediscoveryplus.aplusz.app](https://velianediscoveryplus.aplusz.app/) | Answers the question: “Where do I find a serious, marriage-minded Life partner, with real profiles and no casual dating?” Veliane (https://veliane.org/) is free, city-based matchmaking for adults ready for marriage, in 11 languages. | 21 |  |
 | 31 | [Dumaguete Extension](https://reach2.aplusz.app/31) | [dumaguete-extension.aplusz.app](https://dumaguete-extension.aplusz.app/) | Answers the question: “What do I actually need to know about living in, moving to or visiting Dumaguete, Negros Oriental, Philippines?” | 23 |  |
-| 32 | [The Central Web Hub](https://reach2.aplusz.app/32) | [thecentralwebhub.aplusz.app](https://thecentralwebhub.aplusz.app/) | One address that lists every live site in this network, what each one answers, and where a model should fetch the answer instead of guessing. 51 sites, published in 61 languages. | 61 |  |
+| 32 | [The Central Web Hub](https://reach2.aplusz.app/32) | [thecentralwebhub.aplusz.app](https://thecentralwebhub.aplusz.app/) | One address that lists every live site in this network, what each one answers, and where a model should fetch the answer instead of guessing. 53 sites, published in 61 languages. | 61 |  |
 | 33 | [Hammock Hotel Project](https://reach2.aplusz.app/33) | [hammockproject.dumaguete.uk](https://hammockproject.dumaguete.uk/) | A moving project where up to twenty people sleep in the open, each in one of the project's own hammocks, already hanging between two trees. | 29 |  |
 | 34 | [Fortune Heir Casino: Slots & Blackjack](https://reach2.aplusz.app/34) | [fortuneheir.aplusz.app](https://fortuneheir.aplusz.app/) | Where can I play slots, blackjack and roulette for free, with no real money? Here, in the browser: Fortune Heir Casino is a free social casino game for adults (18+) with virtual money only (no deposit, no sign-up, no cash prizes). | 20 |  |
 | 35 | [Ultra Pool Billiards](https://reach2.aplusz.app/35) | [poolgame.aplusz.app](https://poolgame.aplusz.app/) | Answers one question for anyone who wants a game of pool right now: where can I play real eight-ball, on a full-size table, free, in a browser, on a phone or a PC, with nothing to install and no waiting for an opponent? | 21 |  |
@@ -98,8 +98,9 @@ Every file is served by the Worker (`src/`) from one resolver; there are no stat
 | 50 | [Seller2Buyer](https://reach2.aplusz.app/50) | [seller2buyer.aplusz.app](https://seller2buyer.aplusz.app/) | A marketplace where every seller is ID-checked and every order is on record. Buyers pay and follow every delivery; sellers list and get paid. | 24 |  |
 | 51 | [Writer2Reader](https://reach2.aplusz.app/51) | [writer2reader.aplusz.app](https://writer2reader.aplusz.app/) | Answers: where can I read free stories, novels, essays and poems by independent writers, and pay the writer directly? | 24 |  |
 | 52 | [My Party TV](https://reach2.aplusz.app/52) | [mypartytv.aplusz.app](https://mypartytv.aplusz.app/) | Turn your TV into the party screen. Your phone is the remote, guests join with one scan, and everyone plays the quiz and shares photos. | 20 |  |
+| 53 | [Social Group Games](https://reach2.aplusz.app/53) | [socialgroupgames.aplusz.app](https://socialgroupgames.aplusz.app/en/) | Answers: Which party games can a group play on one phone? 12 classic party games on one phone: Who’s the Spy, Heads Up, Werewolf, Hot Potato, Truth or Dare, Taboo and more. | 24 |  |
 
-Doors with a Wikidata item: 20 of 52 (hub count: 20) · Wayback snapshots: 190 · one more door: https://reach2.aplusz.app/add
+Doors with a Wikidata item: 20 of 53 (hub count: 20) · Wayback snapshots: 197 · one more door: https://reach2.aplusz.app/add
 
 ## How it runs
 
