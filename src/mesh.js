@@ -8,6 +8,7 @@ import { publicBase } from "./hill.js";
 import { sweepAllowsPing } from "./sweep.js";
 import { recordStamp } from "./announce.js";
 import { one } from "./db.js";
+import { ABOUT_UPDATED } from "./about.js";
 
 export function reachKey(env) {
   return String(env.INDEXNOW_KEY || env.REACH_INDEXNOW_KEY || "reach2hilltopkey").replace(/[^A-Za-z0-9_-]/g, "").slice(0, 128);
@@ -29,8 +30,12 @@ export function reachAnnounceUrls(env, slots, extra = []) {
   const list = [
     `${base}/`,
     `${base}/index.md`,
+    `${base}/about`,
+    `${base}/about.md`,
     `${base}/llms.txt`,
+    `${base}/llms-full.txt`,
     `${base}/sitemap.xml`,
+    `${base}/sitemap-md.xml`,
     `${base}/catalog.json`,
     `${base}/changes.txt`,
     `${base}/feed.xml`,
@@ -69,7 +74,9 @@ export async function reachAnnounceItems(env, slots) {
     byPath.set(s.path, fp);
     byPath.set(`${s.path}.md`, fp);
   }
-  return reachAnnounceUrls(env, slots).map((url) => ({ url, fp: byPath.get(url) || (url.startsWith(`${base}/`) ? hubFp : url), door: byPath.has(url) }));
+  /* the about page moves when its own text moves, not when the map does */
+  const fixed = new Map([[`${base}/about`, `about:${ABOUT_UPDATED}`], [`${base}/about.md`, `about:${ABOUT_UPDATED}`]]);
+  return reachAnnounceUrls(env, slots).map((url) => ({ url, fp: byPath.get(url) || fixed.get(url) || (url.startsWith(`${base}/`) ? hubFp : url), door: byPath.has(url) }));
 }
 
 export async function pingReachMesh(env, urlsOrItems, runId) {

@@ -6,8 +6,10 @@
 #   .\tools\pack-deploy.ps1 -Apply     run the planned command per site
 #   -Only "<name fragment>"            one site only
 #
-# Housekeeping done first in both modes: reference material (_reach-pack) is moved out of the web root so it
-# never ships publicly, and _reach-pack is added to .gitignore where a repo exists.
+# Housekeeping done first in both modes: reference material an earlier install left inside a web root
+# (_reach-pack) is moved out so it never ships publicly - to the project folder when the web root is a
+# subfolder of it, else to <this repo>\_packs\<host>\ - and _reach-pack is added to .gitignore where a repo exists.
+# The full plan or deploy log is written to <this repo>\_logs\reach-deploy-log.txt; the console gets the verdict.
 param(
   [switch]$Apply,
   [string]$Only = "",
@@ -16,6 +18,12 @@ param(
 )
 $ErrorActionPreference = "Stop"
 [Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12
+$Repo = Split-Path -Parent $PSScriptRoot
+$PackRoot = Join-Path $Repo "_packs"
+$LogDir = Join-Path $Repo "_logs"
+$Stamp = (Get-Date).ToUniversalTime().ToString("yyyyMMdd-HHmmss")
+# the line every pack robots.txt carries: this revision's wording, or the one earlier revisions wrote
+$PackMarker = "names every documented agent \(\d+ named groups|MAXIMAL set: \d+ named groups"
 
 function Read-Json($p) { try { Get-Content $p -Raw | ConvertFrom-Json } catch { $null } }
 
@@ -28,11 +36,11 @@ function Get-PackFolders($roots) {
     $dirs += @($dirs | ForEach-Object { Get-ChildItem $_.FullName -Directory -ErrorAction SilentlyContinue })
     $dirs += @($dirs | ForEach-Object { Get-ChildItem $_.FullName -Directory -ErrorAction SilentlyContinue })
     foreach ($d in ($dirs | Sort-Object FullName -Unique)) {
-      if ($d.Name -eq "node_modules" -or $d.Name -like ".*" -or $d.FullName -like "*_reach-pack*") { continue }
+      if ($d.Name -eq "node_modules" -or $d.Name -like ".*" -or $d.FullName -like "*_reach-pack*" -or $d.FullName -like "*\_packs\*" -or $d.FullName -like "*\_packs" -or $d.FullName -like "*\_logs*") { continue }
       $rb = Join-Path $d.FullName "robots.txt"
       if (!(Test-Path $rb)) { continue }
       $t = Get-Content $rb -Raw -ErrorAction SilentlyContinue
-      if ($t -and $t -match "MAXIMAL set: \d+ named groups") { $found += $d.FullName }
+      if ($t -and $t -match $PackMarker) { $found += $d.FullName }
     }
   }
   return $found | Sort-Object -Unique
@@ -109,7 +117,12 @@ function Resolve-Project($hostName, $projects) {
   return @()
 }
 function Get-WebHost($web) {
-  # the agent card the installer wrote carries this site's own origin - the most reliable source
+  # the catalog every pack of this revision carries names the site's own domain - the most reliable source
+  $cat = Join-Path $web ".well-known\ard.json"
+  if (Test-Path $cat) {
+    try { $j = Get-Content $cat -Raw | ConvertFrom-Json; if ($j.host.identifier -and ([string]$j.host.identifier) -match '^[a-z0-9.-]+\.[a-z]{2,}$') { return [string]$j.host.identifier } } catch { }
+  }
+  # an earlier pack: the agent card the installer wrote carries the origin
   $ac = Join-Path $web ".well-known\agent-card.json"
   if (Test-Path $ac) {
     try { $j = Get-Content $ac -Raw | ConvertFrom-Json; if ($j.provider.url) { return ([uri]$j.provider.url).Host } } catch { }
@@ -167,6 +180,15 @@ foreach ($web in $folders) {
     if (!(Test-Path $dest)) { New-Item $dest -ItemType Directory -Force | Out-Null }
     Copy-Item "$refInWeb\*" $dest -Recurse -Force -ErrorAction SilentlyContinue
     Remove-Item $refInWeb -Recurse -Force -ErrorAction SilentlyContinue
+  } elseif (Test-Path $refInWeb) {
+    # the web root IS the project folder: a direct upload would publish it, so it leaves the site folder whole
+    $hk = Get-WebHost $web
+    if (-not $hk) { $hk = (Split-Path $web -Leaf) }
+    $kit = Join-Path $PackRoot ((($hk -replace '^www\.', '').ToLower()) -replace '[^a-z0-9.-]', '_')
+    if (!(Test-Path $kit)) { New-Item $kit -ItemType Directory -Force | Out-Null }
+    $dest = Join-Path $kit "earlier-$Stamp"
+    Copy-Item -LiteralPath $refInWeb -Destination $dest -Recurse -Force
+    if (Test-Path $dest) { Remove-Item -LiteralPath $refInWeb -Recurse -Force -ErrorAction SilentlyContinue }
   }
   $gi = Join-Path $plan.proj ".gitignore"
   if (Test-Path (Join-Path $plan.proj ".git")) {
@@ -187,7 +209,7 @@ foreach ($web in $folders) {
       $log = cmd /c "git add -A 2>&1"
       cmd /c "git diff --cached --quiet 2>&1" | Out-Null
       if ($LASTEXITCODE -eq 0) { $lines += "NOCHG  $short"; Pop-Location; continue }
-      $log = cmd /c "git commit -q -m `"Calling-AI-Models pack v3 (robots 218 groups, MCP SEP-2127, A2A 1.0, pick layer)`" 2>&1"
+      $log = cmd /c "git commit -q -m `"Reach pack: Calling AI Models, Revision 3`" 2>&1"
       if ($LASTEXITCODE -eq 0) { $log = cmd /c "git push 2>&1" }
     }
     $ran++
@@ -203,17 +225,20 @@ foreach ($web in $folders) {
   Pop-Location
 }
 
-$logFile = Join-Path $env:TEMP "reach-deploy-log.txt"
+if (!(Test-Path $LogDir)) { New-Item $LogDir -ItemType Directory -Force | Out-Null }
+$logFile = Join-Path $LogDir "reach-deploy-log.txt"
 $lines | Set-Content $logFile -Encoding utf8
-$lines
 $kinds = ($lines | ForEach-Object { ($_ -split '\s+')[0] } | Group-Object | ForEach-Object { "$($_.Name)=$($_.Count)" }) -join " "
 if ($Apply) {
-  if ($failed.Count) { "RESULT: FAIL $($failed.Count) of $ran deploys failed"; "failed: $(($failed | Select-Object -First 3) -join ', ')" }
-  else { "RESULT: PASS" }
+  if ($failed.Count) {
+    "RESULT: FAIL deploy: $($failed.Count) of $ran failed"
+    # each failure with what it found, never just a count
+    $lines | Where-Object { $_ -like "FAIL*" } | Select-Object -First 4 | ForEach-Object { if ($_.Length -gt 180) { $_.Substring(0, 180) } else { $_ } }
+  } else { "RESULT: PASS" }
   "deployed: $okCount of $ran - $kinds"
   "log: $logFile"
 } else {
   "RESULT: PASS"
-  "plan: $($folders.Count) folders - $kinds"
+  "plan: $($folders.Count) folder(s) carry a pack - $kinds"
   "log: $logFile - run with -Apply to deploy"
 }

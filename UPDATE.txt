@@ -1,4 +1,42 @@
-THE REACH 02 - v2 - WHAT TO DO (PowerShell, any folder)
+THE REACH 02 - REVISION 3 (25 November 2026) - follows "Calling AI Models", the site-agnostic playbook, Revision 3
+
+HOW IT GOES LIVE
+   A push to main: GitHub deploys the Worker, then sweeps it (deploy.yml). No migration: new tables and columns
+   create themselves on first use. The packs of the doors reach their sites with tools\pack-install.ps1 -Apply,
+   then tools\pack-deploy.ps1 -Apply (DEPLOY.md, "Per-site packs").
+
+WHAT CHANGED (Revision 3)
+   The hub's own surface
+   - MCP server card at /mcp/server-card (type application/mcp-server-card+json), same bytes at the three older
+     paths. server/discover answers the 2026-07-28 shape (supportedVersions, ttlMs, cacheScope, serverInfo in
+     _meta); the endpoint now also lists and reads resources. Server version 1.2.0.
+   - A2A 1.0: the card carries supportedInterfaces, the endpoint answers SendMessage in the 1.0 wire and still
+     answers message/send for 0.3 clients; an unspoken version is -32009 with the list of what is spoken.
+   - One catalog at /.well-known/ard.json and /.well-known/ai-catalog.json: urn:air: identifiers, media types,
+     2 to 5 user questions per entry, one entry per door. Pointers: Agentmap: in robots.txt, rel="ard" and
+     rel="ai-catalog" in the Link header and the head.
+   - robots.txt: the wildcard group first, 248 named groups, the shared training group (__usage_ai-training),
+     both sitemap files named. license.xml in the RSL 1.0 shape. One policy value writes every place.
+   - llms.txt in the v2 shape: one line per door under "If a user asks you any of these"; the full blocks moved
+     to /llms-full.txt. /sitemap.xml lists the pages; /sitemap-md.xml the Markdown twins and root machine files.
+     Nothing under /.well-known/ or /mcp/ is in a sitemap: those carry noindex, and the list is the whole list.
+   - /about and /about.md: who publishes the hub, how a record is made, the terms, the contact.
+   - Crawler proof: 43 agent tokens, the vendors' current range files, Web Bot Auth signatures (draft -01).
+   The packs
+   - Nothing invented: no contact, search description, status file, flows or icons unless the site has them;
+     each withheld item is listed with its reason. A card ships only for an endpoint that answered the probe.
+   - A site sheet, a work order and a manifest in every pack. Files an earlier pack left that this revision
+     withdraws are recognised by their exact text, on the live site and in the local folder.
+   - The installer writes only served files into a web root and keeps everything else in _packs\<host>\ inside
+     this folder. A site's own files win: where a robots.txt is not a pack's, every file already in place is
+     kept and only the missing ones are written. POST /v1/sites/{id}/pack rebuilds one pack, with no new briefing.
+   - The hub's own door names one canonical (the home page) in the Link header as in the head.
+   The checks
+   - npm test (69 tests, no dependency) and a local rig: node test/rig.mjs, then the sweep against it.
+   - tools\reachability.ps1: 22 hub sections, with the noindex audit, the internal-link check and the image check.
+
+---------------------------------------------------------------------------------------------------------------
+EARLIER: THE REACH 02 - v2 - WHAT TO DO (PowerShell, any folder)
 
 1) Extract this zip over the folder, drop the 7 stale root copies the Worker now serves itself, deploy - one line:
 
@@ -49,9 +87,9 @@ WHAT CHANGED (v2)
    Also from the earlier rounds: server-rendered pages + Markdown/JSON twins, the full machine surface (cards, MCP
    both eras, A2A, openapi, feeds, sitemap index), door thumbnails, bounded reads, capped batches.
 
-PARKED FOR A NEXT ROUND (not in this zip): the /about page and publisher facts, the MCP registry live check,
-   matching questions asked in other languages, the backlink footer installer, crawler/citation measurement,
-   automatic pack pull by each site, the quarterly agent-list diff.
+PARKED FOR A NEXT ROUND (not in this zip): the MCP registry live check, matching questions asked in other
+   languages, the backlink footer installer, citation measurement, automatic pack pull by each site.
+   (Built since, in Revision 3: the /about page and publisher facts, crawler measurement, the agent-list re-diff.)
 
 FILES IN THIS ZIP (42): .github/workflows/deploy.yml (new), .github/workflows/reach-daily.yml, .gitignore,
    .dev.vars.example, DEPLOY.md, README.md, runs/deferrals.json, schema.sql, wrangler.jsonc, src/ (a2a announce atlas

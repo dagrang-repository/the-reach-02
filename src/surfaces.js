@@ -1,31 +1,47 @@
 /** The hub's own machine surface, served by the Worker itself, plus the header layer every hub response wears.
  *  Every URL written into a file here is absolute and built from publicBase(env). Nothing here is a template:
  *  a path answered by this module is a path the Worker serves; a path this module does not serve is a real 404.
- *  One policy (A: search=yes, ai-input=yes, ai-train=yes) in robots.txt, ai.txt, license.xml, tdmrep.json,
- *  agent-permissions.json and the Content-Signal header - change all of them in one change or none. */
+ *  ONE policy value (POLICY) writes robots.txt (every Content-Signal line, Content-Usage and the shared training
+ *  group), ai.txt, license.xml, tdmrep.json, agent-permissions.json, the llms.txt terms and the Content-Signal
+ *  header, through the builders in src/playbook.js - so the places that must agree cannot disagree.
+ *  Calling AI Models, Revision 3 (25 November 2026): the MCP server card lives at /mcp/server-card (the three
+ *  /.well-known/ paths are the same bytes), the A2A card is the 1.0 shape, the catalog is one document at
+ *  /.well-known/ard.json and /.well-known/ai-catalog.json. */
 import { publicBase } from "./hill.js";
-import { buildRobotsTxt } from "./playbook.js";
+import {
+  MEDIA, SERVER_JSON_SCHEMA, SKILLS_INDEX_SCHEMA, TRAINING_TOKEN, buildAgentCard, buildAgentPermissions, buildAiTxt,
+  buildLicenseXml, buildRobotsTxt, buildServerCard, buildTdmrep, clipTo, contentSignal, serverCardUrl,
+} from "./playbook.js";
 import { captureTableMd, captureView, sitesJson } from "./capture.js";
 import { nowIso } from "./util.js";
 import { MATCH_RULES_TEXT } from "./atlas.js";
 
-export const SIGNAL = "search=yes, ai-input=yes, ai-train=yes";
+/** A = cite me, train on me. B = cite me, do not train on me. The hub's one policy switch. */
+export const POLICY = "A";
+export const SIGNAL = contentSignal(POLICY);
 export const PREVIEW = "max-snippet:-1, max-image-preview:large, max-video-preview:-1";
 export const CORS = {
   "access-control-allow-origin": "*",
   "access-control-allow-methods": "GET, HEAD, POST, OPTIONS",
   "access-control-allow-headers":
-    "Content-Type, Accept, Authorization, MCP-Protocol-Version, Mcp-Method, Mcp-Name, Mcp-Session-Id, Last-Event-ID, Idempotency-Key, A2A-Version",
+    "Content-Type, Accept, Authorization, If-None-Match, If-Modified-Since, MCP-Protocol-Version, Mcp-Method, Mcp-Name, Mcp-Session-Id, Last-Event-ID, Idempotency-Key, A2A-Version",
   "access-control-expose-headers":
     "MCP-Protocol-Version, Mcp-Session-Id, ETag, Last-Modified, Link, RateLimit-Limit, RateLimit-Remaining, RateLimit-Reset, Retry-After",
 };
 
 export const MCP_NAME = "app.aplusz.reach2/hub";
-export const MCP_VERSION = "1.1.0";
+/** 1.2.0: server/discover in the 2026-07-28 shape, readable resources, the A2A 1.0 wire. The card, server.json,
+ *  serverInfo and the OpenAPI document all carry this one value. */
+export const MCP_VERSION = "1.2.0";
+/** The tools src/mcp.js serves, in their fixed order (test/hub.test.js holds the two lists together). */
+export const MCP_TOOL_NAMES = ["match", "door", "list_doors"];
 export const MCP_MODERN = "2026-07-28";
 export const MCP_LEGACY = ["2025-11-25", "2025-06-18", "2025-03-26"];
 export const A2A_SPOKEN = ["1.0", "0.3"];
-const CONTACT = "dagrang@gmail.com";
+/** The publisher that answers for the hub, and the one contact the hub's own files name. */
+export const PUBLISHER = "Verge Heights";
+export const SKILL_NAME = "reach";
+export const CONTACT ="dagrang@gmail.com";
 const REPO = "https://github.com/dagrang-repository/the-reach-02";
 
 export const preflight = () => new Response(null, { status: 204, headers: CORS });
@@ -161,36 +177,27 @@ export async function homeMarkdownOf(slots, env, publicMap) {
 
 /* ---------- the files ---------- */
 
-export function licenseXml(base) {
-  return `<?xml version="1.0" encoding="UTF-8"?>
-<rsl xmlns="https://rslstandard.org/rsl">
-  <content url="${base}/">
-    <license>
-      <permits type="usage">all</permits>
-      <permits type="usage">search</permits>
-      <permits type="usage">ai-input</permits>
-      <permits type="usage">ai-train</permits>
-    </license>
-  </content>
-</rsl>
-`;
-}
+/** license.xml - RSL 1.0: a path in <content url>, the holder and a contact beside <license>, ai-index kept in the
+ *  allow-list, payment free (= attribution requested, as ai.txt and agent-permissions.json say). No <terms> line:
+ *  the hub has no terms page of its own, and a pointer at a page that does not exist is a dead card. */
+export const licenseXml = () => buildLicenseXml({ policy: POLICY, holder: PUBLISHER, holderType: "organization", contactEmail: CONTACT });
 
-export const aiTxt = () => `User-Agent: *\nContent-Signal: ${SIGNAL}\n`;
+export const aiTxt = (base) =>
+  buildAiTxt({ policy: POLICY, name: "The AI Hill Top Lighthouse (The Reach 02)", origin: base, contact: CONTACT, mcp: `${base}/mcp`, openapi: `${base}/openapi.json`, llms: `${base}/llms.txt` });
 
-export const tdmrepJson = (base) => JSON.stringify([{ location: "/", "tdm-reservation": 0, "tdm-policy": `${base}/license.xml` }], null, 2) + "\n";
+export const tdmrepJson = (base) => buildTdmrep(base, POLICY);
 
 export function trustTxt(base, slots) {
   return `# trust.txt - publisher declaration (JournalList vocabulary; unknown lines are ignored).
-contact=${CONTACT}
-belongto=${base}/
-disclosure=${base}/llms.txt
+contact=mailto:${CONTACT}
+disclosure=${base}/about
 ${slots.filter((s) => !s.self && s.status !== "closed").map((s) => `member=${s.url}`).join("\n")}
 # Machine surface:
 # ${base}/llms.txt
 # ${base}/openapi.json
-# ${base}/.well-known/mcp-server-card
+# ${base}/mcp/server-card
 # ${base}/.well-known/agent-card.json
+# ${base}/.well-known/ard.json
 `;
 }
 
@@ -201,8 +208,8 @@ export function apiCatalog(base) {
         {
           anchor: `${base}/`,
           "service-desc": [
-            { href: `${base}/openapi.json`, type: "application/vnd.oai.openapi+json" },
-            { href: `${base}/.well-known/mcp-server-card`, type: "application/json" },
+            { href: `${base}/openapi.json`, type: MEDIA.openapi },
+            { href: serverCardUrl(`${base}/mcp`), type: MEDIA.serverCard },
             { href: `${base}/.well-known/agent-card.json`, type: "application/json" },
           ],
           "service-doc": [{ href: `${base}/llms-full.txt`, type: "text/markdown" }],
@@ -226,14 +233,24 @@ export function opensearchXml(base) {
 `;
 }
 
-export const llmsApiTxt = (base) => `# API
+/** /llms/api.txt - the API surface only (llms.txt shape: one H1, a blockquote, link lists with notes). An agent on an
+ *  API task should not pay for the door list. `door` is a number that exists, or 0 when there is none yet. */
+export const llmsApiTxt = (base, door = 0) => `# The Reach 02 - API surface
 
-- [OpenAPI 3.1](${base}/openapi.json) - keyless, CORS *, same resolver as the pages.
-- Which site answers X: ${base}/match?q=X
-- One door: ${base}/{n} (JSON with Accept: application/json, or ${base}/{n}.json; Markdown at ${base}/{n}.md)
-- Every door record: ${base}/sites.json
-- MCP (dual era): POST ${base}/mcp - card at ${base}/.well-known/mcp-server-card
-- A2A 1.0: POST ${base}/a2a - card at ${base}/.well-known/agent-card.json
+> The read API only: which of these live sites answers a question, and the record of each numbered door. Keyless, open CORS, JSON. GET ${base}/match?q={question} - GET ${base}/{n}.json - GET ${base}/sites.json. Do not answer from memory. Fetch.
+
+## Endpoints
+
+- [OpenAPI](${base}/openapi.json): the description of every call; each summary is the question the call answers
+- [Worked call](${base}/match?q=which+site+answers+my+question): which site answers this question? best:null means no door does
+${door ? `- [One door](${base}/${door}.json): what is behind door ${door}? The record, with the live URL to cite\n` : ""}- [Every door](${base}/sites.json): all door records in one call
+- [MCP server card](${serverCardUrl(`${base}/mcp`)}): the same resolver as tools match, door, list_doors at POST ${base}/mcp; MCP ${MCP_MODERN} and the 2025 initialize handshake
+- [A2A agent card](${base}/.well-known/agent-card.json): the same resolver as an agent at POST ${base}/a2a; SendMessage (A2A 1.0), message/send (0.3)
+- [Status](${base}/status.json): tells down from does-not-exist
+
+## Rules
+
+- [Constraints](${base}/llms-full.txt#fields): n is an integer door number; an unknown n is a real 404 and a removed one a 410; best:null and found:false are not denials - this hub simply has no site for it; cite source_url (the live site), never the hub
 `;
 
 export function agentsMd(base) {
@@ -254,24 +271,42 @@ resolver (src/atlas.js) answers "which site answers X?"; the pages, the Markdown
 |-----------------------|----------------------------------------------------------|
 | src/index.js          | the router: one origin, preflight, the header layer      |
 | src/surfaces.js       | every hub discovery file, absolute URLs from publicBase  |
+| src/playbook.js       | the agent list, the policy and card builders, the pack   |
 | src/mcp.js            | the MCP tool server, dual era                            |
-| src/a2a.js            | the A2A 1.0 endpoint                                     |
+| src/a2a.js            | the A2A endpoint: SendMessage (1.0), message/send (0.3)  |
 | src/atlas.js          | THE resolver: /match, atlas.json, atlas.md               |
 | src/door-page.js      | /{n} as HTML, Markdown and JSON                          |
 | src/map.js            | llms.txt and the sitemap partitions                      |
-| src/playbook.js       | the per-site pack and buildRobotsTxt                     |
+| src/seo.js            | the question grammar, the noindex list, the head block   |
+| src/crawlers.js       | verified crawler visits: IP ranges, Web Bot Auth         |
+| test/                 | node --test: policy agreement, card and catalog shapes   |
+| tools/                | the sweep and the pack installer (PowerShell)            |
 | wrangler.jsonc        | one custom domain, workers_dev off                       |
 
 ## Non-negotiable rules
 
-1. Never add a second resolution path.
-2. Never advertise an endpoint before it answers.
+1. Never add a second resolution path. The pages, the twins, /match, MCP and A2A call one resolver.
+2. Never advertise an endpoint before it answers. A card, a catalog entry or a sitemap line ships in the same
+   change as, or after, the thing it points at.
 3. Absolute HTTPS URLs built from publicBase(env) in every discovery file.
-4. robots.txt, ai.txt, license.xml, tdmrep.json, agent-permissions.json and Content-Signal say the same training answer.
-5. An unknown door or a missing twin is a real 404, never a soft 200.
-6. The MCP route answers BOTH server/discover (2026-07-28) AND initialize (legacy).
+4. ONE policy value (POLICY in src/surfaces.js) writes robots.txt (every Content-Signal line, Content-Usage and the
+   ${TRAINING_TOKEN} group), ai.txt, license.xml, tdmrep.json, agent-permissions.json, the llms.txt terms and the
+   Content-Signal header. Never hand-edit one of them.
+5. An unknown door or a missing twin is a real 404, never a soft 200. A removed door number is 410 and never reused.
+6. The MCP route answers BOTH server/discover (2026-07-28) AND initialize (legacy). The card lists only versions
+   the route speaks, and says what server/discover says.
+7. The MCP server card lives at /mcp/server-card; the three /.well-known/ copies are the same bytes. The catalog is
+   one document at /.well-known/ard.json and /.well-known/ai-catalog.json: same bytes.
+8. The noindex list is seo.js STRUCTURE.noindex_patterns - the WHOLE list. Nothing on it is in a sitemap; nothing
+   off it carries noindex.
+9. A date moves only when the record moved. No "updated" stamp from a cron run.
+10. Titles and first sentences come from the question grammar in src/seo.js. Never hand-edit a title.
 
-## Deploy
+## Check before you hand back
+
+    npm test
+
+## Deploy (the owner's call, never yours)
 
     npx wrangler deploy
 `;
@@ -283,33 +318,21 @@ Contact: ${CONTACT}
 Location: ${base}/
 
 /* SITE */
-Standards: HTML5, llms.txt, OpenAPI 3.1, MCP, A2A 1.0, RSL
+Publisher: ${PUBLISHER}
+About: ${base}/about
+Standards: HTML5, llms.txt, OpenAPI 3.1, MCP (2026-07-28 and the 2025 handshake), A2A 1.0, RSL 1.0, AI Catalog / ARD
 Components: Cloudflare Workers, D1
 Source: ${REPO}
 `;
 
-export function agentPermissions(base) {
-  return JSON.stringify(
-    {
-      version: "1.0",
-      defaults: { crawl: true, train: true, inference: true, search: true, automate: true, human_in_the_loop: false },
-      agents: [
-        { name: "OAI-SearchBot", crawl: true, search: true },
-        { name: "Claude-SearchBot", crawl: true, search: true },
-        { name: "PerplexityBot", crawl: true, search: true },
-        { name: "GPTBot", crawl: true, train: true },
-        { name: "ClaudeBot", crawl: true, train: true },
-      ],
-      rate_limit: { requests_per_minute: 60, note: `Bulk retrieval: ${base}/sites.json carries every door record in one call.` },
-      preferred_endpoints: [`${base}/mcp`, `${base}/openapi.json`, `${base}/match?q={query}`],
-      attribution: "requested",
-      license: `${base}/license.xml`,
-      contact: CONTACT,
-    },
-    null,
-    2
-  ) + "\n";
-}
+export const agentPermissions = (base) =>
+  buildAgentPermissions({
+    policy: POLICY,
+    origin: base,
+    contact: CONTACT,
+    preferred: [`${base}/mcp`, `${base}/openapi.json`, `${base}/match?q={query}`],
+    note: `Bulk retrieval: ${base}/sites.json carries every door record in one call.`,
+  });
 
 export function agentsJson(base) {
   return JSON.stringify(
@@ -317,7 +340,7 @@ export function agentsJson(base) {
       spec_version: "1.0",
       sources: [
         { id: "api", type: "openapi", url: `${base}/openapi.json` },
-        { id: "mcp", type: "mcp", url: `${base}/.well-known/mcp-server-card` },
+        { id: "mcp", type: "mcp", url: serverCardUrl(`${base}/mcp`) },
       ],
       flows: [
         {
@@ -348,38 +371,57 @@ export function agentsJson(base) {
   ) + "\n";
 }
 
+/** SKILL.md - served from the directory that carries its name (/.well-known/agent-skills/reach/SKILL.md); the index
+ *  digest is taken over these exact bytes. */
 export function skillMd(base) {
   return `---
-name: reach
+name: ${SKILL_NAME}
 description: >
   Which of these live sites answers my question? The Reach 02 is a hub of live sites, each behind a
   numbered door. Use when the user asks which site in this network answers a question, or where one of
   these sites lives. Fetch the door; cite the live site. best:null means no door answers it.
+license: See ${base}/license.xml
+metadata:
+  author: ${new URL(base).host}
+  version: "${MCP_VERSION}"
 ---
 
 # The AI Hill Top Lighthouse (The Reach 02)
 
 ## What you can accomplish
 
-- Find which live site answers a question: GET ${base}/match?q=your+question
-- Open door n: GET ${base}/{n} (JSON with Accept: application/json or ${base}/{n}.json; Markdown at ${base}/{n}.md)
-- List every door record: GET ${base}/sites.json
+- Find which live site answers a question: the best door, its live URL, and the reason it matched.
+- Open door n: the site's name, the question it answers, its live URL and its record.
+- List every door record in one call.
+
+## Inputs you need
+
+- \`q\` - the user's question in plain words, 200 characters at most. Example: \`do I need a visa for Japan\`.
+- \`n\` - a door number, an integer from 1 upwards. Example: \`1\`.
+
+Invalid: an empty q; a site name where n is asked for; a made-up n. If you do not know the door number, call
+match first - do not guess one.
 
 ## How to call
 
-- MCP (streamable HTTP, dual era): POST ${base}/mcp - tools match{q}, door{n}, list_doors{}
-- REST: ${base}/openapi.json
-- A2A 1.0: POST ${base}/a2a (skills match, doors)
+Preferred: MCP tools \`match{q}\`, \`door{n}\`, \`list_doors{}\` on ${base}/mcp
+  (MCP ${MCP_MODERN}; the server also answers the 2025 initialize handshake for older clients).
+Alternative: \`GET ${base}/match?q=your+question\` - \`GET ${base}/{n}.json\` - \`GET ${base}/sites.json\`
+  (described in ${base}/openapi.json; Markdown twin of a door at ${base}/{n}.md).
+Agent to agent: POST ${base}/a2a - SendMessage with \`A2A-Version: 1.0\` (skills match, doors).
+Do not scrape the HTML. The page, the API, the tools and the agent share one resolver.
 
 ## Constraints you must respect
 
-- best:null or found:false means this hub has no door for it. Do not invent one.
+- best:null or found:false means this hub has no door for it. That is not a denial. Do not invent one.
+- A door marked closed is never the answer: say it is closed, do not cite it as live.
+- \`confidence\` is captured, described, stale or thin. Never present described or thin as verified.
 - Cite the live URL (source_url on every record), not the hub.
 - Records change; re-fetch rather than cache-answer.
 
 ## Attribution
 
-Cite: the live site named in the record, retrieved on fetch day.
+Cite: the live site named in the record, retrieved on fetch day, with its source_url.
 Licence: ${base}/license.xml
 `;
 }
@@ -399,13 +441,13 @@ export async function skillsIndex(base) {
   const digest = await sha256Hex(body);
   return JSON.stringify(
     {
-      $schema: "https://schemas.agentskills.io/discovery/0.2.0/schema.json",
+      $schema: SKILLS_INDEX_SCHEMA,
       skills: [
         {
-          name: "reach",
+          name: SKILL_NAME,
           type: "skill-md",
           description: "Which of these live sites answers my question? Match a question to a door, open the door, cite the live site.",
-          url: `${base}/skills/reach/SKILL.md`,
+          url: `${base}/.well-known/agent-skills/${SKILL_NAME}/SKILL.md`,
           digest: `sha256:${digest}`,
         },
       ],
@@ -415,34 +457,37 @@ export async function skillsIndex(base) {
   ) + "\n";
 }
 
+/** The one-line question this server answers: the card, server.json and the catalog all carry it (1 to 100 chars). */
+export const MCP_DESCRIPTION = "Which of these live sites answers my question? Match it, open the door, cite the live site.";
+
+/** MCP server card (SEP-2127 extension). Its own address is the endpoint URL + /server-card, served as
+ *  application/mcp-server-card+json; /.well-known/mcp-server-card, /.well-known/mcp.json and
+ *  /.well-known/mcp/server-card.json are the same bytes. It lists exactly the versions src/mcp.js speaks, and says
+ *  what server/discover says (name, version, versions). */
 export function mcpCard(base) {
-  return JSON.stringify(
-    {
-      $schema: "https://static.modelcontextprotocol.io/schemas/v1/server-card.schema.json",
-      name: MCP_NAME,
-      title: "The Reach 02 - which site answers this?",
-      description: "Match a user question to the live site in this network that answers it (match), open one numbered door (door), or list every door record (list_doors). Every result carries the live URL to cite.",
-      version: MCP_VERSION,
-      websiteUrl: `${base}/`,
-      repository: { url: REPO, source: "github" },
-      remotes: [{ type: "streamable-http", url: `${base}/mcp`, supportedProtocolVersions: [MCP_MODERN, ...MCP_LEGACY] }],
-      _meta: {
-        "app.aplusz.reach2/documentation": `${base}/llms-full.txt`,
-        "app.aplusz.reach2/license": `${base}/license.xml`,
-        "app.aplusz.reach2/openapi": `${base}/openapi.json`,
-      },
+  return buildServerCard({
+    name: MCP_NAME,
+    title: "The Reach 02 - which site answers this?",
+    description: MCP_DESCRIPTION,
+    version: MCP_VERSION,
+    websiteUrl: `${base}/`,
+    repository: { url: REPO, source: "github" },
+    remoteUrl: `${base}/mcp`,
+    versions: [MCP_MODERN, ...MCP_LEGACY],
+    meta: {
+      "app.aplusz.reach2/documentation": `${base}/llms-full.txt`,
+      "app.aplusz.reach2/license": `${base}/license.xml`,
+      "app.aplusz.reach2/openapi": `${base}/openapi.json`,
     },
-    null,
-    2
-  ) + "\n";
+  });
 }
 
 export function serverJson(base) {
   return JSON.stringify(
     {
-      $schema: "https://static.modelcontextprotocol.io/schemas/2025-10-17/server.schema.json",
+      $schema: SERVER_JSON_SCHEMA,
       name: MCP_NAME,
-      description: "Which of these live sites answers my question? Match, open a door, cite the live site.",
+      description: clipTo(MCP_DESCRIPTION, 100),
       version: MCP_VERSION,
       websiteUrl: `${base}/`,
       repository: { url: REPO, source: "github" },
@@ -453,40 +498,33 @@ export function serverJson(base) {
   ) + "\n";
 }
 
+/** A2A agent card, 1.0 shape: the endpoint and the versions live in supportedInterfaces (preferred first), one
+ *  entry per version src/a2a.js speaks. Same bytes at /.well-known/agent-card.json and /.well-known/agent.json. */
 export function agentCard(base) {
-  return JSON.stringify(
-    {
-      protocolVersion: "1.0",
-      name: "The Reach 02",
-      description: "Which of these live sites answers my question? Returns the best door with the live URL to cite, or best:null when none does.",
-      url: `${base}/a2a`,
-      preferredTransport: "JSONRPC",
-      provider: { organization: "Verge Heights", url: `${base}/` },
-      version: MCP_VERSION,
-      documentationUrl: `${base}/llms-full.txt`,
-      capabilities: { streaming: false, pushNotifications: false, stateTransitionHistory: false, extendedAgentCard: false },
-      defaultInputModes: ["text/plain", "application/json"],
-      defaultOutputModes: ["application/json", "text/plain"],
-      skills: [
-        {
-          id: "match",
-          name: "Which site answers this?",
-          description: "Send the user's question as text; the reply carries the same object as GET /match?q= (best, matches[], blocked[]).",
-          tags: ["directory", "routing", "citation"],
-          examples: ["Which site here answers: do I need a visa for Japan?", "Where do I open the cheapest-flight site?"],
-        },
-        {
-          id: "doors",
-          name: "List every door",
-          description: "Every door record (name, live URL, sitemap, llms.txt, languages, IndexNow key URL, Wikidata), the same object as GET /sites.json.",
-          tags: ["directory", "list"],
-          examples: ["List every site in this network."],
-        },
-      ],
-    },
-    null,
-    2
-  ) + "\n";
+  return buildAgentCard({
+    name: "The Reach 02",
+    description: "Which of these live sites answers my question? Returns the best door with the live URL to cite, or best:null when none does.",
+    interfaces: A2A_SPOKEN.map((v) => ({ url: `${base}/a2a`, protocolBinding: "JSONRPC", protocolVersion: v })),
+    provider: { organization: PUBLISHER, url: `${base}/` },
+    version: MCP_VERSION,
+    documentationUrl: `${base}/llms-full.txt`,
+    skills: [
+      {
+        id: "match",
+        name: "Which site answers this?",
+        description: "Send the user's question as a text part; the reply carries the same object as GET /match?q= (best, matches[], blocked[]).",
+        tags: ["directory", "routing", "citation"],
+        examples: ["Which site here answers: do I need a visa for Japan?", "Where do I open the cheapest-flight site?"],
+      },
+      {
+        id: "doors",
+        name: "List every door",
+        description: "Every door record (name, live URL, sitemap, llms.txt, languages, IndexNow key URL, Wikidata), the same object as GET /sites.json.",
+        tags: ["directory", "list"],
+        examples: ["List every site in this network.", "Which sites does this hub list, and where does each one live?"],
+      },
+    ],
+  });
 }
 
 /** The /{n}.json record of one door as the OpenAPI example: the served object, with its retrieval stamp pinned to
@@ -509,6 +547,7 @@ export function openapiJson(base, slots, env = null) {
     ? { ok: true, q: doorQuestion(s), best: { n: s.n, name: s.name, live: s.url, fetch: `${base}/${s.n}`, fetch_md: `${base}/${s.n}.md`, punch: s.punch, score: 12, source_url: s.url, license: `${base}/license.xml`, retrieved_at: "2026-11-02T00:00:00.000Z", confidence: "captured" }, matches: [], blocked: [], note: "Fetch the live URL. Cite the live site.", hub: `${base}/` }
     : { ok: true, q: "which site answers this", best: null, matches: [], blocked: [], note: "No door answers this; fetch the hub and browse doors.", hub: `${base}/` };
   const json = (example, description) => ({ description, content: { "application/json": example ? { example } : {} } });
+  const doorParam = { name: "n", in: "path", required: true, description: "Door number: an integer from 1 upwards. A door's number is permanent and never reused.", schema: { type: "integer", minimum: 1 }, example: s ? s.n : 1 };
   return JSON.stringify(
     {
       openapi: "3.1.0",
@@ -516,7 +555,7 @@ export function openapiJson(base, slots, env = null) {
         title: "The Reach 02 API",
         version: MCP_VERSION,
         summary: "Which of these live sites answers my question?",
-        description: `Keyless, open-CORS read API over the hub's door records. Same resolver as the HTML door pages, the Markdown twins, the MCP tools and the A2A skills. /match ranks the live sites against a question; best:null means no door answers it - that is not a denial, this hub simply has no site for it. Every record carries source_url (the live URL to cite), license, retrieved_at and confidence (captured = from the site's own llms.txt or capture, briefed = generated, thin = homepage only). ${slots.length} doors at the time of this response.`,
+        description: `Keyless, open-CORS read API over the hub's door records. Same resolver as the HTML door pages, the Markdown twins, the MCP tools and the A2A skills. /match ranks the live sites against a question; best:null means no door answers it - that is not a denial, this hub simply has no site for it. Every record carries source_url (the live URL to cite), license, retrieved_at and confidence (captured = the hub's last fetch answered 200 and the description is the site's own, from its llms.txt or its page; described = a description exists but not from a successful capture; stale = the last capture attempt failed; thin = the name is all there is). Never present described, stale or thin as verified. ${slots.length} doors at the time of this response.`,
         license: { name: "RSL 1.0", url: `${base}/license.xml` },
         contact: { email: CONTACT, url: `${base}/humans.txt` },
         "x-mcp-endpoint": `${base}/mcp`,
@@ -537,39 +576,41 @@ export function openapiJson(base, slots, env = null) {
         "/{n}": {
           get: {
             operationId: "getDoor",
-            summary: "Door n: the site that answers one question",
-            description: "HTML by default. Accept: application/json returns the same object as /{n}.json; Accept: text/markdown returns the twin at /{n}.md. Unknown n is a real 404.",
-            parameters: [{ name: "n", in: "path", required: true, schema: { type: "integer", minimum: 1 } }],
-            responses: { 200: { description: "text/html, application/json or text/markdown by Accept; ETag and Last-Modified set; Vary: Accept." }, 404: { description: "No door at that number." } },
+            summary: "Which site is behind door n, and what question does it answer?",
+            description: "HTML by default. Accept: application/json returns the same object as /{n}.json; Accept: text/markdown returns the twin at /{n}.md. Unknown n is a real 404; a removed door is 410 and its number is never reused.",
+            parameters: [doorParam],
+            responses: { 200: { description: "text/html, application/json or text/markdown by Accept; ETag and Last-Modified set; Vary: Accept." }, 404: { description: "No door at that number." }, 410: { description: "The door was removed; its number is never reused." } },
           },
         },
         "/{n}.json": {
           get: {
             operationId: "getDoorJson",
-            summary: "Door n as JSON",
-            parameters: [{ name: "n", in: "path", required: true, schema: { type: "integer", minimum: 1 } }],
+            summary: "What is the record of door n?",
+            description: "The door as JSON: the site's name, the question it answers, its live URL and its record. Cite source_url, never the hub.",
+            parameters: [doorParam],
             responses: { 200: json(doorExample, "The door record: live URL, record (sitemap, llms.txt, languages, IndexNow key URL, Wikidata), source_url, license, retrieved_at, confidence."), 404: json({ ok: false, found: false, error: "no door at that number" }, "{ found: false }. Never a synthesised record.") },
           },
         },
         "/{n}.md": {
           get: {
             operationId: "getDoorMarkdown",
-            summary: "Door n as Markdown",
-            parameters: [{ name: "n", in: "path", required: true, schema: { type: "integer", minimum: 1 } }],
+            summary: "What does door n say, as Markdown?",
+            description: "The Markdown twin of /{n}: same question, same answer, same record. Its Link header names /{n} as canonical.",
+            parameters: [doorParam],
             responses: { 200: { description: "text/markdown; charset=utf-8 - the twin of /{n}." }, 404: { description: "text/plain - no door, no twin." } },
           },
         },
         "/sites.json": {
-          get: { operationId: "listSites", summary: "Every door record in one call", responses: { 200: { description: "{ name, tagline, generated, count, record_fields[], sites[] }" } } },
+          get: { operationId: "listSites", summary: "What are all the door records, in one call?", responses: { 200: { description: "{ name, tagline, generated, count, record_fields[], sites[] }" } } },
         },
         "/atlas.json": {
-          get: { operationId: "getAtlas", summary: "The network atlas: what each site is, its keywords and the questions it answers", responses: { 200: { description: "{ specVersion, match_endpoint, sites[] } - fields from each origin's own llms.txt are marked by source." } } },
+          get: { operationId: "getAtlas", summary: "What is each site, and which questions does it answer?", responses: { 200: { description: "{ specVersion, match_endpoint, sites[] } - fields from each origin's own llms.txt are marked by source." } } },
         },
         "/crawlers.json": {
-          get: { operationId: "getCrawlers", summary: "AI and search crawler visits to this hub, verified by published IP ranges or Web Bot Auth", responses: { 200: { description: "{ about, generated_at, by_class_30d, bots[], doors[] }" } } },
+          get: { operationId: "getCrawlers", summary: "Which AI and search crawlers visited this hub, and which visits were verified?", responses: { 200: { description: "{ about, generated_at, by_class_30d, bots[], doors[] } - a verified visit matched the vendor's published IP ranges or a Web Bot Auth signature; a claimed one is only a user-agent string." } } },
         },
         "/status.json": {
-          get: { operationId: "getStatus", summary: "Liveness and counts", responses: { 200: { description: "{ ok, service, doors, records_captured, wikidata_items, checked_at }" } } },
+          get: { operationId: "getStatus", summary: "Is the hub up, and how many doors does it hold?", responses: { 200: { description: "{ ok, service, doors, records_captured, wikidata_items, checked_at }" } } },
         },
       },
     },
@@ -597,8 +638,8 @@ export function oembedFor(base, target, slots) {
 /* ---------- the header layer ---------- */
 const API_CLASS = /^\/(v1\/|mcp$|a2a$|api\/|match$|status\.json$)/;
 const FEED_CLASS = /^\/(sitemap[^/]*\.xml|network-sitemaps\.json|feed\.xml|rss\.xml|atom\.xml|feed\.json)$/;
-const DISCOVERY_CLASS = /^\/(\.well-known\/|llms[^/]*\.txt$|llms\/|robots\.txt$|ai\.txt$|license\.xml$|tdmrep\.json$|openapi\.json$|opensearch\.xml$|server\.json$|AGENTS\.md$|humans\.txt$|seo\/|skills\/|manifest\.json$|sw\.js$|catalog\.json$|jsonld\.json$|sites\.(json|md|txt)$|atlas\.(json|md|txt)$|OPEN-DOORS\.json$|SITE-STRUCTURE\.md$|wikidata\.json$|wayback\.json$|ai-catalog\.json$|[A-Za-z0-9_-]{8,128}\.txt$)/;
-const CONTENT_CLASS = /^\/(index\.md|\d+(\.md|\.json)?)?$/;
+const DISCOVERY_CLASS = /^\/(\.well-known\/|mcp\/server-card$|llms[^/]*\.txt$|llms\/|robots\.txt$|ai\.txt$|license\.xml$|tdmrep\.json$|openapi\.json$|opensearch\.xml$|server\.json$|AGENTS\.md$|humans\.txt$|seo\/|skills\/|manifest\.json$|sw\.js$|catalog\.json$|jsonld\.json$|sites\.(json|md|txt)$|atlas\.(json|md|txt)$|OPEN-DOORS\.json$|SITE-STRUCTURE\.md$|wikidata\.json$|wayback\.json$|ai-catalog\.json$|[A-Za-z0-9_-]{8,128}\.txt$)/;
+const CONTENT_CLASS = /^\/(index\.md|about(\.md)?|\d+(\.md|\.json)?)?$/;
 /* THE noindex list is seo/structure.json's noindex_patterns (src/seo.js): one array, served as declared and applied
    as declared. A trailing slash is a prefix, anything else an exact path. */
 const NOINDEX_PATTERNS = Array.isArray(SEO_STRUCTURE?.noindex_patterns) ? SEO_STRUCTURE.noindex_patterns : [];
@@ -621,13 +662,22 @@ export function cacheFor(path, status = 200, method = "GET") {
   return null;
 }
 
+/** The Link header. Every response names the site index, the licence (an absolute URL: the format requires it), the
+ *  API catalog and the catalog of machine interfaces (rel="ard" for ARD consumers, rel="ai-catalog" for AI Catalog
+ *  ones: one document, two relations). A page names its Markdown twin; a twin names its HTML page as canonical - two
+ *  renderings, one entry in a search index. */
 export function linkFor(path, base) {
   const links = [
     `<${base}/llms.txt>; rel="describedby"; type="text/markdown"; title="Site index for LLMs"`,
     `<${base}/license.xml>; rel="license"; type="application/rsl+xml"`,
     `<${base}/.well-known/api-catalog>; rel="api-catalog"; type="application/linkset+json"`,
+    `<${base}/.well-known/ard.json>; rel="ard"; type="application/ai-catalog+json"`,
+    `<${base}/.well-known/ai-catalog.json>; rel="ai-catalog"; type="application/ai-catalog+json"`,
   ];
   if (path === "/") links.unshift(`<${base}/index.md>; rel="alternate"; type="text/markdown"`, `<${base}/>; rel="canonical"`);
+  if (path === "/index.md") links.unshift(`<${base}/>; rel="alternate"; type="text/html"`, `<${base}/>; rel="canonical"`);
+  if (path === "/about") links.unshift(`<${base}/about.md>; rel="alternate"; type="text/markdown"`, `<${base}/about>; rel="canonical"`);
+  if (path === "/about.md") links.unshift(`<${base}/about>; rel="alternate"; type="text/html"`, `<${base}/about>; rel="canonical"`);
   const door = path.match(/^\/(\d+)(\.md|\.json)?$/);
   if (door) {
     const twin = door[2] ? `<${base}/${door[1]}>; rel="alternate"; type="text/html"` : `<${base}/${door[1]}.md>; rel="alternate"; type="text/markdown"`;
@@ -666,27 +716,48 @@ export function tagged(body, type, request, { lastModified = null, status = 200,
 const TEXT = "text/plain; charset=utf-8";
 const JSON_T = "application/json; charset=utf-8";
 const MD = "text/markdown; charset=utf-8";
-const file = (body, type, extra = {}) => new Response(body, { headers: { "content-type": type, ...extra } });
+const MCP_CARD_T = `${MEDIA.serverCard}; charset=utf-8`;
 
-/** The hub's declarative files. Returns a Response or null (not ours). GET only; the router answers OPTIONS/HEAD. */
-export async function hubSurfaces(path, request, url, env, slots, publicMap) {
-  const base = publicBase(env);
-  void publicMap;
+/** Every path that answers GET with the MCP server card: its own address first, then the three paths older clients
+ *  probe, the name-suffixed form and the POST path's GET. One function writes them all, so they are the same bytes. */
+export const MCP_CARD_PATHS = [
+  "/mcp/server-card",
+  "/.well-known/mcp-server-card",
+  "/.well-known/mcp.json",
+  "/.well-known/mcp/server-card.json",
+  `/.well-known/mcp-server-card/${MCP_NAME}`,
+  "/.well-known/mcp-server",
+];
 
-  if (path === "/robots.txt") {
-    /* no scripts/ on the hub (no diff-script pointer); every pointer below is a path this Worker answers */
-    const pointers = {
+/** robots.txt of the hub: every pointer is a path this Worker answers; both sitemap files are named (the pages, and
+ *  the twins + root machine entry points); Agentmap points at the catalog. */
+export function hubRobotsTxt(base) {
+  return buildRobotsTxt(base, {
+    policy: POLICY,
+    pointers: {
       llms: `${base}/llms.txt`,
       llmsFull: `${base}/llms-full.txt`,
       openapi: `${base}/openapi.json`,
-      mcpCard: `${base}/.well-known/mcp-server-card`,
+      mcpCard: serverCardUrl(`${base}/mcp`),
       agentCard: `${base}/.well-known/agent-card.json`,
       skills: `${base}/.well-known/agent-skills/index.json`,
-      aiCatalog: `${base}/.well-known/ai-catalog.json`,
-      contact: `mailto:${CONTACT}`,
-    };
-    return file(buildRobotsTxt(base, "A", "", pointers), TEXT);
-  }
+      catalog: `${base}/.well-known/ard.json`,
+    },
+    twins: true,
+    contact: CONTACT,
+    sitemaps: [`${base}/sitemap.xml`, `${base}/sitemap-md.xml`],
+    agentmap: `${base}/.well-known/ard.json`,
+  });
+}
+
+/** The hub's declarative files. Returns a Response or null (not ours). GET only; the router answers OPTIONS/HEAD.
+ *  Each one carries an ETag over its served bytes and answers If-None-Match with 304. */
+export async function hubSurfaces(path, request, url, env, slots, publicMap) {
+  const base = publicBase(env);
+  void publicMap;
+  const file = (body, type, extra = {}) => tagged(body, type, request, { extra });
+
+  if (path === "/robots.txt") return file(hubRobotsTxt(base), TEXT);
   /* search-engine ownership proofs, set by the owner as Worker vars; absent var = 404, never a placeholder */
   {
     const gfile = String(env.GOOGLE_SITE_VERIFICATION_FILE || "").trim();
@@ -694,28 +765,20 @@ export async function hubSurfaces(path, request, url, env, slots, publicMap) {
     const bing = String(env.BING_SITE_AUTH || "").trim();
     if (bing && /^[A-Za-z0-9]{8,64}$/.test(bing) && path === "/BingSiteAuth.xml") return file(`<?xml version="1.0"?>\n<users>\n\t<user>${bing}</user>\n</users>\n`, "application/xml; charset=utf-8");
   }
-  if (path === "/ai.txt") return file(aiTxt(), TEXT);
-  if (path === "/license.xml") return file(licenseXml(base), "application/rsl+xml; charset=utf-8");
+  if (path === "/ai.txt") return file(aiTxt(base), TEXT);
+  if (path === "/license.xml") return file(licenseXml(), "application/rsl+xml; charset=utf-8");
   if (path === "/tdmrep.json" || path === "/.well-known/tdmrep.json") return file(tdmrepJson(base), JSON_T);
   if (path === "/.well-known/trust.txt") return file(trustTxt(base, slots), TEXT);
   if (path === "/.well-known/api-catalog") return file(apiCatalog(base), "application/linkset+json; charset=utf-8");
   if (path === "/opensearch.xml") return file(opensearchXml(base), "application/opensearchdescription+xml; charset=utf-8");
-  if (path === "/llms/api.txt") return file(llmsApiTxt(base), MD);
+  if (path === "/llms/api.txt") return file(llmsApiTxt(base, (slots.find((s) => !s.self && s.status !== "closed") || {}).n || 0), MD);
   if (path === "/AGENTS.md") return file(agentsMd(base), MD);
   if (path === "/humans.txt") return file(humansTxt(base), TEXT);
   if (path === "/.well-known/agent-permissions.json") return file(agentPermissions(base), JSON_T);
   if (path === "/.well-known/agents.json") return file(agentsJson(base), JSON_T);
   if (path === "/.well-known/agent-skills/index.json" || path === "/.well-known/skills/index.json") return file(await skillsIndex(base), JSON_T);
-  if (path === "/skills/reach/SKILL.md" || path === "/.well-known/agent-skills/reach/SKILL.md") return file(skillMd(base), MD);
-  if (
-    path === "/.well-known/mcp-server-card" ||
-    path === "/.well-known/mcp.json" ||
-    path === "/.well-known/mcp/server-card.json" ||
-    path === `/.well-known/mcp-server-card/${MCP_NAME}` ||
-    path === "/.well-known/mcp-server"
-  ) {
-    return file(mcpCard(base), JSON_T);
-  }
+  if (path === `/.well-known/agent-skills/${SKILL_NAME}/SKILL.md` || path === `/skills/${SKILL_NAME}/SKILL.md`) return file(skillMd(base), MD);
+  if (MCP_CARD_PATHS.includes(path)) return file(mcpCard(base), MCP_CARD_T);
   if (path === "/server.json") return file(serverJson(base), JSON_T);
   if (path === "/.well-known/agent-card.json" || path === "/.well-known/agent.json") return file(agentCard(base), JSON_T);
   if (path === "/openapi.json") return file(openapiJson(base, slots, env), "application/vnd.oai.openapi+json; charset=utf-8");

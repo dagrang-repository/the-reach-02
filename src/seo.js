@@ -82,6 +82,16 @@ export const KEYWORDS = {
       h1: "n/a (JSON)",
       first_paragraph: "n/a: best, matches[], blocked[], hub",
     },
+    {
+      pattern: "/about",
+      keyword: "who is behind the ai hill top lighthouse",
+      question: "Who is behind The AI Hill Top Lighthouse?",
+      intent: "navigational",
+      page_type: "about",
+      title: "Who is behind The AI Hill Top Lighthouse?",
+      h1: "Who is behind The AI Hill Top Lighthouse?",
+      first_paragraph: "{publisher} publishes it: a hub that lists live sites behind numbered doors so that AI models and search engines can find the site that answers a question, and cite it.",
+    },
   ],
 };
 
@@ -114,19 +124,31 @@ export const STRUCTURE = {
       sitemap: "sitemap.xml",
       breadcrumb: ["Home", "Door {n}"],
     },
+    {
+      id: "about",
+      pattern: "/about",
+      parent: "home",
+      keyword_ref: "secondary[4]",
+      spokes_pattern: null,
+      sitemap: "sitemap.xml",
+      breadcrumb: ["Home", "About"],
+    },
   ],
   twins: {
-    form: ".md appended to the content URL; /index.md is the home twin; /{n}.json is the JSON record of the same door",
-    pages: ["/index.md", "/{n}.md"],
+    form: ".md appended to the content URL; /index.md is the home twin; /{n}.json is the JSON record of the same door. A twin names its HTML page as canonical (Link header) and is listed in sitemap-md.xml, never in sitemap.xml",
+    pages: ["/index.md", "/about.md", "/{n}.md"],
   },
-  /* THE machine partition of the sitemap: map.js serves /sitemap-machine.xml from this array (and nothing else), so
-     the file and the sitemap are one list. Every path here is served by the Worker and is not noindex. */
+  /* Two sitemap files, both named in robots.txt: pages (the one to submit to a search console) and the second
+     renderings + the root machine entry points. */
+  sitemaps: { pages: "/sitemap.xml", twins_and_machine: "/sitemap-md.xml" },
+  /* THE machine entry points in the sitemap: map.js writes them into /sitemap-md.xml (and /sitemap-machine.xml,
+     which older clients still fetch) from this array and nothing else, so the file and the sitemap are one list.
+     Every path here is served by the Worker at the ROOT and is not noindex. Files under /.well-known/ and the MCP
+     server card stay out: they are found by their path, by a link relation and by the catalog. */
   machine_entry_points_in_sitemap: [
     "/llms.txt",
     "/llms-full.txt",
     "/openapi.json",
-    "/.well-known/ai-catalog.json",
-    "/.well-known/mcp-server-card",
     "/catalog.json",
     "/sites.json",
     "/sites.md",
@@ -137,11 +159,13 @@ export const STRUCTURE = {
     "/wikidata.json",
     "/wayback.json",
   ],
-  /* THE noindex list. surfaces.js builds X-Robots-Tag from this array and the sitemap filter reads the same array,
-     so what this file declares is what the headers do: a trailing slash is a prefix, anything else an exact path.
-     Nothing listed here is ever a sitemap <loc>; the /.well-known cards are indexable on purpose (they are listed). */
-  noindex_patterns: ["/v1/", "/api/", "/mcp", "/a2a", "/match", "/add", "/admin", "/pings", "/crawler-check", "/paid/", "/paypal/", "/__scheduled", "/cdn-cgi/"],
-  orphan_check: "every door path must appear as a real <a href> in the server-rendered home HTML (hillHtml) and in /index.md",
+  /* THE noindex list - the WHOLE list. surfaces.js builds X-Robots-Tag from this array and the sitemap filter reads
+     the same array, so what this file declares is what the headers do: a trailing slash is a prefix (and the bare
+     path), anything else an exact path. Nothing listed here is ever a sitemap <loc>; nothing off it carries noindex.
+     /.well-known/ and /mcp/ (the endpoint and its server card) are on it: discovery files do not need to rank. */
+  noindex_patterns: ["/v1/", "/api/", "/mcp/", "/a2a", "/match", "/add", "/admin", "/pings", "/crawler-check", "/paid/", "/paypal/", "/__scheduled", "/cdn-cgi/", "/.well-known/"],
+  orphan_check: "every door path, and /about, must appear as a real <a href> in the server-rendered home HTML (hillHtml) and in /index.md",
+  link_check: "every internal href a page renders is a path the Worker serves (test/hub.test.js)",
 };
 
 /* ---------- text helpers (one escape, one clipper, used by every renderer) ---------- */
@@ -356,7 +380,10 @@ export function doorImage(slot) {
 
 /** The <head> block every HTML page shares: canonical, description, alternates, OG and X cards. `image` overrides
  *  the hub icon (a door's own image); its width/height are written only when known. */
-export function headMeta({ title, description, canonical, base, type = "website", mdUrl = "", jsonUrl = "", published = "", modified = "", image = null }) {
+/** The <head> discovery block of every content page (playbook A.27): ONE title, ONE canonical; the Markdown twin, the
+ *  site index, the licence, both feeds, the oEmbed card (only for a URL /api/oembed answers), search, and the two
+ *  catalog relations. The manifest line and the JSON-LD script are written by the page itself. */
+export function headMeta({ title, description, canonical, base, type = "website", mdUrl = "", jsonUrl = "", published = "", modified = "", image = null, oembed = true }) {
   const img = image && image.url ? image : ogImage(base);
   const t = esc(title);
   const d = esc(description);
@@ -364,12 +391,17 @@ export function headMeta({ title, description, canonical, base, type = "website"
     `<title>${t}</title>`,
     `<meta name="description" content="${d}">`,
     `<link rel="canonical" href="${esc(canonical)}">`,
-    `<link rel="describedby" href="${esc(base)}/llms.txt" type="text/markdown">`,
-    mdUrl ? `<link rel="alternate" type="text/markdown" href="${esc(mdUrl)}">` : "",
+    mdUrl ? `<link rel="alternate" type="text/markdown" href="${esc(mdUrl)}" title="Markdown version">` : "",
     jsonUrl ? `<link rel="alternate" type="application/json" href="${esc(jsonUrl)}">` : "",
+    `<link rel="describedby" type="text/markdown" href="${esc(base)}/llms.txt" title="Site index for LLMs">`,
+    `<link rel="license" type="application/rsl+xml" href="${esc(base)}/license.xml">`,
     `<link rel="alternate" type="application/atom+xml" title="${esc(SITE_NAME)} doors" href="${esc(base)}/feed.xml">`,
+    `<link rel="alternate" type="application/feed+json" title="${esc(SITE_NAME)} doors (JSON)" href="${esc(base)}/feed.json">`,
+    oembed ? `<link rel="alternate" type="application/json+oembed" href="${esc(base)}/api/oembed?url=${encodeURIComponent(canonical)}" title="${t}">` : "",
     `<link rel="search" type="application/opensearchdescription+xml" title="${esc(SITE_NAME)}" href="${esc(base)}/opensearch.xml">`,
-    `<link rel="alternate" type="application/json+oembed" href="${esc(base)}/api/oembed?url=${encodeURIComponent(canonical)}" title="${t}">`,
+    `<link rel="ard" href="${esc(base)}/.well-known/ard.json">`,
+    `<link rel="ai-catalog" type="application/ai-catalog+json" href="${esc(base)}/.well-known/ai-catalog.json">`,
+    `<meta name="robots" content="max-snippet:-1, max-image-preview:large, max-video-preview:-1">`,
     `<meta property="og:type" content="${type}">`,
     `<meta property="og:site_name" content="${esc(SITE_NAME)}">`,
     `<meta property="og:title" content="${t}">`,
@@ -379,7 +411,7 @@ export function headMeta({ title, description, canonical, base, type = "website"
     img.width && img.height ? `<meta property="og:image:width" content="${img.width}">` : "",
     img.width && img.height ? `<meta property="og:image:height" content="${img.height}">` : "",
     `<meta property="og:image:alt" content="${esc(img.alt || "")}">`,
-    `<meta property="og:locale" content="en">`,
+    `<meta property="og:locale" content="en_US">`,
     type === "article" && published ? `<meta property="article:published_time" content="${esc(published)}">` : "",
     type === "article" && modified ? `<meta property="article:modified_time" content="${esc(modified)}">` : "",
     `<meta name="twitter:card" content="summary">`,

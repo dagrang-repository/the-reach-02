@@ -12,13 +12,15 @@ import { publicExtra } from "./public-extra.js";
 import { isSelfUrl } from "./self.js";
 import { handleAtlas, handleBriefs, listGaps, rebuildAtlas } from "./atlas.js";
 import { doorNumberState, ensureDoorNumbers, hillHtml, numberedSites, publicBase } from "./hill.js";
-import { DEFAULT_MACHINE_ENTRIES, networkSitemapsJson, rebuildReachMap, sitemapDoorsXml, sitemapIndexXml, sitemapMachineXml } from "./map.js";
+import { DEFAULT_MACHINE_ENTRIES, hubLlmsTxt, networkSitemapsJson, rebuildReachMap, sitemapDoorsXml, sitemapIndexXml, sitemapMachineXml, sitemapMdXml } from "./map.js";
+import { ABOUT_UPDATED, aboutHtml, aboutMarkdown } from "./about.js";
+import { packFileType } from "./playbook.js";
 import * as announce from "./announce.js";
 import { announceReachFeed, pingReachMesh, reachAnnounceItems, reachKey } from "./mesh.js";
 import { keyForUrl } from "./known-keys.js";
 import { catalogFromSlots, changesTxt, listChanges, publicPings } from "./outreach.js";
 import { drainQueuedIndexNow, pingAllSites, readKeyFromOrigin, recentPings, rememberOriginKey, verifyOriginKey } from "./ping.js";
-import { ensureAnswerChannel, loadPack, SITE_FEATURES, STACK_VERSION } from "./stack.js";
+import { applyFullStack, ensureAnswerChannel, loadPack, SITE_FEATURES, STACK_VERSION } from "./stack.js";
 import { json, normalizeOriginKey, nowIso, readBodyCapped, requireAdmin, uid, unauthorized } from "./util.js";
 import { mcp } from "./mcp.js";
 import { bingSubmitSitemap, gscSubmitSitemap } from "./outreach.js";
@@ -29,7 +31,7 @@ import { safeUrl } from "./seo.js";
 import { handleEmail, handleInbox } from "./inbox.js";
 import { handlePeerPush } from "./peerpush.js";
 import { crawlerTick, handleCrawlersAdmin, logCrawlerHit, maybeCrawler } from "./crawlers.js";
-import { decorate, doorDateOf, doorHtmlOf, doorJsonOf, doorMarkdownOf, etagOf, homeMarkdownOf, hubSurfaces, isNoindex, loadA, preflight, tagged } from "./surfaces.js";
+import { decorate, doorDateOf, doorHtmlOf, doorJsonOf, doorMarkdownOf, etagOf, homeMarkdownOf, hubSurfaces, isNoindex, linkFor, loadA, preflight, tagged } from "./surfaces.js";
 
 const { atomXml, feedXml, jsonLdHill } = announce;
 /* /rss.xml serves RSS 2.0; /feed.xml is Atom. announce.js may export rssXml; until then feedXml is the RSS body. */
@@ -132,7 +134,7 @@ async function route(request, env, url, path) {
   if (method === "GET") {
     const surface = await hubSurfaces(path, request, url, env, slots, publicMap);
     if (surface) return surface;
-    const extra = await publicExtra(path, env, slots, publicMap);
+    const extra = await publicExtra(path, env, slots, publicMap, request);
     if (extra) return extra;
 
     const rk = reachKey(env);
@@ -147,6 +149,14 @@ async function route(request, env, url, path) {
         return tagged(await homeMarkdownOf(slots, env, publicMap), MD, request, { lastModified: stamp });
       }
       return tagged(hillHtml(slots, jsonLdHill(slots, env, publicMap), env, publicMap), HTML, request, { lastModified: stamp });
+    }
+
+    /* who is behind this: the about page and its twin. Its date is the day its text last changed. */
+    if (path === "/about" || path === "/about.md") {
+      const accept = request.headers.get("accept") || "";
+      const lastModified = new Date(`${ABOUT_UPDATED}T00:00:00Z`);
+      if (path === "/about.md" || accept.includes("text/markdown")) return tagged(aboutMarkdown(env), MD, request, { lastModified });
+      return tagged(aboutHtml(env), HTML, request, { lastModified });
     }
 
     /* the doors: /{n} negotiates HTML | JSON | Markdown; /{n}.json and /{n}.md are the fixed forms; unknown n is a real 404 */
@@ -187,37 +197,42 @@ async function route(request, env, url, path) {
         return Response.redirect(live, 302);
       }
       const lastModified = await doorDateOf(slot);
+      /* the hub's own door is the home page under a number: its page names the home page as canonical, so its Link
+         header does too (one canonical per response, the same one in the header and in the head) */
+      const extra = slot.self ? { link: linkFor(shape === "md" ? "/index.md" : "/", base) } : {};
       if (shape === "json") {
         /* the ETag is taken over the record without its per-request retrieved_at, so If-None-Match can answer 304 */
         const rec = await doorJsonOf(slot, env, slots);
         const etag = etagOf(JSON.stringify({ ...rec, retrieved_at: undefined }));
-        return tagged(JSON.stringify(rec, null, 2) + "\n", JSON_T, request, { lastModified, etag });
+        return tagged(JSON.stringify(rec, null, 2) + "\n", JSON_T, request, { lastModified, etag, extra });
       }
-      if (shape === "md") return tagged(await doorMarkdownOf(slot, env, slots), MD, request, { lastModified });
-      return tagged(await doorHtmlOf(slot, env, slots), HTML, request, { lastModified });
+      if (shape === "md") return tagged(await doorMarkdownOf(slot, env, slots), MD, request, { lastModified, extra });
+      return tagged(await doorHtmlOf(slot, env, slots), HTML, request, { lastModified, extra });
     }
 
     const atlas = await handleAtlas(path, url, env);
     if (atlas) return atlas;
 
-    if (path === "/llms.txt") return new Response(publicMap?.llms_txt || "# The AI Hill Top Lighthouse\n", { headers: { "content-type": MD } });
+    /* rendered from the door list on every request (the same function writes the stored copy the map's date is
+       taken from), so the file is never an hour behind the doors it routes to */
+    if (path === "/llms.txt") return tagged(hubLlmsTxt(slots, base), MD, request, { lastModified: publicMap?.updated_at ? new Date(publicMap.updated_at) : null });
 
-    /* sitemaps: hub-host children only; other origins' sitemaps are advisory in /network-sitemaps.json */
+    /* sitemaps: hub-host URLs only; other origins' sitemaps are advisory in /network-sitemaps.json.
+       /sitemap.xml -> the pages (the file to submit to a console); /sitemap-md.xml -> the Markdown twins and the
+       root machine entry points. robots.txt names both. Nothing that carries noindex is ever a <loc>. */
     const stamp = publicMap?.updated_at || null;
+    const aboutStamp = `${ABOUT_UPDATED}T00:00:00Z`;
     if (path === "/sitemap.xml" || path === "/sitemap-index.xml") return new Response(sitemapIndexXml(env, stamp), { headers: { "content-type": XML } });
-    if (path === "/sitemap-doors.xml") {
-      const dates = new Map();
-      for (const s of slots) dates.set(s.n, await doorDateOf(s));
-      return new Response(sitemapDoorsXml(slots, env, dates, stamp), { headers: { "content-type": XML } });
-    }
-    if (path === "/sitemap-machine.xml") {
-      /* ONE list: seo/structure.json's machine_entry_points_in_sitemap (DEFAULT_MACHINE_ENTRIES is that same array),
-         so what the file declares is what the sitemap carries; a noindex path (API routes, /match, the admin pages -
-         the one list in seo/structure.json) is never a sitemap <loc>; the /.well-known cards are not noindex, so they
-         are listed and served indexable - the sitemap and the headers say the same thing */
+    if (path === "/sitemap-doors.xml" || path === "/sitemap-md.xml" || path === "/sitemap-machine.xml") {
+      /* ONE list of machine entry points: seo/structure.json's machine_entry_points_in_sitemap, minus anything on the
+         noindex list - what the file declares is what the sitemap carries, and the sitemap and the headers agree */
       const A = await loadA();
       const entries = [...new Set([...DEFAULT_MACHINE_ENTRIES, ...(A.STRUCTURE?.machine_entry_points_in_sitemap || [])])].filter((p) => !isNoindex(p));
-      return new Response(sitemapMachineXml(env, stamp, entries), { headers: { "content-type": XML } });
+      if (path === "/sitemap-machine.xml") return new Response(sitemapMachineXml(env, stamp, entries), { headers: { "content-type": XML } });
+      const dates = new Map();
+      for (const s of slots) dates.set(s.n, await doorDateOf(s));
+      const body = path === "/sitemap-doors.xml" ? sitemapDoorsXml(slots, env, dates, stamp, aboutStamp) : sitemapMdXml(slots, env, dates, stamp, aboutStamp, entries);
+      return new Response(body, { headers: { "content-type": XML } });
     }
     if (path === "/network-sitemaps.json") return json(networkSitemapsJson(slots, env));
 
@@ -458,6 +473,19 @@ async function route(request, env, url, path) {
     return new Response(body, { headers: { "content-type": packFileType(fileKey) } });
   }
 
+  /* The pack alone: a fresh probe of the origin and a pack rebuilt over the briefing the hub already holds - no new
+     briefing, so no model call. The installer asks for it when a stored pack predates the current revision, instead
+     of waiting for that door's turn in the hourly rotation. A door with no briefing yet gets the full first run. */
+  if (path.startsWith("/v1/sites/") && path.endsWith("/pack") && method === "POST") {
+    const siteId = path.split("/")[3];
+    const site = await one(env, "SELECT * FROM sites WHERE id = ?", siteId);
+    if (!site) return json({ ok: false, error: "site not found" }, 404);
+    const briefing = await one(env, "SELECT * FROM briefings WHERE site_id = ?", siteId);
+    const pack = briefing ? await applyFullStack(env, site, briefing, null) : (await runFullStack(env, site, true)).pack;
+    const keys = Object.keys(pack?.files || {});
+    return json({ ok: true, stack_version: STACK_VERSION, files: keys.length, manifest: keys.includes("_reach-pack/MANIFEST.json"), fresh_briefing: !briefing });
+  }
+
   if (path.startsWith("/v1/sites/") && path.endsWith("/pack") && method === "GET") {
     const siteId = path.split("/")[3];
     const pack = await loadPack(env, siteId);
@@ -489,26 +517,6 @@ async function route(request, env, url, path) {
   if (path === "/v1/runs" && method === "GET") return json({ ok: true, runs: await all(env, "SELECT * FROM runs ORDER BY started_at DESC LIMIT 50") });
 
   return json({ ok: false, error: "not found" }, 404);
-}
-
-/** The MIME a pack file is served with when downloaded through /v1/sites/{id}/files/{key}. */
-function packFileType(key) {
-  if (key === "license.xml") return "application/rsl+xml; charset=utf-8";
-  if (/^llms[^/]*\.txt$/.test(key) || key.startsWith("llms/")) return "text/markdown; charset=utf-8";
-  if (key === ".well-known/api-catalog") return "application/linkset+json; charset=utf-8";
-  if (key === "opensearch.xml") return "application/opensearchdescription+xml; charset=utf-8";
-  if (key === "manifest.json") return "application/manifest+json; charset=utf-8";
-  if (key === "openapi.json") return "application/vnd.oai.openapi+json; charset=utf-8";
-  if (key === "feed.xml") return "application/atom+xml; charset=utf-8";
-  if (key === "feed.json") return "application/feed+json; charset=utf-8";
-  if (key === "sw.js") return "text/javascript; charset=utf-8";
-  if (key.startsWith(".well-known/mcp") || key.startsWith(".well-known/agent")) return "application/json; charset=utf-8";
-  if (key === "_headers" || key === "_redirects" || key.endsWith(".txt") || key.endsWith(".sh")) return "text/plain; charset=utf-8";
-  if (key.endsWith(".json")) return "application/json; charset=utf-8";
-  if (key.endsWith(".xml")) return "application/xml; charset=utf-8";
-  if (key.endsWith(".md")) return "text/markdown; charset=utf-8";
-  if (key.endsWith(".html")) return "text/html; charset=utf-8";
-  return "text/plain; charset=utf-8";
 }
 
 /** Search Console: the hub's own sitemap index, submitted when the map's content moved since the last accepted

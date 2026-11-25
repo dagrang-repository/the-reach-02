@@ -1,6 +1,6 @@
 {
   "name": "the-reach-02",
-  "version": "1.1.0",
+  "version": "1.2.0",
   "private": true,
   "type": "module",
   "scripts": {
@@ -9,7 +9,9 @@
     "db:create": "wrangler d1 create the-reach-02",
     "db:migrate": "wrangler d1 execute the-reach-02 --file=./schema.sql --remote",
     "db:migrate:local": "wrangler d1 execute the-reach-02 --file=./schema.sql --local",
-    "tail": "wrangler tail"
+    "tail": "wrangler tail",
+    "test": "node --test test/pack.test.js test/hub.test.js test/self-door.test.js test/stack.test.js test/crawlers.test.js",
+    "rig": "node test/rig.mjs"
   },
   "devDependencies": {
     "wrangler": "^4.34.0"

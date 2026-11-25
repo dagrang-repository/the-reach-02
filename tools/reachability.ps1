@@ -5,12 +5,16 @@
 # sweep runs on ubuntu-latest (GitHub Actions) and on the owner's Windows PC with no curl, no sh.
 #
 #   pwsh tools/reachability.ps1                              # the live hub + every door in /sites.json
-#   pwsh tools/reachability.ps1 -HubOnly                     # the hub's 19 sections only
+#   pwsh tools/reachability.ps1 -HubOnly                     # the hub's 22 sections only
 #   pwsh tools/reachability.ps1 -Hub http://127.0.0.1:8772   # a local Worker (wrangler dev / the rig)
 #   pwsh tools/reachability.ps1 -Doors 1,2,9 -Echo           # three doors, log echoed to the console
 #
 # Prints ONE verdict line - "RESULT: PASS" or "RESULT: FAIL <first failure>" - then the log path.
 # Exit code 1 on FAIL. Every fact goes to the log; next to it, reach-doors.json carries one verdict per door.
+# The log stays inside the project: <repo>/_logs/reach-<stamp>.log unless -Log or REACH_LOG says otherwise.
+# Checks follow "Calling AI Models", Revision 3 (25 November 2026): the MCP server card at /mcp/server-card, the
+# A2A 1.0 card and wire, one catalog at ard.json + ai-catalog.json, the RSL 1.0 licence, the shared training group,
+# two sitemap files, and the noindex / link / image audits on sampled pages (-Sample, default 20).
 # Nothing is pinged over a failing sweep (PART 12, PART 22 step 6). The sweep never writes to the hub.
 param(
   [string]$Hub = "https://reach2.aplusz.app",
@@ -20,6 +24,8 @@ param(
   [string]$Log = "",
   [int]$TimeoutSec = 20,
   [string]$Post = "",                # admin token: POST reach-doors.json to $Hub/v1/sweep so the cycle never pings over a FAIL
+  [int]$Sample = 20,                 # pages taken from the sitemap for the noindex, link and image audits
+  [int]$MaxLinks = 300,              # internal links followed from those pages
   [switch]$Echo
 )
 $ErrorActionPreference = "Stop"
@@ -32,9 +38,8 @@ $stamp = (Get-Date).ToUniversalTime().ToString("yyyyMMdd-HHmmss")
 if (-not $Log) {
   if ($env:REACH_LOG) { $Log = $env:REACH_LOG }
   else {
-    $desk = Join-Path $HOME "Desktop"
-    $dir = if (Test-Path $desk) { $desk } else { $HOME }
-    $Log = Join-Path $dir "reach-$stamp.log"
+    # logs and temp files stay inside the project folder - never the Desktop
+    $Log = Join-Path (Join-Path (Split-Path -Parent $PSScriptRoot) "_logs") "reach-$stamp.log"
   }
 }
 $DoorsJson = Join-Path (Split-Path -Parent $Log) "reach-doors.json"
@@ -172,6 +177,20 @@ function Test-Policy([string]$origin, [string]$label, [bool]$requireA) {
   Log ("  {0,-26} {1} block(s)" -f "cloudflare managed", $managed)
   $answers = @{}
   $a = TrainingAnswer ([string]$sig); if ($a) { $answers["robots Content-Signal"] = $a }
+  # the shared training-preference group (IETF AIPREF draft): Allow = yes, Disallow = no, no group = no preference
+  $tt = ""; $rl = @(Lines $R)
+  for ($i = 0; $i -lt $rl.Count; $i++) {
+    if ($rl[$i] -match '^\s*user-agent\s*:\s*__usage_ai-training\s*$') {
+      for ($j = $i + 1; $j -lt $rl.Count -and $j -le $i + 4; $j++) {
+        if ($rl[$j] -match '^\s*allow\s*:\s*/\s*$') { $tt = "yes"; break }
+        if ($rl[$j] -match '^\s*disallow\s*:\s*/\s*$') { $tt = "no"; break }
+        if ($rl[$j] -match '^\s*user-agent\s*:') { break }
+      }
+      break
+    }
+  }
+  if ($tt) { $answers["training token group"] = $tt }
+  Log ("  {0,-26} {1}" -f "training token group", ($(if ($tt) { $tt } else { "none - no preference stated" })))
   if ($use) {
     if ($use -match 'train-ai\s*=\s*y\b') { $answers["robots Content-Usage"] = "yes" } elseif ($use -match 'train-ai\s*=\s*n\b') { $answers["robots Content-Usage"] = "no" }
   }
@@ -188,6 +207,13 @@ function Test-Policy([string]$origin, [string]$label, [bool]$requireA) {
     if ($lic.Text -match '<permits[^>]*>[^<]*ai-train') { $t = "yes" } elseif ($lic.Text -match '<prohibits[^>]*>[^<]*ai-train') { $t = "no" }
     if ($t) { $answers["license.xml"] = $t }
     Log ("  {0,-26} {1}" -f "license.xml", ($(if ($t) { $t } else { "(ai-train not stated)" })))
+    # RSL 1.0: url is a path, there is no <contact> element, the user token is "education", the payment word is "use"
+    if ($lic.Text -match '<rsl' -and $lic.Text -match '<contact>|<content url="https?:|educational|type="inference"') {
+      if ($requireA) { Note "$label license.xml uses a shape RSL 1.0 does not have" } else { Warn "$label license.xml uses a shape RSL 1.0 does not have" }
+    }
+    if ($lic.Text -match '<permits type="usage">([^<]*)</permits>' -and $Matches[1] -notmatch '\bai-index\b') {
+      if ($requireA) { Note "$label license.xml usage allow-list has no ai-index (the retrieval index grounding runs on)" } else { Warn "$label license.xml usage allow-list has no ai-index" }
+    }
   }
   $td = Probe "$origin/tdmrep.json"
   if ($td.Code -ne 200) { $td = Probe "$origin/.well-known/tdmrep.json" }
@@ -222,8 +248,8 @@ function Test-Policy([string]$origin, [string]$label, [bool]$requireA) {
     Note "$label training answers disagree: $who"
   }
   if ($requireA) {
-    foreach ($need in @("robots Content-Signal", "license.xml", "ai.txt", "tdmrep.json", "llms.txt terms", "agent-permissions")) {
-      if (-not $answers.ContainsKey($need)) { Note "$label $need does not state a training answer (Policy A needs all six)" }
+    foreach ($need in @("robots Content-Signal", "training token group", "license.xml", "ai.txt", "tdmrep.json", "llms.txt terms", "agent-permissions")) {
+      if (-not $answers.ContainsKey($need)) { Note "$label $need does not state a training answer (Policy A needs every place)" }
       elseif ($answers[$need] -ne "yes") { Note "$label $need says ai-train=$($answers[$need]) - Policy A is yes" }
     }
     if ($sig -notmatch 'search\s*=\s*yes' -or $sig -notmatch 'ai-input\s*=\s*yes') { Note "$label Content-Signal is not search=yes, ai-input=yes" }
@@ -278,16 +304,16 @@ Log "doors in /sites.json: $($sites.Count) (first $first, last $last)"
 if ($Canon -ne $B) { Log "canonical origin named in the served files: $Canon (probed at $B)" }
 
 Section "1. every declared path"
-$card = Probe "$B/.well-known/mcp-server-card"
+$card = Probe "$B/mcp/server-card"
 $cardName = ""; try { $cardName = ($card.Text | ConvertFrom-Json).name } catch {}
 $paths = @(
-  "/", "/index.md", "/robots.txt", "/ai.txt", "/sitemap.xml", "/sitemap-index.xml", "/sitemap-doors.xml", "/sitemap-machine.xml",
+  "/", "/index.md", "/about", "/about.md", "/robots.txt", "/ai.txt", "/sitemap.xml", "/sitemap-index.xml", "/sitemap-doors.xml", "/sitemap-md.xml", "/sitemap-machine.xml",
   "/llms.txt", "/llms-full.txt", "/llms-small.txt", "/llms/api.txt", "/.well-known/llms.txt",
   "/license.xml", "/tdmrep.json", "/.well-known/tdmrep.json", "/opensearch.xml", "/manifest.json", "/sw.js",
   "/feed.xml", "/atom.xml", "/rss.xml", "/feed.json", "/openapi.json", "/status.json", "/server.json",
   "/.well-known/security.txt", "/.well-known/trust.txt", "/.well-known/agent-permissions.json", "/.well-known/agents.json",
-  "/.well-known/ai-catalog.json", "/.well-known/api-catalog",
-  "/.well-known/mcp-server-card", "/.well-known/mcp.json", "/.well-known/mcp/server-card.json", "/.well-known/mcp-server",
+  "/.well-known/ard.json", "/.well-known/ai-catalog.json", "/.well-known/api-catalog",
+  "/mcp/server-card", "/.well-known/mcp-server-card", "/.well-known/mcp.json", "/.well-known/mcp/server-card.json", "/.well-known/mcp-server",
   "/.well-known/agent-card.json", "/.well-known/agent.json",
   "/.well-known/agent-skills/index.json", "/.well-known/skills/index.json", "/.well-known/agent-skills/reach/SKILL.md", "/skills/reach/SKILL.md",
   "/sites.json", "/sites.md", "/atlas.json", "/atlas.md", "/match?q=visa", "/jsonld.json", "/wikidata.json", "/wayback.json",
@@ -312,10 +338,14 @@ Section "2. content types"
 $want = @(
   @("/llms.txt", "markdown"), @("/llms-full.txt", "markdown"), @("/llms-small.txt", "markdown"), @("/$first.md", "markdown"), @("/index.md", "markdown"),
   @("/license.xml", "rsl"), @("/openapi.json", "openapi"), @("/robots.txt", "text/plain"), @("/ai.txt", "text/plain"),
-  @("/.well-known/mcp-server-card", "json"), @("/.well-known/agent-card.json", "json"), @("/.well-known/api-catalog", "linkset"),
+  @("/mcp/server-card", "application/mcp-server-card+json"), @("/.well-known/mcp-server-card", "application/mcp-server-card+json"),
+  @("/.well-known/mcp.json", "application/mcp-server-card+json"), @("/.well-known/mcp/server-card.json", "application/mcp-server-card+json"),
+  @("/.well-known/ard.json", "application/ai-catalog+json"), @("/.well-known/ai-catalog.json", "application/ai-catalog+json"),
+  @("/.well-known/agent-card.json", "json"), @("/.well-known/api-catalog", "linkset"),
   @("/feed.xml", "atom"), @("/rss.xml", "rss"), @("/feed.json", "feed+json"), @("/opensearch.xml", "opensearchdescription"),
-  @("/manifest.json", "manifest"), @("/sitemap.xml", "xml"), @("/sitemap-doors.xml", "xml"), @("/sitemap-machine.xml", "xml"),
-  @("/skills/reach/SKILL.md", "markdown"), @("/$first.json", "json"), @("/$first", "text/html"), @("/", "text/html"), @("/tdmrep.json", "json")
+  @("/manifest.json", "manifest"), @("/sitemap.xml", "xml"), @("/sitemap-doors.xml", "xml"), @("/sitemap-md.xml", "xml"), @("/sitemap-machine.xml", "xml"),
+  @("/.well-known/agent-skills/reach/SKILL.md", "markdown"), @("/skills/reach/SKILL.md", "markdown"), @("/$first.json", "json"), @("/$first", "text/html"), @("/", "text/html"),
+  @("/about", "text/html"), @("/about.md", "markdown"), @("/tdmrep.json", "json")
 )
 foreach ($w in $want) {
   $p = $w[0]; $t = $hubProbe[$p].Type
@@ -326,16 +356,16 @@ foreach ($w in $want) {
 
 Section "3. interpolation - no placeholder survived into a served body; absolute HTTPS URLs only"
 $discovery = @("/robots.txt", "/ai.txt", "/llms.txt", "/llms-full.txt", "/llms-small.txt", "/llms/api.txt", "/openapi.json", "/license.xml", "/tdmrep.json",
-  "/.well-known/mcp-server-card", "/.well-known/agent-card.json", "/.well-known/agents.json", "/.well-known/agent-permissions.json",
-  "/.well-known/ai-catalog.json", "/.well-known/api-catalog", "/.well-known/agent-skills/index.json", "/skills/reach/SKILL.md",
-  "/sitemap.xml", "/sitemap-doors.xml", "/sitemap-machine.xml", "/feed.xml", "/rss.xml", "/feed.json", "/server.json", "/opensearch.xml",
+  "/mcp/server-card", "/.well-known/mcp-server-card", "/.well-known/agent-card.json", "/.well-known/agents.json", "/.well-known/agent-permissions.json",
+  "/.well-known/ard.json", "/.well-known/ai-catalog.json", "/.well-known/api-catalog", "/.well-known/agent-skills/index.json", "/.well-known/agent-skills/reach/SKILL.md",
+  "/sitemap.xml", "/sitemap-doors.xml", "/sitemap-md.xml", "/sitemap-machine.xml", "/feed.xml", "/rss.xml", "/feed.json", "/server.json", "/opensearch.xml", "/about.md",
   "/manifest.json", "/AGENTS.md", "/humans.txt", "/seo/keywords.json", "/seo/structure.json", "/.well-known/security.txt", "/.well-known/trust.txt",
   "/status.json", "/sites.json", "/sites.md", "/catalog.json", "/jsonld.json", "/index.md", "/$first.md", "/$first.json")
 foreach ($p in $discovery) {
   $t = $hubProbe[$p].Text
   $hit = Test-Placeholder $t
   if ($hit) { Log "  PLACEHOLDER  $p ($hit)"; Note "placeholder '$hit' in $p" } else { Log "  clean        $p" }
-  if ($p -match '\.json$|api-catalog|mcp-server-card|agent-card') {
+  if ($p -match '\.json$|api-catalog|server-card|agent-card') {
     if ($t -match '"url"\s*:\s*"/') { Note "$p carries a relative url (cards are fetched from registries with no base)" }
     if ($t -match "http://$([regex]::Escape($CanonHost))") { Note "$p links to the hub over plain http" }
   }
@@ -343,7 +373,7 @@ foreach ($p in $discovery) {
 
 Section "4. card path parity - byte-identical aliases"
 $h = @{}
-foreach ($p in @("/.well-known/mcp-server-card", "/.well-known/mcp.json", "/.well-known/mcp/server-card.json", "/.well-known/mcp-server")) { $h[$p] = Hash $hubProbe[$p].Bytes }
+foreach ($p in @("/mcp/server-card", "/.well-known/mcp-server-card", "/.well-known/mcp.json", "/.well-known/mcp/server-card.json", "/.well-known/mcp-server")) { $h[$p] = Hash $hubProbe[$p].Bytes }
 if ($cardName) { $h["/.well-known/mcp-server-card/$cardName"] = Hash $hubProbe["/.well-known/mcp-server-card/$cardName"].Bytes }
 Log "  mcp card: $(($h.GetEnumerator() | Sort-Object Name | ForEach-Object { "$($_.Name)=$($_.Value)" }) -join ' ')"
 if (@($h.Values | Sort-Object -Unique).Count -ne 1) { Note "mcp card aliases differ" }
@@ -355,7 +385,8 @@ $pairs = @(
   @("/llms.txt", "/.well-known/llms.txt", "llms.txt aliases differ"),
   @("/feed.xml", "/atom.xml", "feed.xml / atom.xml differ"),
   @("/sitemap.xml", "/sitemap-index.xml", "sitemap.xml / sitemap-index.xml differ"),
-  @("/skills/reach/SKILL.md", "/.well-known/agent-skills/reach/SKILL.md", "SKILL.md aliases differ")
+  @("/skills/reach/SKILL.md", "/.well-known/agent-skills/reach/SKILL.md", "SKILL.md aliases differ"),
+  @("/.well-known/ard.json", "/.well-known/ai-catalog.json", "catalog paths differ (ard.json vs ai-catalog.json)")
 )
 foreach ($pr in $pairs) { $x = Hash $hubProbe[$pr[0]].Bytes; $y = Hash $hubProbe[$pr[1]].Bytes; Log "  $($pr[0]):$x / $($pr[1]):$y"; if ($x -ne $y) { Note $pr[2] } }
 $cardJson = $null; try { $cardJson = $card.Text | ConvertFrom-Json } catch { Note "mcp card is not JSON" }
@@ -363,13 +394,72 @@ if ($cardJson) {
   if ([string]$cardJson.'$schema' -notmatch 'server-card\.schema\.json') { Note "mcp card missing SEP-2127 `$schema" }
   $remote = @($cardJson.remotes)[0]
   if (-not $remote -or [string]$remote.url -ne "$Canon/mcp") { Note "mcp card remotes[0].url is '$($remote.url)', not $Canon/mcp" }
+  $dl = ([string]$cardJson.description).Length
+  if ($dl -lt 1 -or $dl -gt 100) { Note "mcp card description is $dl chars - the schema allows 1 to 100" }
+  if ([string]$cardJson.name -notmatch '^[a-zA-Z0-9.-]+/[a-zA-Z0-9._-]+$') { Note "mcp card name '$($cardJson.name)' is not reverse-DNS/name" }
+  foreach ($k in @("tools", "resources", "prompts")) { if ($null -ne $cardJson.$k) { Note "mcp card lists $k - a card never does" } }
 }
+# the card's own address: open CORS for GET, an ETag that answers 304, a cacheable response
+$cc = $card.Headers
+if ($cc["access-control-allow-origin"] -ne "*") { Note "mcp card is not CORS-open" }
+if ([string]$cc["cache-control"] -notmatch 'max-age=\d+') { Note "mcp card has no Cache-Control max-age" }
+if ($cc.ContainsKey("etag")) {
+  $c304 = (Probe "$B/mcp/server-card" "GET" @{ "If-None-Match" = $cc["etag"] }).Status
+  Log "  mcp card If-None-Match -> $c304"; if ($c304 -ne "304") { Note "mcp card ETag does not answer 304 ($c304)" }
+} else { Note "mcp card sends no ETag" }
 $agentJson = $null; try { $agentJson = $hubProbe["/.well-known/agent-card.json"].Text | ConvertFrom-Json } catch { Note "a2a card is not JSON" }
+$a2aVersions = @()
 if ($agentJson) {
-  if ([string]$agentJson.protocolVersion -ne "1.0") { Note "a2a card protocolVersion is '$($agentJson.protocolVersion)', not 1.0" }
-  if ([string]$agentJson.url -ne "$Canon/a2a") { Note "a2a card url is '$($agentJson.url)', not $Canon/a2a" }
-  foreach ($cap in @("streaming", "pushNotifications", "stateTransitionHistory", "extendedAgentCard")) { if ($agentJson.capabilities.$cap) { Warn "a2a card declares $cap=true - only if it is served" } }
+  # A2A 1.0: the endpoint and the version live in supportedInterfaces, preferred first; the old top-level fields are a 0.3 card
+  $ifaces = @($agentJson.supportedInterfaces)
+  if (-not $ifaces.Count) { Note "a2a card has no supportedInterfaces - a 0.3 shape under a 1.0 label" }
+  else {
+    if ([string]$ifaces[0].protocolVersion -ne "1.0") { Note "a2a card first interface is '$($ifaces[0].protocolVersion)', not 1.0" }
+    foreach ($itf in $ifaces) {
+      if ([string]$itf.url -ne "$Canon/a2a") { Note "a2a card interface url is '$($itf.url)', not $Canon/a2a" }
+      if ([string]$itf.protocolBinding -ne "JSONRPC") { Note "a2a card interface binding is '$($itf.protocolBinding)'" }
+      $a2aVersions += [string]$itf.protocolVersion
+    }
+  }
+  foreach ($old in @("url", "protocolVersion", "preferredTransport", "additionalInterfaces")) { if ($null -ne $agentJson.$old) { Note "a2a card still carries top-level $old (the 0.3 shape)" } }
+  foreach ($need in @("name", "description", "version", "capabilities", "defaultInputModes", "defaultOutputModes", "skills")) { if ($null -eq $agentJson.$need) { Note "a2a card lacks $need" } }
+  foreach ($sk in @($agentJson.skills)) { if (-not $sk.id -or -not $sk.name -or -not $sk.description -or -not @($sk.tags).Count) { Note "a2a card skill '$($sk.id)' lacks id, name, description or tags" } }
+  foreach ($cap in @("streaming", "pushNotifications", "extendedAgentCard")) { if ($agentJson.capabilities.$cap) { Warn "a2a card declares $cap=true - only if it is served" } }
 }
+# the catalog: one document, two names; every entry a urn:air: identifier, a media type, 2 to 5 user questions
+$catJson = $null; try { $catJson = $hubProbe["/.well-known/ard.json"].Text | ConvertFrom-Json } catch { Note "ard.json is not JSON" }
+if ($catJson) {
+  if ([string]$catJson.specVersion -notin @("0.9", "1.0")) { Note "catalog specVersion is '$($catJson.specVersion)', not 0.9 or 1.0" }
+  $ents = @($catJson.entries); Log "  catalog entries: $($ents.Count)"
+  if (-not $ents.Count) { Note "catalog has no entries" }
+  $seenIds = @{}
+  foreach ($e in $ents) {
+    $id = [string]$e.identifier
+    if ($id -notmatch '^urn:air:[a-zA-Z0-9.-]+(:[a-zA-Z0-9._-]+)+$') { Note "catalog identifier is not urn:air: - $id" }
+    elseif ($id -notmatch "^urn:air:$([regex]::Escape($CanonHost)):") { Note "catalog identifier is not anchored on the hub: $id" }
+    if ($seenIds.ContainsKey($id)) { Note "catalog identifier listed twice: $id" }; $seenIds[$id] = 1
+    if (-not $e.displayName) { Note "catalog entry $id has no displayName" }
+    if ([string]$e.type -notmatch '^[a-z]+/[a-z0-9.+-]+$') { Note "catalog entry $id type '$($e.type)' is not a media type" }
+    if ([string]$e.type -match 'ai-skill\+md|mcp-server\+json') { Note "catalog entry $id uses a retired type: $($e.type)" }
+    $hasUrl = ($null -ne $e.url); $hasData = ($null -ne $e.data)
+    if ($hasUrl -eq $hasData) { Note "catalog entry $id needs exactly one of url / data" }
+    $qn = @($e.representativeQueries).Count
+    if ($qn -lt 2 -or $qn -gt 5) { Note "catalog entry $id has $qn representativeQueries (2 to 5)" }
+    if ($hasUrl -and [string]$e.url -notmatch '^https://') { Note "catalog entry $id url is not absolute https: $($e.url)" }
+  }
+  $mcpEntry = @($ents | Where-Object { $_.type -eq "application/mcp-server-card+json" })[0]
+  if (-not $mcpEntry) { Note "catalog has no application/mcp-server-card+json entry" }
+  elseif ([string]$mcpEntry.url -ne "$Canon/mcp/server-card") { Note "catalog MCP entry points at '$($mcpEntry.url)', not the card's own address $Canon/mcp/server-card" }
+  # an entry is an advertisement: every interface entry, and a sample of the rest, must answer
+  $toProbe = @($ents | Where-Object { $_.type -ne "application/json" }) + @($ents | Where-Object { $_.type -eq "application/json" } | Select-Object -First 5)
+  foreach ($e in $toProbe) { if ($e.url -and ([string]$e.url).StartsWith("$Canon/")) { $c = Get-Code (Local ([string]$e.url)); if ($c -ne "200") { Note "catalog advertises $($e.url) -> $c" } } }
+}
+# pointers to the catalog: robots.txt, the Link header, the head of the home page
+$homeHtml = $hubProbe["/"].Text; $homeLink = [string]$hubProbe["/"].Headers["link"]
+if ($hubProbe["/robots.txt"].Text -notmatch "(?im)^\s*Agentmap\s*:\s*$([regex]::Escape("$Canon/.well-known/ard.json"))\s*$") { Note "robots.txt has no Agentmap: line for the catalog" }
+if ($homeLink -notmatch 'rel="ard"' -or $homeLink -notmatch 'rel="ai-catalog"') { Note "Link header lacks rel=ard / rel=ai-catalog" }
+if ($homeHtml -notmatch '<link rel="ard" href="' -or $homeHtml -notmatch '<link rel="ai-catalog" ') { Note "home page head lacks the catalog links" }
+if ($homeHtml -notmatch '<link rel="license" type="application/rsl\+xml"') { Note "home page head lacks rel=license" }
 $srv = $null; try { $srv = $hubProbe["/server.json"].Text | ConvertFrom-Json } catch { Note "server.json is not JSON" }
 if ($srv -and $cardJson) {
   if ([string]$srv.name -ne [string]$cardJson.name) { Note "server.json name '$($srv.name)' != mcp card name '$($cardJson.name)'" }
@@ -397,6 +487,17 @@ Log "  /  neg=$($homeNeg.Type)  vary=$($homeNeg.Headers['vary'])"
 if ($homeNeg.Type -notmatch 'markdown') { Note "negotiation on / returned $($homeNeg.Type)" }
 $miss = Probe "$B/$missingN.md"; Log "  missing twin -> $($miss.Status)"
 if ($miss.Code -ne 404) { Note "missing twin soft-$($miss.Status)" }
+# validators that survive the edge: 304 on the twin, a date on the page; two renderings, one entry in a search index
+$tw = $hubProbe["/$first.md"]
+if ($tw.Headers.ContainsKey("etag")) {
+  $c304 = (Probe "$B/$first.md" "GET" @{ "If-None-Match" = $tw.Headers["etag"] }).Status
+  Log "  twin If-None-Match -> $c304"; if ($c304 -ne "304") { Note "twin ETag does not answer 304 ($c304)" }
+} else { Warn "twin sends no ETag (Last-Modified is then the only validator)" }
+if (-not $hubProbe["/$first"].Headers.ContainsKey("last-modified")) { Note "door page sends no Last-Modified" }
+foreach ($pair in @(@("/$first.md", "$Canon/$first"), @("/index.md", "$Canon/"), @("/about.md", "$Canon/about"))) {
+  $lk = [string]$hubProbe[$pair[0]].Headers["link"]
+  if ($lk -notmatch "<$([regex]::Escape($pair[1]))>;\s*rel=`"canonical`"") { Note "twin $($pair[0]) does not name $($pair[1]) as canonical in its Link header" }
+}
 
 Section "6. resolution - different inputs MUST differ, a miss is honest"
 $j1 = $hubProbe["/$first.json"].Text; $j2 = $hubProbe["/$last.json"].Text
@@ -423,17 +524,25 @@ $meta = @{ "io.modelcontextprotocol/protocolVersion" = $MV; "io.modelcontextprot
 $hd = @{ "MCP-Protocol-Version" = $MV; "Mcp-Method" = "server/discover"; "Accept" = "application/json, text/event-stream" }
 $disc = Post-Json "$B/mcp" @{ jsonrpc = "2.0"; id = 1; method = "server/discover"; params = @{ _meta = $meta } } $hd
 Log "  server/discover: $($disc.Status) $(Cut $disc.Text 200)"
-if ($disc.Text -notmatch '"supportedProtocolVersions"') { Note "modern server/discover failed ($($disc.Status) $($disc.Error))" }
+if ($disc.Text -notmatch '"supportedVersions"') { Note "modern server/discover failed or lacks supportedVersions ($($disc.Status) $($disc.Error))" }
 if ($disc.Text -notmatch '"resultType":\s*"complete"') { Note "modern result missing resultType" }
+if ($disc.Text -notmatch '"ttlMs"' -or $disc.Text -notmatch '"cacheScope"') { Note "server/discover lacks ttlMs / cacheScope (required since 2026-07-28)" }
 $discJson = $null; try { $discJson = $disc.Text | ConvertFrom-Json } catch {}
+$discVersions = @()
+if ($discJson) { $discVersions = @($discJson.result.supportedVersions) }
 if ($discJson -and $cardJson) {
-  $vEnd = @($discJson.result.supportedProtocolVersions) -join ","; $vCard = @(@($cardJson.remotes)[0].supportedProtocolVersions) -join ","
-  if ($vEnd -ne $vCard) { Note "card supportedProtocolVersions [$vCard] != endpoint [$vEnd]" }
-  if ($discJson.result.serverInfo.name -ne $cardJson.name) { Note "serverInfo.name '$($discJson.result.serverInfo.name)' != card name '$($cardJson.name)'" }
-  if ($discJson.result.serverInfo.version -ne $cardJson.version) { Note "serverInfo.version != card version" }
+  # the card is advisory: it must say what the endpoint says
+  $vEnd = $discVersions -join ","; $vCard = @(@($cardJson.remotes)[0].supportedProtocolVersions) -join ","
+  if ($vEnd -ne $vCard) { Note "card supportedProtocolVersions [$vCard] != endpoint supportedVersions [$vEnd]" }
+  $si = $discJson.result._meta.'io.modelcontextprotocol/serverInfo'
+  if (-not $si) { Note "server/discover carries no serverInfo in _meta" }
+  else {
+    if ($si.name -ne $cardJson.name) { Note "serverInfo.name '$($si.name)' != card name '$($cardJson.name)'" }
+    if ($si.version -ne $cardJson.version) { Note "serverInfo.version '$($si.version)' != card version '$($cardJson.version)'" }
+  }
 }
 $disc2 = Post-Json "$B/.well-known/mcp-server" @{ jsonrpc = "2.0"; id = 1; method = "server/discover"; params = @{ _meta = $meta } } $hd
-if ($disc2.Text -notmatch '"supportedProtocolVersions"') { Note "POST on /.well-known/mcp-server does not answer server/discover" }
+if ($disc2.Text -notmatch '"supportedVersions"') { Note "POST on /.well-known/mcp-server does not answer server/discover" }
 $hd["Mcp-Method"] = "tools/list"
 $tl = Post-Json "$B/mcp" @{ jsonrpc = "2.0"; id = 2; method = "tools/list"; params = @{ _meta = $meta } } $hd
 Log "  tools/list: $(Cut $tl.Text 160)"
@@ -442,7 +551,7 @@ $toolNames = @(); try { $toolNames = @(($tl.Text | ConvertFrom-Json).result.tool
 foreach ($t in @("match", "door", "list_doors")) { if ($toolNames -notcontains $t) { Note "tool $t missing from tools/list [$($toolNames -join ',')]" } }
 # every version the endpoint advertises must answer when a client names it per request (no version in the list the endpoint does not speak)
 if ($discJson) {
-  foreach ($pv in @($discJson.result.supportedProtocolVersions)) {
+  foreach ($pv in $discVersions) {
     $hv = @{ "MCP-Protocol-Version" = "$pv"; "Mcp-Method" = "tools/list"; "Accept" = "application/json, text/event-stream" }
     $rv = Post-Json "$B/mcp" @{ jsonrpc = "2.0"; id = 6; method = "tools/list"; params = @{ _meta = @{ "io.modelcontextprotocol/protocolVersion" = "$pv" } } } $hv
     if ($rv.Text -notmatch '"tools"') { Note "advertised protocol version $pv does not answer tools/list ($($rv.Status))" }
@@ -462,6 +571,21 @@ Log "  bad version: $(Cut $bv.Text 180)"
 if ($bv.Text -notmatch '-32022') { Note "a bad protocol version is not -32022" }
 if ($bv.Text -notmatch '"supported"') { Note "-32022 does not list supported versions" }
 $g = Get-Code "$B/mcp"; Log "  GET /mcp -> $g (405 expected)"; if ($g -ne "405") { Note "GET /mcp is $g" }
+# an unknown method is 404 + -32601 in the modern era
+$hd["Mcp-Method"] = "no/such-method"; $hd.Remove("Mcp-Name")
+$um = Post-Json "$B/mcp" @{ jsonrpc = "2.0"; id = 9; method = "no/such-method"; params = @{ _meta = $meta } } $hd
+if ($um.Code -ne 404 -or $um.Text -notmatch '-32601') { Note "an unknown modern method answered $($um.Status), not 404 + -32601" }
+# resources that are listed must be readable (a list with no read is a pointer at nothing)
+$hd["Mcp-Method"] = "resources/list"
+$rl = Post-Json "$B/mcp" @{ jsonrpc = "2.0"; id = 10; method = "resources/list"; params = @{ _meta = $meta } } $hd
+$resUris = @(); try { $resUris = @(($rl.Text | ConvertFrom-Json).result.resources | ForEach-Object { [string]$_.uri }) } catch {}
+Log "  resources/list: $($resUris.Count) resource(s)"
+if ($resUris.Count) {
+  $hd["Mcp-Method"] = "resources/read"; $hd["Mcp-Name"] = $resUris[0]
+  $rr = Post-Json "$B/mcp" @{ jsonrpc = "2.0"; id = 11; method = "resources/read"; params = @{ uri = $resUris[0]; _meta = $meta } } $hd
+  if ($rr.Text -notmatch '"contents"') { Note "resources/read of a listed resource failed ($($rr.Status) $(Cut $rr.Text 100))" }
+  $hd.Remove("Mcp-Name")
+}
 
 Section "8. MCP - LEGACY era (initialize)"
 $init = Post-Json "$B/mcp" @{ jsonrpc = "2.0"; id = 1; method = "initialize"; params = @{ protocolVersion = "2025-06-18"; capabilities = @{}; clientInfo = @{ name = "sweep"; version = "1" } } }
@@ -476,14 +600,29 @@ if ($lc.Text -notmatch '"structuredContent"') { Note "legacy tools/call failed" 
 $init2 = Post-Json "$B/.well-known/mcp-server" @{ jsonrpc = "2.0"; id = 1; method = "initialize"; params = @{ protocolVersion = "2025-06-18"; capabilities = @{}; clientInfo = @{ name = "sweep"; version = "1" } } }
 if ($init2.Text -notmatch '"serverInfo"') { Note "POST on /.well-known/mcp-server does not answer initialize" }
 
-Section "9. A2A 1.0"
-$aa = Post-Json "$B/a2a" @{ jsonrpc = "2.0"; id = 1; method = "message/send"; params = @{ message = @{ role = "user"; messageId = "m1"; parts = @(@{ kind = "text"; text = "do I need a visa for Japan" }); metadata = @{ skill = "match" } } } } @{ "A2A-Version" = "1.0" }
-Log "  message/send: $(Cut $aa.Text 200)"
-if ($aa.Text -notmatch '"kind":\s*"message"') { Note "a2a message/send failed ($($aa.Status))" }
-$ad = Post-Json "$B/a2a" @{ jsonrpc = "2.0"; id = 2; method = "message/send"; params = @{ message = @{ role = "user"; messageId = "m2"; parts = @() }; metadata = @{ skill = "doors" } } } @{ "A2A-Version" = "1.0" }
-if ($ad.Text -notmatch '"kind":\s*"message"') { Note "a2a doors skill failed" }
-$av = Post-Json "$B/a2a" @{ jsonrpc = "2.0"; id = 3; method = "message/send"; params = @{} } @{ "A2A-Version" = "9.9" }
-if ($av.Text -notmatch 'VersionNotSupportedError') { Note "a2a does not reject an unspoken version" }
+Section "9. A2A - the 1.0 wire, and the 0.3 wire the card also lists"
+$a1h = @{ "A2A-Version" = "1.0" }
+$aa = Post-Json "$B/a2a" @{ jsonrpc = "2.0"; id = 1; method = "SendMessage"; params = @{ message = @{ messageId = "m1"; role = "ROLE_USER"; parts = @(@{ text = "do I need a visa for Japan" }) }; metadata = @{ skill = "match" } } } $a1h
+Log "  SendMessage: $(Cut $aa.Text 200)"
+$aaJson = $null; try { $aaJson = $aa.Text | ConvertFrom-Json } catch {}
+if (-not $aaJson -or -not $aaJson.result.message) { Note "a2a SendMessage did not answer a 1.0 message ($($aa.Status))" }
+else {
+  if ([string]$aaJson.result.message.role -ne "ROLE_AGENT") { Note "a2a 1.0 reply role is '$($aaJson.result.message.role)', not ROLE_AGENT" }
+  if (-not $aaJson.result.message.messageId -or -not $aaJson.result.message.contextId) { Note "a2a 1.0 reply lacks messageId or contextId" }
+  if ($aa.Text -match '"kind"\s*:\s*"(message|text|data)"') { Note "a2a 1.0 reply carries 0.3 kind discriminators" }
+}
+$ad = Post-Json "$B/a2a" @{ jsonrpc = "2.0"; id = 2; method = "SendMessage"; params = @{ message = @{ messageId = "m2"; role = "ROLE_USER"; parts = @() }; metadata = @{ skill = "doors" } } } $a1h
+if ($ad.Text -notmatch '"ROLE_AGENT"') { Note "a2a doors skill failed" }
+$av = Post-Json "$B/a2a" @{ jsonrpc = "2.0"; id = 3; method = "SendMessage"; params = @{} } @{ "A2A-Version" = "9.9" }
+if ($av.Text -notmatch 'VersionNotSupportedError' -or $av.Text -notmatch '-32009') { Note "a2a does not reject an unspoken version with VersionNotSupportedError (-32009)" }
+$at = Post-Json "$B/a2a" @{ jsonrpc = "2.0"; id = 4; method = "GetTask"; params = @{ id = "none" } } $a1h
+if ($at.Text -notmatch '-32001') { Note "a2a GetTask on an unknown task is not TaskNotFoundError (-32001)" }
+if ($a2aVersions -contains "0.3") {
+  # an empty version header is a 0.3 client: it must get the 0.3 wire
+  $a3 = Post-Json "$B/a2a" @{ jsonrpc = "2.0"; id = 5; method = "message/send"; params = @{ message = @{ role = "user"; messageId = "m5"; kind = "message"; parts = @(@{ kind = "text"; text = "do I need a visa for Japan" }) } } } @{}
+  Log "  message/send (0.3): $(Cut $a3.Text 120)"
+  if ($a3.Text -notmatch '"kind":\s*"message"') { Note "the card lists A2A 0.3 but message/send did not answer a 0.3 message" }
+}
 $ga = Get-Code "$B/a2a"; Log "  GET /a2a -> $ga (405 expected)"; if ($ga -ne "405") { Note "GET /a2a is $ga" }
 
 Section "10. skill digest"
@@ -503,12 +642,18 @@ if ($skIdx) {
 Section "11. UA probe - every one must see the real body (hub /)"
 Test-UAProbe "$B/" "hub" 2000
 
-Section "12. contradiction sweep - the same answer in six files (Policy A)"
+Section "12. contradiction sweep - the same training answer in every place that states one (Policy A)"
 $robotsHub = Test-Policy $B "hub" $true
 
 Section "13. robots.txt shape"
 [void](Test-RobotsShape $robotsHub "hub")
 if ($robotsHub -notmatch '(?im)^\s*license\s*:') { Note "hub robots.txt missing License:" }
+# the wildcard group opens the file (an agent that reads only the first match still gets an Allow); both sitemap files are named
+$firstUa = [string](Lines $robotsHub | Where-Object { $_ -match '^\s*user-agent\s*:' } | Select-Object -First 1)
+if ($firstUa -notmatch '^\s*user-agent\s*:\s*\*\s*$') { Note "hub robots.txt does not open with the wildcard group ($($firstUa.Trim()))" }
+$smNamed = @(Lines $robotsHub | Where-Object { $_ -match '^\s*sitemap\s*:' } | ForEach-Object { ($_ -replace '^\s*sitemap\s*:\s*', '').Trim() })
+Log "  sitemaps named: $($smNamed -join ' ')"
+foreach ($need in @("$Canon/sitemap.xml", "$Canon/sitemap-md.xml")) { if ($smNamed -notcontains $need) { Note "hub robots.txt does not name $need" } }
 $dupes = @(Lines $robotsHub | Where-Object { $_ -match '^\s*user-agent\s*:' } | ForEach-Object { ($_ -replace '^\s*user-agent\s*:\s*', '').Trim().ToLowerInvariant() } | Group-Object | Where-Object { $_.Count -gt 1 }).Count
 Log "  duplicate tokens (twins are deliberate, rules identical): $dupes"
 $hubSelf = $sites | Where-Object { ([uri]$_.url).Host -eq $CanonHost } | Select-Object -First 1
@@ -522,31 +667,168 @@ if ($Key) {
   if ($kf.Type -notmatch 'text/plain') { Note "indexnow key file is $($kf.Type), not text/plain" }
 } else { Log "  (no key: pass -Key, or set INDEXNOW_KEY in wrangler.jsonc - skipped)" }
 
-Section "15. sitemap vs structure"
-$SM = $hubProbe["/sitemap.xml"].Text
-$children = @([regex]::Matches($SM, '<loc>([^<]+)</loc>') | ForEach-Object { $_.Groups[1].Value })
-Log "  sitemap index children: $($children.Count)"
-if ($SM -notmatch '<sitemapindex') { Note "/sitemap.xml is not a sitemap index" }
-$allLocs = @(); $lastmods = @()
-foreach ($c in $children) {
-  if ($c -notmatch "^https://$([regex]::Escape($CanonHost))/") { Note "sitemap child on a foreign host or plain http: $c"; continue }
-  $cp = Probe (Local $c)
-  if ($cp.Code -ne 200) { Note "sitemap child $c -> $($cp.Status)"; continue }
-  $allLocs += @([regex]::Matches($cp.Text, '<loc>([^<]+)</loc>') | ForEach-Object { $_.Groups[1].Value })
-  $lastmods += @([regex]::Matches($cp.Text, '<lastmod>([^<]+)</lastmod>') | ForEach-Object { $_.Groups[1].Value.Substring(0, 10) })
+Section "15. sitemaps - the pages in one file, the second renderings in the other"
+function Read-Sitemap([string]$url, [int]$depth) {
+  # one row per <url>: loc + lastmod day. An index is followed one level down; a child off the hub is a failure.
+  $r = Probe (Local $url)
+  if ($r.Code -ne 200) { Note "sitemap $url -> $($r.Status)"; return }
+  if ($r.Text -match '<sitemapindex') {
+    if ($depth -ge 2) { return }
+    foreach ($m in [regex]::Matches($r.Text, '<loc>([^<]+)</loc>')) {
+      $c = [System.Net.WebUtility]::HtmlDecode($m.Groups[1].Value.Trim())
+      if ($c -notmatch "^https://$([regex]::Escape($CanonHost))/") { Note "sitemap child on a foreign host or plain http: $c"; continue }
+      Read-Sitemap $c ($depth + 1)
+    }
+    return
+  }
+  if ($r.Text -notmatch '<urlset') { Note "sitemap $url is neither a urlset nor an index"; return }
+  foreach ($m in [regex]::Matches($r.Text, '(?s)<url>\s*<loc>([^<]+)</loc>(?:\s*<lastmod>([^<]+)</lastmod>)?')) {
+    $lm = $m.Groups[2].Value.Trim(); if ($lm.Length -gt 10) { $lm = $lm.Substring(0, 10) }
+    [pscustomobject]@{ loc = [System.Net.WebUtility]::HtmlDecode($m.Groups[1].Value.Trim()); lastmod = $lm }
+  }
 }
-Log "  urls across partitions: $($allLocs.Count); distinct lastmod days: $(@($lastmods | Sort-Object -Unique).Count)"
-foreach ($l in $allLocs) { if ($l -notmatch "^https://$([regex]::Escape($CanonHost))(/|$)") { Note "sitemap lists a URL off the hub: $l"; break } }
-$mustList = @("$Canon/", "$Canon/llms.txt", "$Canon/llms-full.txt", "$Canon/openapi.json", "$Canon/.well-known/mcp-server-card", "$Canon/.well-known/ai-catalog.json", "$Canon/sites.md", "$Canon/atlas.md", "$Canon/feed.xml")
+$pageRows = @(Read-Sitemap "$Canon/sitemap.xml" 0)
+$secondRows = @(Read-Sitemap "$Canon/sitemap-md.xml" 0)
+$pageLocs = @($pageRows | ForEach-Object { $_.loc }); $secondLocs = @($secondRows | ForEach-Object { $_.loc })
+$allLocs = @($pageLocs + $secondLocs); $lastmods = @(($pageRows + $secondRows) | Where-Object { $_.lastmod } | ForEach-Object { $_.lastmod })
+Log "  /sitemap.xml: $($pageLocs.Count) page(s)   /sitemap-md.xml: $($secondLocs.Count) twin(s) and machine file(s)   distinct lastmod days: $(@($lastmods | Sort-Object -Unique).Count)"
+if (-not $pageLocs.Count) { Note "/sitemap.xml lists no page" }
+if (-not $secondLocs.Count) { Note "/sitemap-md.xml lists nothing" }
+foreach ($l in $allLocs) { if ($l -notmatch "^https://$([regex]::Escape($CanonHost))(/|$)") { Note "a sitemap lists a URL off the hub: $l"; break } }
+$dupLocs = @($allLocs | Group-Object | Where-Object { $_.Count -gt 1 })
+if ($dupLocs.Count) { Note "a URL is listed twice across the sitemaps: $($dupLocs[0].Name)" }
+$strayPages = @($pageLocs | Where-Object { $_ -match '\.(md|txt|json|xml)$' })
+if ($strayPages.Count) { Note "/sitemap.xml lists a second rendering or a machine file: $($strayPages[0])" }
+$wk = @($allLocs | Where-Object { $_ -match '/\.well-known/' })
+if ($wk.Count) { Note "a sitemap lists a /.well-known/ URL (those carry noindex): $($wk[0])" }
+$mustPages = @("$Canon/", "$Canon/about")
+$mustSeconds = @("$Canon/index.md", "$Canon/about.md", "$Canon/llms.txt", "$Canon/llms-full.txt", "$Canon/openapi.json", "$Canon/sites.md", "$Canon/atlas.md", "$Canon/feed.xml")
 # the hub's own door is the home page itself (it 301s to / and /index.md): every OTHER door and its twin must be listed
-foreach ($s in $sites) { $so = ([uri]$s.url).GetLeftPart([UriPartial]::Authority); if ($so -eq $Canon -or $so -eq $B) { continue }; $mustList += "$Canon/$($s.n)"; $mustList += "$Canon/$($s.n).md" }
-$missingLocs = @($mustList | Where-Object { $allLocs -notcontains $_ })
-if ($missingLocs.Count) { Log "  MISSING $($missingLocs.Count): $(($missingLocs | Select-Object -First 6) -join ' ')"; Note "sitemap missing $($missingLocs[0])" } else { Log "  listed: every door, every twin, every machine entry point" }
+foreach ($s in $sites) { $so = ([uri]$s.url).GetLeftPart([UriPartial]::Authority); if ($so -eq $Canon -or $so -eq $B) { continue }; $mustPages += "$Canon/$($s.n)"; $mustSeconds += "$Canon/$($s.n).md" }
+$missingLocs = @($mustPages | Where-Object { $pageLocs -notcontains $_ }) + @($mustSeconds | Where-Object { $secondLocs -notcontains $_ })
+if ($missingLocs.Count) { Log "  MISSING $($missingLocs.Count): $(($missingLocs | Select-Object -First 6) -join ' ')"; Note "sitemap missing $($missingLocs[0])" } else { Log "  listed: every door page, every twin, every root machine entry point" }
 $today = (Get-Date).ToUniversalTime().ToString("yyyy-MM-dd")
-if ($lastmods.Count -gt 5 -and @($lastmods | Sort-Object -Unique).Count -eq 1 -and $lastmods[0] -eq $today) { Warn "every lastmod is today - a uniform 'updated today' reads as false freshness (PART 13)" }
+if ($lastmods.Count -gt 5 -and @($lastmods | Sort-Object -Unique).Count -eq 1 -and $lastmods[0] -eq $today) { Warn "every lastmod is today - a uniform 'updated today' reads as false freshness (2.5)" }
+# a date-only lastmod carries no zone: it is in the future only once it is ahead of the furthest-ahead zone on Earth (UTC+14)
+$latestToday = (Get-Date).ToUniversalTime().AddHours(14).ToString("yyyy-MM-dd")
+foreach ($lm in @($lastmods | Sort-Object -Unique)) { if ($lm -gt $latestToday) { Note "a sitemap lastmod is in the future: $lm" } }
 
-Section "16. graph shape - one title, one graph, one canonical; visible date == dateModified"
-foreach ($p in @("/", "/$first")) {
+Section "16. noindex audit - the written list is the whole list (check 19)"
+$structure = $null; try { $structure = $hubProbe["/seo/structure.json"].Text | ConvertFrom-Json } catch { Note "seo/structure.json is not JSON" }
+$noindexList = @(); if ($structure) { $noindexList = @($structure.noindex_patterns | ForEach-Object { [string]$_ } | Where-Object { $_ }) }
+Log "  written list: $($noindexList -join ' ')"
+if (-not $noindexList.Count) { Note "seo/structure.json carries no noindex_patterns - noindex is a decision, never a leftover" }
+function Test-OnNoindexList([string]$path) {
+  # a pattern ending in / is a prefix (and the bare path); anything else is an exact path - the hub's own rule
+  $pp = ($path -split '[?#]')[0]
+  foreach ($pat in $noindexList) {
+    if ($pat.EndsWith("/")) { if ($pp.StartsWith($pat) -or $pp -eq $pat.TrimEnd("/")) { return $true } }
+    elseif ($pp -eq $pat) { return $true }
+  }
+  return $false
+}
+function Test-NoindexSeen($r) {
+  # noindex arrives in two places: the header (invisible in the page source) and the robots meta tag
+  $hx = ([string]$r.Headers["x-robots-tag"]) -match '(?i)\bnoindex\b'
+  $mx = $false
+  foreach ($m in [regex]::Matches([string]$r.Text, '(?is)<meta[^>]*name=["''](?:robots|googlebot|bingbot)["''][^>]*>')) { if ($m.Value -match '(?i)noindex') { $mx = $true } }
+  return @{ header = [bool]$hx; meta = [bool]$mx; any = [bool]($hx -or $mx) }
+}
+$stray = 0; $unmarked = 0
+foreach ($p in $paths) {
+  $r = $hubProbe[$p]; if ($r.Code -ne 200) { continue }
+  $seen = Test-NoindexSeen $r; $listed = Test-OnNoindexList $p
+  if ($seen.any -and -not $listed) { $stray++; Note "noindex on $p (header=$($seen.header) meta=$($seen.meta)) - it is not on the written list" }
+  if ($listed -and -not $seen.any) { $unmarked++; Warn "$p is on the noindex list and carries no noindex" }
+}
+Log "  declared paths: stray noindex $stray, listed without noindex $unmarked"
+foreach ($l in $allLocs) { $lp = ([uri]$l).AbsolutePath; if (Test-OnNoindexList $lp) { Note "a sitemap lists $l, which is on the noindex list" } }
+# robots.txt must not Disallow a noindex path: the crawler would never read the noindex
+foreach ($dl in @(Lines $robotsHub | Where-Object { $_ -match '^\s*disallow\s*:\s*(\S+)' } | ForEach-Object { ($_ -replace '^\s*disallow\s*:\s*', '').Trim() } | Sort-Object -Unique)) {
+  if (Test-OnNoindexList $dl) { Note "robots.txt Disallows $dl, which is also noindex - the noindex is never read" }
+}
+$samplePages = @($pageLocs | Select-Object -First $Sample)
+Log "  pages sampled from /sitemap.xml: $($samplePages.Count) (-Sample $Sample)"
+$sampled = [System.Collections.Generic.List[object]]::new()
+foreach ($u in $samplePages) {
+  $r = Probe (Local $u)
+  if ($r.Code -ne 200) { Note "sitemap page $u -> $($r.Status) (a sitemap lists only 200s)"; continue }
+  $sampled.Add([pscustomobject]@{ url = $u; res = $r })
+  $seen = Test-NoindexSeen $r
+  if ($seen.any) { Log "  NOINDEX header=$($seen.header) meta=$($seen.meta) $u"; Note "noindex on sitemap URL $u" }
+  $canonHref = [System.Net.WebUtility]::HtmlDecode([regex]::Match($r.Text, '<link[^>]*rel="canonical"[^>]*href="([^"]+)"').Groups[1].Value)
+  if ($canonHref -ne $u) { Note "sitemap page $u names '$canonHref' as canonical, not itself" }
+  elseif (Test-OnNoindexList ([uri]$canonHref).AbsolutePath) { Note "$u names a noindex URL as canonical" }
+}
+# the second renderings: each answers 200, carries no noindex, and a twin names a listed page as canonical
+foreach ($u in @($secondLocs | Select-Object -First ($Sample * 3))) {
+  $r = Probe (Local $u)
+  if ($r.Code -ne 200) { Note "sitemap-md URL $u -> $($r.Status)"; continue }
+  if ((Test-NoindexSeen $r).any) { Note "noindex on sitemap-md URL $u" }
+  if ($u -match '\.md$' -and $u -notmatch '/(sites|atlas)\.md$') {
+    $cm = [regex]::Match([string]$r.Headers["link"], '<([^>]+)>;\s*rel="canonical"')
+    if (-not $cm.Success) { Note "twin $u names no canonical page in its Link header" }
+    elseif ($pageLocs -notcontains $cm.Groups[1].Value) { Note "twin $u names $($cm.Groups[1].Value) as canonical - not a page in /sitemap.xml" }
+  }
+}
+Log "  (no NOINDEX line above = pass)"
+
+Section "17. internal links on the sampled pages (check 20)"
+$linkSet = [System.Collections.Generic.HashSet[string]]::new()
+foreach ($sp in $sampled) {
+  foreach ($m in [regex]::Matches($sp.res.Text, '(?i)\shref="([^"]*)"')) {
+    $href = [System.Net.WebUtility]::HtmlDecode($m.Groups[1].Value).Trim()
+    $href = ($href -split '#')[0]
+    if (-not $href -or $href -match '^(mailto|tel|javascript|data|sms):') { continue }
+    $abs = $null
+    if ($href -match '^https?://') { $abs = $href }
+    elseif ($href.StartsWith("//")) { continue }
+    else { try { $abs = ([uri]::new([uri]$sp.url, $href)).AbsoluteUri } catch { Note "unparseable href '$href' on $($sp.url)"; continue } }
+    if ($abs -ne $Canon -and -not $abs.StartsWith("$Canon/")) { continue }
+    [void]$linkSet.Add($abs)
+  }
+}
+$links = @($linkSet | Sort-Object | Select-Object -First $MaxLinks)
+Log "  distinct internal links: $($linkSet.Count)$(if ($linkSet.Count -gt $links.Count) { " (first $($links.Count) followed, -MaxLinks $MaxLinks)" })"
+$viaRedirect = 0; $outbound = 0
+foreach ($l in $links) {
+  $cur = Local $l; $hops = 0; $r = $null; $leaves = ""
+  for ($i = 0; $i -le 5; $i++) {
+    $r = Probe $cur
+    if ($r.Code -in 301, 302, 303, 307, 308 -and $r.Headers.ContainsKey("location")) {
+      $loc = [string]$r.Headers["location"]
+      $next = if ($loc -match '^https?://') { $loc } else { ([uri]::new([uri]$cur, $loc)).AbsoluteUri }
+      # a link that redirects OFF the hub is an outbound link by design (a door's "go" link): the destination is the
+      # door's own site, which section 23 probes - the hop is counted, never followed
+      if ($next -ne $Canon -and -not $next.StartsWith("$Canon/") -and $next -ne $B -and -not $next.StartsWith("$B/")) { $leaves = $next; break }
+      $cur = Local $next; $hops++; continue
+    }
+    break
+  }
+  if ($leaves) { $outbound++; continue }
+  if ($r.Code -ne 200) { Log "  $($r.Status)  $l"; Note "broken internal link $l -> $($r.Status)" }
+  elseif ($hops -gt 1) { Log "  CHAIN $hops hops  $l"; Note "redirect chain ($hops hops) $l" }
+  elseif ($hops -eq 1) { $viaRedirect++; Log "  via one redirect  $l" }
+}
+if ($outbound) { Log "  outbound by design (one redirect off the hub): $outbound" }
+if ($viaRedirect) { Warn "$viaRedirect internal link(s) go through one redirect - link the final address" }
+Log "  (no status line above = every link answers in one hop at most)"
+
+Section "18. images on the sampled pages (check 21)"
+$imgTotal = 0; $imgNoAlt = 0; $imgNoSize = 0
+foreach ($sp in $sampled) {
+  foreach ($m in [regex]::Matches($sp.res.Text, '(?is)<img\b[^>]*>')) {
+    $imgTotal++
+    if ($m.Value -notmatch '(?i)\salt\s*=') { $imgNoAlt++; if ($imgNoAlt -le 3) { Log "  no alt: $(Cut $m.Value 120) on $($sp.url)" } }
+    if ($m.Value -notmatch '(?i)\swidth\s*=' -or $m.Value -notmatch '(?i)\sheight\s*=') { $imgNoSize++ }
+  }
+}
+Log "  images: $imgTotal   without alt: $imgNoAlt   without width+height: $imgNoSize"
+if ($imgNoAlt) { Note "$imgNoAlt image(s) without an alt attribute (2.13)" }
+if ($imgNoSize) { Warn "$imgNoSize image(s) without width and height - reserve the space (2.13)" }
+
+Section "19. graph shape - one title, one graph, one canonical; visible date == dateModified"
+foreach ($p in @("/", "/$first", "/about")) {
   $html = $hubProbe[$p].Text
   $t = ([regex]::Matches($html, '<title>')).Count; $graphs = ([regex]::Matches($html, 'application/ld\+json')).Count; $c = ([regex]::Matches($html, 'rel="canonical"')).Count
   $v = [regex]::Match($html, '<time[^>]*datetime="(\d{4}-\d{2}-\d{2})').Groups[1].Value
@@ -557,21 +839,32 @@ foreach ($p in @("/", "/$first")) {
   if (-not $v -or $v -ne $g) { Note "$p visible date '$v' != dateModified '$g'" }
   $canonHref = [regex]::Match($html, '<link[^>]*rel="canonical"[^>]*href="([^"]+)"').Groups[1].Value
   if ($canonHref -and $canonHref -notmatch "^https://$([regex]::Escape($CanonHost))") { Note "$p canonical is off the hub: $canonHref" }
+  $hdrCanon = [regex]::Match([string]$hubProbe[$p].Headers["link"], '<([^>]+)>;\s*rel="canonical"').Groups[1].Value
+  if ($hdrCanon -ne $canonHref) { Note "$p names two canonicals: '$hdrCanon' in the Link header, '$canonHref' in the head" }
+}
+# the hub's own door is the home page under a number: it answers, and names the home page in the header as in the head
+if ($hubSelf) {
+  $own = Probe "$B/$($hubSelf.n)"
+  $ownHead = [regex]::Match($own.Text, '<link[^>]*rel="canonical"[^>]*href="([^"]+)"').Groups[1].Value
+  $ownHdr = [regex]::Match([string]$own.Headers["link"], '<([^>]+)>;\s*rel="canonical"').Groups[1].Value
+  Log ("  /{0,-7} status={1} head={2} header={3}  (the hub's own door)" -f $hubSelf.n, $own.Status, $ownHead, $ownHdr)
+  if ($own.Code -ne 200) { Note "the hub's own door /$($hubSelf.n) -> $($own.Status)" }
+  elseif ($ownHead -ne "$Canon/" -or $ownHdr -ne "$Canon/") { Note "the hub's own door /$($hubSelf.n) names '$ownHdr' (header) and '$ownHead' (head) as canonical, not $Canon/" }
 }
 
-Section "17. oembed"
+Section "20. oembed"
 $oe = $hubProbe["/api/oembed?url=$([uri]::EscapeDataString("$Canon/$first"))"].Text
 Log "  $(Cut $oe 200)"
 if ($oe -notmatch '"type":\s*"rich"') { Note "oembed did not return a rich object" }
 $ox = Get-Code "$B/api/oembed?url=https%3A%2F%2Fevil.example%2Fx"; Log "  foreign url -> $ox (404 expected)"; if ($ox -ne "404") { Note "oembed accepts a foreign url" }
 $oxm = Get-Code "$B/api/oembed?url=$([uri]::EscapeDataString("$Canon/$first"))&format=xml"; Log "  format=xml -> $oxm (501 expected)"; if ($oxm -ne "501") { Note "oembed format=xml answered $oxm" }
 
-Section "18. status.json is a real call"
+Section "21. status.json is a real call"
 $st = $hubProbe["/status.json"].Text; Log "  $(Cut $st 200)"
 if ($st -notmatch '"ok":\s*true') { Note "status.json is not ok" }
 try { $stj = $st | ConvertFrom-Json; if ([int]$stj.doors -ne $sites.Count) { Note "status.json doors=$($stj.doors) but sites.json has $($sites.Count)" } } catch { Note "status.json is not JSON" }
 
-Section "19. openapi + api-catalog point at live paths"
+Section "22. openapi + api-catalog point at live paths"
 $oa = $null; try { $oa = $hubProbe["/openapi.json"].Text | ConvertFrom-Json } catch { Note "openapi.json is not JSON" }
 if ($oa) {
   $srvUrl = [string](@($oa.servers)[0].url)
@@ -596,7 +889,7 @@ foreach ($m in [regex]::Matches($cat, '"href"\s*:\s*"([^"]+)"')) {
 $doorReport = [System.Collections.Generic.List[object]]::new()
 $hubFails = $script:Fails.Count
 if (-not $HubOnly) {
-  Section "20. doors - the subset that applies to an origin"
+  Section "23. doors - the subset that applies to an origin"
   $list = $sites
   if ($Doors.Count) { $list = @($sites | Where-Object { $Doors -contains [int]$_.n }) }
   foreach ($s in $list) {
@@ -604,7 +897,7 @@ if (-not $HubOnly) {
     $label = "door #$n $($u.Authority)"
     $before = $script:Fails.Count
     Log ""; Log "  --- $label  $($s.url)"
-    if ($origin -eq $B -or $origin -eq $Canon) { Log "  (the hub itself - covered by sections 1-19)"; $doorReport.Add([pscustomobject]@{ n = $n; host = $u.Authority; ok = ($hubFails -eq 0); failures = @(); note = "hub" }); continue }
+    if ($origin -eq $B -or $origin -eq $Canon) { Log "  (the hub itself - covered by sections 1-22)"; $doorReport.Add([pscustomobject]@{ n = $n; host = $u.Authority; ok = ($hubFails -eq 0); failures = @(); note = "hub" }); continue }
     if ($u.Scheme -ne "https" -and $u.Host -notmatch '^(127\.0\.0\.1|localhost)$') { Note "$label live URL is not https" }
     $homeRes = Follow $s.url
     Log ("  {0,-6} {1,-8} home ({2})" -f $homeRes.Status, $homeRes.Bytes.Length, $homeRes.Final)

@@ -21,3 +21,7 @@ _reach-pack/
 # the reachability sweep's local output (tools/reachability.ps1)
 reach-*.log
 reach-doors.json
+
+# what the tools write on a PC: logs, and each site's pack kit (reference, work order, replaced and withdrawn files)
+_logs/
+_packs/

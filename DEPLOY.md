@@ -12,11 +12,37 @@ Set-Location "$env:USERPROFILE\Desktop\The Reach 02"; npx wrangler deploy
 Then prove it before anything is pinged (one verdict line, the log next to it):
 
 ```powershell
-pwsh .\tools\reachability.ps1 -HubOnly        # the hub's 19 sections
+pwsh .\tools\reachability.ps1 -HubOnly        # the hub's 22 sections
 pwsh .\tools\reachability.ps1                 # the hub + every door in /sites.json
 ```
 
-`RESULT: PASS` or `RESULT: FAIL <first failure>`. Nothing is pinged over a failing sweep.
+`RESULT: PASS` or `RESULT: FAIL <first failure>`. The log is written inside the project, in `_logs\`.
+
+## Before a push (no account, no network)
+
+```powershell
+npm test                                                             # the pack, the hub's surface, the probes, crawler proof
+node test/rig.mjs                                                    # the hub on http://127.0.0.1:8772, in-memory database
+pwsh .\tools\reachability.ps1 -Hub http://127.0.0.1:8772 -HubOnly    # the same sweep, against that local hub
+```
+
+The tests need Node 22.5 or later (they use Node's built-in SQLite; on an older Node the hub tests are skipped, not failed).
+
+## Per-site packs
+
+The hub builds one pack per door, following "Calling AI Models", Revision 3. Two scripts carry it to the sites:
+
+```powershell
+.\tools\pack-install.ps1            # scan: which door matches which local folder; writes nothing
+.\tools\pack-install.ps1 -Apply     # write each pack's served files into its site's web root
+.\tools\pack-deploy.ps1             # plan: how each folder would be deployed; runs nothing
+.\tools\pack-deploy.ps1 -Apply      # deploy each site with its own mechanism
+```
+
+- Only files meant to be served enter a web root. Reference material, the site sheet, the work order and a copy of anything replaced or withdrawn are kept in `_packs\<host>\` inside this folder; logs in `_logs\`. Both are git-ignored.
+- The site's own files win. A web root carries a pack when its `robots.txt` says so (the pack's own line); where it does not, every file already in place is kept and only the missing ones are written. `_headers` and `_redirects` are kept on every site unless they are a pack's. The pack's version of each kept file waits beside the reference material. A site whose own `robots.txt` states the opposite training answer is not touched.
+- A file an earlier pack wrote that this revision withdraws (a static `status.json`, a guessed `opensearch.xml`, an invented `security.txt` contact) is moved out only when its text is exactly what that pack wrote.
+- A stored pack that predates Revision 3 is rebuilt on the hub when the installer asks for it (`POST /v1/sites/{id}/pack`, admin: a fresh probe, no new briefing). Without the installer every pack is rebuilt on its door's turn in the hourly rotation.
 
 ## Crons
 
@@ -135,6 +161,8 @@ IndexNow does not reach Google; the sitemap index must be submitted by hand once
 - Bing Webmaster Tools: `https://www.bing.com/webmasters` - add the site (or import it from Search Console) - Sitemaps - Submit sitemap - paste `https://reach2.aplusz.app/sitemap.xml`. Bing also shows the IndexNow submissions the hub already makes with its key file at `https://reach2.aplusz.app/<INDEXNOW_KEY>.txt` (the key is the `INDEXNOW_KEY` var in `wrangler.jsonc`; an IndexNow key is public by protocol, the endpoints verify it by fetching that file. To keep it out of the repository instead, delete the var and run `npx wrangler secret put INDEXNOW_KEY` once - the Worker reads either).
 
 Re-submit only after a change that genuinely altered the sitemap's shape; identical re-submissions are throttled.
+
+`/sitemap.xml` lists the pages (the home page, `/about`, every door). The Markdown twins and the root machine files are in a second file, `/sitemap-md.xml`; `robots.txt` names both, so the second one needs no submission.
 
 ### 2b. Google Search Console and Bing - automatic from now on (one-time setup)
 

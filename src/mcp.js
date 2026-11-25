@@ -1,14 +1,21 @@
 /* /mcp - DUAL ERA.
-   A client that sends per-request `_meta` naming 2026-07-28 is served that revision: stateless, `server/discover`,
-   the three required headers checked against the body, `resultType` on every result. A client that opens with
-   `initialize`, or that names a 2025 revision in `_meta`, is served the 2025 wire shape instead. Every version the
-   card and server/discover advertise answers here; a version not in that list is -32022 with the list.
+   A client that sends per-request `_meta` naming 2026-07-28 is served that revision: stateless, `server/discover`
+   (supportedVersions, capabilities, ttlMs, cacheScope, serverInfo in _meta), the request headers checked against the
+   body (MCP-Protocol-Version, Mcp-Method, and Mcp-Name on tools/call and resources/read - Base64 sentinel decoded),
+   `resultType` on every result, ttlMs + cacheScope on every list and read, no `ping` (the revision removed it), an
+   unknown method as 404 + -32601. A client that opens with `initialize`, or that names a 2025 revision in `_meta`, is
+   served the 2025 wire shape instead. Every version the card and server/discover advertise answers here; a version
+   not in that list is -32022 with the list.
+   Resources: the two documents a model should read whole (the full brief, the atlas) are listed AND readable -
+   resources/list without resources/read would be a pointer at nothing.
    JSON-RPC batches (an array body) are answered element by element, as the 2025-03-26 transport required.
    Tools in a fixed order: match{q}, door{n}, list_doors{}. Each structuredContent is exactly the object the
    HTTP route returns (/match?q=, /{n}.json, /sites.json) - the same functions, never a second resolver.
    A request body is read up to BODY_MAX bytes and no further: past that the answer is 413. */
-import { MATCH_RULES_TEXT, matchResult } from "./atlas.js";
+import { MATCH_RULES_TEXT, handleAtlas, matchResult } from "./atlas.js";
+import { one } from "./db.js";
 import { publicBase } from "./hill.js";
+import { publicExtra } from "./public-extra.js";
 import { CORS, MCP_LEGACY, MCP_MODERN, MCP_NAME, MCP_VERSION, doorJsonOf, preflight, sitesJson } from "./surfaces.js";
 import { readBodyCapped } from "./util.js";
 
@@ -79,6 +86,40 @@ async function runTool(name, a, env, slots) {
   return null;
 }
 
+/** The readable resources: the same bytes the HTTP routes serve, through the same functions. */
+const RESOURCES = (base) => [
+  { uri: `${base}/llms-full.txt`, name: "llms-full.txt", title: "Full brief", description: "Every door in full, with its live URL, record and status; resolution rules, fields, citation format.", mimeType: "text/markdown" },
+  { uri: `${base}/atlas.md`, name: "atlas.md", title: "Network atlas", description: "What each site is, its keywords and the questions it answers, with the match rules.", mimeType: "text/markdown" },
+];
+
+async function readResource(uri, env, slots) {
+  const base = publicBase(env);
+  try {
+    if (uri === `${base}/llms-full.txt`) {
+      const map = await one(env, "SELECT * FROM reach_map WHERE id = 'reach'").catch(() => null);
+      const res = await publicExtra("/llms-full.txt", env, slots, map);
+      return res ? await res.text() : null;
+    }
+    if (uri === `${base}/atlas.md`) {
+      const res = await handleAtlas("/atlas.md", new URL(uri), env);
+      return res && res.ok ? await res.text() : null;
+    }
+  } catch { /* an unreadable resource is reported as not found, never as a 500 */ }
+  return null;
+}
+
+/** An Mcp-Name / Mcp-Param header value as the client meant it: `=?base64?...?=` carries UTF-8 the header could not. */
+export function headerValue(raw) {
+  if (raw == null) return null;
+  const m = /^=\?base64\?([A-Za-z0-9+/=]*)\?=$/.exec(raw);
+  if (!m) return raw;
+  try {
+    return new TextDecoder("utf-8", { fatal: true }).decode(Uint8Array.from(atob(m[1]), (c) => c.charCodeAt(0)));
+  } catch {
+    return null;
+  }
+}
+
 export function originAllowed(request, env) {
   const origin = request.headers.get("origin");
   if (!origin) return true;
@@ -110,7 +151,7 @@ async function dispatch(body, request, env, slots) {
     version = MCP_LEGACY.includes(want) ? want : MCP_LEGACY[0];
     return ok({
       protocolVersion: version,
-      capabilities: { tools: { listChanged: false } },
+      capabilities: { tools: { listChanged: false }, resources: { subscribe: false, listChanged: false } },
       serverInfo: { name: MCP_NAME, version: MCP_VERSION },
       instructions,
     });
@@ -125,21 +166,29 @@ async function dispatch(body, request, env, slots) {
   const modern = v === MCP_MODERN;
   if (modern && request.headers.get("mcp-protocol-version") !== v) return bad(-32020, "Header mismatch: MCP-Protocol-Version", null, 400);
   if (modern && request.headers.get("mcp-method") !== body.method) return bad(-32020, "Header mismatch: Mcp-Method", null, 400);
-  if (modern && ["tools/call", "resources/read", "prompts/get"].includes(body.method) && request.headers.get("mcp-name") !== body.params?.name) return bad(-32020, "Header mismatch: Mcp-Name", null, 400);
+  /* Mcp-Name mirrors params.name (tools/call, prompts/get) or params.uri (resources/read) */
+  const named = body.method === "resources/read" ? body.params?.uri : body.params?.name;
+  if (modern && ["tools/call", "resources/read", "prompts/get"].includes(body.method) && headerValue(request.headers.get("mcp-name")) !== named) return bad(-32020, "Header mismatch: Mcp-Name", null, 400);
 
   const serverMeta = modern ? { _meta: { "io.modelcontextprotocol/serverInfo": { name: MCP_NAME, version: MCP_VERSION } } } : {};
   const done = (res) => (modern ? { resultType: "complete", ...res, ...serverMeta } : res);
 
+  const cache = { ttlMs: 3600000, cacheScope: "public" };
   if (body.method === "server/discover") {
     return ok(done({
-      supportedProtocolVersions: SPOKEN,
-      capabilities: { tools: { listChanged: false } },
-      serverInfo: { name: MCP_NAME, version: MCP_VERSION, websiteUrl: `${base}/`, documentationUrl: `${base}/llms-full.txt` },
+      supportedVersions: SPOKEN,
+      capabilities: { tools: { listChanged: false }, resources: {} },
       instructions,
+      ...cache,
+      /* not in the 2026-07-28 schema: the names earlier drafts of this revision used, kept for clients built from
+         them (a result may carry extra members). The schema's own serverInfo is in _meta. */
+      supportedProtocolVersions: SPOKEN,
+      serverInfo: { name: MCP_NAME, version: MCP_VERSION, websiteUrl: `${base}/`, documentationUrl: `${base}/llms-full.txt` },
     }));
   }
-  if (body.method === "ping") return ok(done({}));
-  if (body.method === "tools/list") return ok(done({ tools: TOOLS, ttlMs: 3600000, cacheScope: "public" }));
+  /* ping left the protocol in 2026-07-28; a 2025 client still gets its pong */
+  if (body.method === "ping" && !modern) return ok({});
+  if (body.method === "tools/list") return ok(done({ tools: TOOLS, ...cache }));
   if (body.method === "tools/call") {
     const name = body.params?.name;
     if (!TOOLS.some((t) => t.name === name)) return bad(-32602, "Unknown tool: " + name, { tools: TOOLS.map((t) => t.name) });
@@ -147,13 +196,15 @@ async function dispatch(body, request, env, slots) {
     const out = await runTool(name, args && typeof args === "object" && !Array.isArray(args) ? args : {}, env, slots);
     return ok(done({ content: [{ type: "text", text: JSON.stringify(out) }], structuredContent: out, isError: out?.found === false && !!out?.error }));
   }
-  if (body.method === "resources/list") {
-    return ok(done({
-      resources: [
-        { uri: `${base}/llms-full.txt`, name: "Full brief", description: "Every door with its live URL, record and machine surfaces.", mimeType: "text/markdown" },
-        { uri: `${base}/atlas.md`, name: "Network atlas", description: "What each site is, its keywords and the questions it answers, with the match rules.", mimeType: "text/markdown" },
-      ],
-    }));
+  if (body.method === "resources/list") return ok(done({ resources: RESOURCES(base), ...cache }));
+  if (body.method === "resources/templates/list") return ok(done({ resourceTemplates: [], ...cache }));
+  if (body.method === "resources/read") {
+    const uri = body.params?.uri;
+    const hit = typeof uri === "string" ? RESOURCES(base).find((r) => r.uri === uri) : null;
+    const text = hit ? await readResource(uri, env, slots) : null;
+    /* not found is -32602 since 2026-07-28; the 2025 revisions used -32002 */
+    if (text == null) return bad(modern ? -32602 : -32002, "Resource not found", { uri: typeof uri === "string" ? uri.slice(0, 300) : null, resources: RESOURCES(base).map((r) => r.uri) });
+    return ok(done({ contents: [{ uri, mimeType: hit.mimeType, text }], ttlMs: 600000, cacheScope: "public" }));
   }
   return bad(-32601, "Method not found: " + body.method, { doors: slots.length }, modern ? 404 : 200);
 }

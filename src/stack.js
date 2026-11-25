@@ -3,18 +3,24 @@ import { discardBody, nowIso, readResponseCapped } from "./util.js";
 import { recentOriginChanges } from "./origin-urls.js";
 import { ensureIndexNowKey, keyFileUrl } from "./ping.js";
 import { buildKeywordPack, scanBacklinks } from "./intel.js";
-import { ENDPOINT_PROBES, PLAYBOOK_PATHS, buildPlaybookFiles } from "./playbook.js";
+import { ENDPOINT_PROBES, PACK_LEFTOVERS, PLAYBOOK_PATHS, buildPlaybookFiles, leftoverOf } from "./playbook.js";
 import { isSelfUrl, selfBase, selfProbe } from "./self.js";
-import { A2A_SPOKEN, MCP_LEGACY, MCP_MODERN } from "./surfaces.js";
+import { A2A_SPOKEN, CONTACT, MCP_LEGACY, MCP_MODERN } from "./surfaces.js";
 import { ensureDoorNumbers } from "./hill.js";
 
 export const ANSWER_CHANNEL_ID = "ch_answer";
 // 6: interpolation fix (no "${" in any served file), cards gated on live /mcp and /a2a probes, asker-first
 //    llms.txt, SKILL.md digest, pack self-test. Every pack is rebuilt on its next rotation.
-export const STACK_VERSION = 6;
+// 7: Calling AI Models, Revision 3 (25 November 2026): 248 agent groups + the shared training-preference group,
+//    RSL 1.0 licence shape, MCP card at {endpoint}/server-card, A2A 1.0 card (supportedInterfaces) gated on a real
+//    SendMessage, one catalog at ard.json + ai-catalog.json (urn:air:), llms.txt v2 shape, no invented contact,
+//    search, status, flows or icons, the work-order kit and the installer's manifest; files an earlier pack left
+//    are recognised by their exact text (probe and installer) and withdrawn. A stored pack keeps its old shape
+//    until it is rebuilt: its next rotation, POST /v1/sites/{id}/pack (no new briefing) or .../brief.
+export const STACK_VERSION = 7;
 /** The date the current STACK_VERSION's release-derived files (openapi.json, the MCP card, agent skills) last
- *  changed: bumped together with STACK_VERSION. map.js uses it as their sitemap <lastmod>. */
-export const STACK_RELEASED = "2026-11-02";
+ *  changed: bumped together with STACK_VERSION. */
+export const STACK_RELEASED = "2026-11-25";
 
 /* ---- pack pull (CONTRACT.md, builder O2 implements; builder O1 routes /pack/{site_id}/{token}/...) ---- */
 /** The per-site pull token, or "" when the hub cannot mint one. WAVE-0 STUB. */
@@ -44,12 +50,17 @@ export const SITE_FEATURES = [
   { id: "websub", label: "WebSub publish when a feed exists" },
   { id: "catalog", label: "Public catalog.json + changes.txt + pings" },
   { id: "reach_map", label: "Reach map expands on every add" },
-  { id: "agents_v3", label: "217 named agent groups + wildcard (verified 17 Oct 2026)" },
-  { id: "mcp_sep2127", label: "MCP server card at /.well-known/mcp-server-card + 2 aliases, only when /mcp answered both eras" },
-  { id: "a2a_10", label: "A2A 1.0 agent card, only when /a2a answered message/send" },
-  { id: "endpoint_gate", label: "POST probes of /mcp (initialize + server/discover) and /a2a before any card; _reach-pack/NOT-SHIPPED.md otherwise" },
+  { id: "agents_v3", label: "248 named agent groups + wildcard + the shared training-preference group (re-diffed 25 Nov 2026)" },
+  { id: "mcp_sep2127", label: "MCP server card at {mcp endpoint}/server-card + 3 same-bytes aliases, only when /mcp answered" },
+  { id: "a2a_10", label: "A2A 1.0 agent card (supportedInterfaces), only when /a2a answered SendMessage as 1.0" },
+  { id: "endpoint_gate", label: "POST probes of /mcp (initialize + server/discover) and /a2a (SendMessage) before any card; _reach-pack/NOT-SHIPPED.md otherwise" },
   { id: "pack_selftest", label: "No pack is written with a template string or placeholder domain in any file" },
-  { id: "pick_layer", label: "seo/keywords.json + seo/structure.json (PART 21)" },
+  { id: "pick_layer", label: "seo/keywords.json + seo/structure.json (repository files, never served)" },
+  { id: "catalog_air", label: "One catalog at /.well-known/ard.json and /.well-known/ai-catalog.json (urn:air: identifiers, 2-5 user questions per entry)" },
+  { id: "policy_sync", label: "One policy value writes robots.txt, ai.txt, license.xml (RSL 1.0), tdmrep.json, agent-permissions.json and the llms.txt terms" },
+  { id: "honest_pack", label: "No invented contact, search, status, flows or icons: withheld with the reason" },
+  { id: "work_order", label: "Site sheet, work order and state file for a model that installs the pack; MANIFEST.json for the installer" },
+  { id: "pack_cleanup", label: "Files an earlier pack left are recognised by their exact text and withdrawn; a site's own files are never taken for them" },
   { id: "feeds", label: "Atom + JSON Feed with a WebSub hub" },
   { id: "headers", label: "Header block, _headers / _redirects, head discovery block" },
   { id: "capture", label: "Full door record: sitemap, key, llms.txt, description, languages" },
@@ -58,6 +69,9 @@ export const SITE_FEATURES = [
 ];
 
 const MACHINE_PATHS = PLAYBOOK_PATHS;
+/* paths asked for one reason only: to recognise a file an earlier revision of the pack left there. A row is kept
+   only when it is one; a site's own file at such a path is none of the pack's business. */
+const LEFTOVER_ONLY_PATHS = PACK_LEFTOVERS.map((l) => `/${l.path}`).filter((p) => !PLAYBOOK_PATHS.includes(p));
 
 export async function ensureAnswerChannel(env) {
   const existing = await one(env, "SELECT id FROM channels WHERE id = ?", ANSWER_CHANNEL_ID);
@@ -89,8 +103,13 @@ async function probeGet(base, path) {
   const url = `${base}${path}`;
   try {
     const res = await fetch(url, { redirect: "follow", headers: { "user-agent": PROBE_UA }, signal: AbortSignal.timeout(9000) });
-    const head = res.ok ? (await readHead(res, 2048).catch(() => "")).slice(0, 1200) : "";
+    const body = res.ok ? await readHead(res, 2048).catch(() => "") : "";
+    const head = body.slice(0, 1200);
     if (!res.ok) await discardBody(res);
+    /* a file an earlier revision of the pack wrote, recognised by its exact text, is not something this site
+       offers: it is closed here, so nothing in the new pack links it, and the work order deletes it */
+    const left = res.ok ? leftoverOf(path, body) : null;
+    if (left) return { path, url: res.url || url, status: res.status, open: false, leftover: true, detail: `left by an earlier pack: ${left.because}` };
     const wantsMachine = /\.(json|xml|txt|md|js)$|^\/\.well-known\/|^\/llms|^\/seo\//.test(path) && !/\.(html?)$/.test(path);
     const soft = res.ok && wantsMachine && HTML_HEAD.test(head) && !/^\/\.well-known\/(security|trust)\.txt$/.test(path);
     return { path, url: res.url || url, status: res.status, open: res.ok && !soft, ...(soft ? { detail: "soft 200: an HTML page where a machine file was expected" } : {}) };
@@ -146,13 +165,15 @@ export async function probeMcp(base) {
   try {
     const r = await rpc(
       url,
-      { jsonrpc: "2.0", id: 2, method: "server/discover", params: { _meta: { "io.modelcontextprotocol/protocolVersion": MCP_MODERN, protocolVersion: MCP_MODERN } } },
-      { "MCP-Protocol-Version": MCP_MODERN, "Mcp-Method": "server/discover", "Mcp-Name": "TheReach02-probe" }
+      { jsonrpc: "2.0", id: 2, method: "server/discover", params: { _meta: { "io.modelcontextprotocol/protocolVersion": MCP_MODERN, "io.modelcontextprotocol/clientInfo": { name: "TheReach02-probe", version: "1.3" }, "io.modelcontextprotocol/clientCapabilities": {} } } },
+      { "MCP-Protocol-Version": MCP_MODERN, "Mcp-Method": "server/discover" }
     );
     status = r.status || status;
     finalUrl = r.url || finalUrl;
-    const versions = r.body?.result?.supportedProtocolVersions;
-    if (r.ok && r.body?.jsonrpc === "2.0" && r.body?.result && (!Array.isArray(versions) || versions.includes(MCP_MODERN))) modern.push(MCP_MODERN);
+    /* the 2026-07-28 member is supportedVersions; servers built from earlier drafts answer supportedProtocolVersions */
+    const res = r.body?.result;
+    const versions = Array.isArray(res?.supportedVersions) ? res.supportedVersions : res?.supportedProtocolVersions;
+    if (r.ok && r.body?.jsonrpc === "2.0" && res && typeof res === "object" && (!Array.isArray(versions) || versions.includes(MCP_MODERN))) modern.push(MCP_MODERN);
     else if (r.ok && r.body?.error) detail.push(`server/discover: ${String(r.body.error.message || "error").slice(0, 60)}`);
   } catch (err) {
     detail.push(`server/discover: ${String(err?.message || err).slice(0, 60)}`);
@@ -161,29 +182,68 @@ export async function probeMcp(base) {
   return { path: "/mcp", method: "POST", url: finalUrl, status, open: versions.length > 0, mcp: { versions, modern, legacy }, ...(detail.length ? { detail: detail.join("; ") } : {}) };
 }
 
-/** /a2a: a JSON-RPC message/send with `A2A-Version: 1.0`; open only when a 1.0 result came back. */
+const isObj = (x) => !!x && typeof x === "object" && !Array.isArray(x);
+
+/** /a2a, each version by its own wire. 1.0: JSON-RPC `SendMessage` with `A2A-Version: 1.0`; heard only when the
+ *  result carries a `message` or a `task` (the 1.0 SendMessageResponse). 0.3: `message/send` with no version header
+ *  (an empty header IS 0.3); heard only when the result carries the 0.3 `kind`. The row is open - and a card is
+ *  written - only for 1.0: a 0.3 answer under a 1.0 label would be a dead card. */
 export async function probeA2a(base) {
   const url = `${base}/a2a`;
+  const versions = [];
+  const detail = [];
+  let status = 0;
+  let finalUrl = url;
   try {
     const r = await rpc(
       url,
-      { jsonrpc: "2.0", id: 1, method: "message/send", params: { message: { role: "user", messageId: "reach-probe", kind: "message", parts: [{ kind: "text", text: "probe" }] } } },
+      { jsonrpc: "2.0", id: 1, method: "SendMessage", params: { message: { messageId: "reach-probe-1", role: "ROLE_USER", parts: [{ text: "probe" }] } } },
       { "A2A-Version": "1.0" }
     );
-    const spoke = r.ok && r.body?.jsonrpc === "2.0" && r.body?.result && typeof r.body.result === "object";
-    const listed = r.body?.error?.data?.supported;
-    const versions = spoke ? ["1.0"] : Array.isArray(listed) ? listed.filter((v) => A2A_SPOKEN.includes(v)) : [];
-    return { path: "/a2a", method: "POST", url: r.url || url, status: r.status, open: versions.includes("1.0"), a2a: { versions }, ...(r.body?.error ? { detail: String(r.body.error.message || "error").slice(0, 80) } : {}) };
+    status = r.status || status;
+    finalUrl = r.url || finalUrl;
+    const res = r.body?.result;
+    if (r.ok && r.body?.jsonrpc === "2.0" && isObj(res) && (isObj(res.message) || isObj(res.task))) versions.push("1.0");
+    else if (r.body?.error) detail.push(`SendMessage: ${String(r.body.error.message || "error").slice(0, 70)}`);
+    else if (r.ok && isObj(res)) detail.push("SendMessage: the result is not the 1.0 shape (no message, no task)");
   } catch (err) {
-    return { path: "/a2a", method: "POST", url, status: 0, open: false, a2a: { versions: [] }, detail: String(err?.message || err).slice(0, 80) };
+    detail.push(`SendMessage: ${String(err?.message || err).slice(0, 60)}`);
   }
+  try {
+    const r = await rpc(url, { jsonrpc: "2.0", id: 2, method: "message/send", params: { message: { kind: "message", role: "user", messageId: "reach-probe-2", parts: [{ kind: "text", text: "probe" }] } } });
+    status = status || r.status;
+    const res = r.body?.result;
+    if (r.ok && r.body?.jsonrpc === "2.0" && isObj(res) && (res.kind === "message" || res.kind === "task")) versions.push("0.3");
+  } catch { /* a 0.3 wire is optional */ }
+  return { path: "/a2a", method: "POST", url: finalUrl, status, open: versions.includes("1.0"), a2a: { versions }, ...(detail.length ? { detail: detail.join("; ") } : {}) };
+}
+
+/** A contact address the site ITSELF publishes: a mailto: link on its own page, one on its own domain first.
+ *  Never invented, never decoded from an obfuscated form: a site that hides its address from fetchers keeps it. */
+export function contactFromHtml(html, siteUrl) {
+  let host = "";
+  try { host = new URL(siteUrl).hostname.replace(/^www\./, "").toLowerCase(); } catch { return ""; }
+  const found = [];
+  const re = /href\s*=\s*["']mailto:([^"'?\s>]+)/gi;
+  let m;
+  let guard = 0;
+  while ((m = re.exec(String(html || ""))) && guard++ < 200 && found.length < 20) {
+    let addr = m[1];
+    try { addr = decodeURIComponent(addr); } catch { /* keep as written */ }
+    addr = addr.trim().toLowerCase();
+    if (!/^[a-z0-9._%+-]+@[a-z0-9.-]+\.[a-z]{2,}$/.test(addr)) continue;
+    if (/@example\.|^(you|your|name|email|user|someone)@|noreply|no-reply|donotreply/.test(addr)) continue;
+    if (!found.includes(addr)) found.push(addr);
+  }
+  return found.find((x) => x.endsWith(`@${host}`) || x.endsWith(`.${host}`)) || found[0] || "";
 }
 
 export async function probeOrigin(origin) {
   const base = origin.replace(/\/+$/, "");
   const gets = await Promise.all(MACHINE_PATHS.map((path) => probeGet(base, path)));
+  const lefts = (await Promise.all(LEFTOVER_ONLY_PATHS.map((path) => probeGet(base, path)))).filter((row) => row.leftover);
   const posts = await Promise.all(ENDPOINT_PROBES.map((p) => (p === "/mcp" ? probeMcp(base) : probeA2a(base))));
-  return [...gets, ...posts];
+  return [...gets, ...lefts, ...posts];
 }
 
 /** The hub never fetches itself: its own /mcp and /a2a are what src/mcp.js and src/a2a.js speak, by the
@@ -282,10 +342,7 @@ export function buildOriginGaps(probe, origin, indexnowKey) {
     files["/.well-known/llms.txt"] = "Alias of /llms.txt — copy the same bytes.";
   }
   if (miss("/tdmrep.json")) {
-    files["/tdmrep.json"] = JSON.stringify([{ location: "/", "tdm-reservation": 0 }], null, 2);
-  }
-  if (miss("/.well-known/agents.json")) {
-    files["/.well-known/agents.json"] = JSON.stringify({ spec_version: "1.0", sources: [], flows: [] }, null, 2);
+    files["/tdmrep.json"] = JSON.stringify([{ location: "/", "tdm-reservation": 0, "tdm-policy": `${origin}/license.xml` }], null, 2);
   }
   if (indexnowKey) {
     files[`/${indexnowKey}.txt`] = indexnowKey;
@@ -326,11 +383,13 @@ export async function persistStack(env, site, briefing, intel) {
     const own = await one(env, "SELECT door_n, active FROM sites WHERE id = ?", site.id);
     const n = own && Number(own.active) === 1 && Number(own.door_n) > 0 ? Number(own.door_n) : 0;
     const wd = await one(env, "SELECT qid FROM wikidata WHERE site_id = ?", site.id).catch(() => null);
-    if (n > 0) site.__door = { n, path: `${base}/${n}`, hash: `${base}/#${n}`, qid: wd?.qid || "", hubSite: `${base}/#site`, hubOrg: `${base}/#org` };
+    if (n > 0) site.__door = { n, hub: base, path: `${base}/${n}`, hash: `${base}/#${n}`, qid: wd?.qid || "", hubSite: `${base}/#site`, hubOrg: `${base}/#org` };
   } catch { /* pack still builds without the loop */ }
   // async: the agent-skills digest is the real sha256 of SKILL.md; throws on any placeholder, so a bad pack
   // is never persisted and the previous good one stays in the packs table
   site.__changes = await recentOriginChanges(env, site.id, 50).catch(() => []);
+  // the only contact a pack ever names is one the site publishes on its own page
+  site.__contact = selfSite ? CONTACT : contactFromHtml(html, site.url);
   const playbook = await buildPlaybookFiles(site, used, probe, keywords, structure, doors, backlinks);
   const files = {
     ...playbook,

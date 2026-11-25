@@ -351,11 +351,9 @@ export function hillHtml(slots, graph = null, env = undefined, publicMap = null)
   <meta name="theme-color" content="#0f1a12">${verifyMetas(env)}
   <link rel="icon" href="/icon-192.png">
   <link rel="apple-touch-icon" href="/icon-192.png">
-  <link rel="alternate" type="text/markdown" href="/llms.txt">
   <link rel="alternate" type="text/markdown" href="/atlas.md">
   <link rel="alternate" type="application/json" href="/atlas.json">
   <link rel="alternate" type="application/json" href="/catalog.json">
-  <link rel="alternate" type="application/feed+json" href="/feed.json">
   <script type="application/ld+json">${jsonForScript(g)}</script>
   <style>
     body{margin:0;font:16px/1.45 system-ui,sans-serif;background:#0f1a12;color:#e8f6e4}
@@ -381,7 +379,7 @@ export function hillHtml(slots, graph = null, env = undefined, publicMap = null)
   <h1>${esc(question)}</h1>
   <p class="tag">${esc(SITE_NAME)} (${esc(SITE_ALT)}). ${esc(TAGLINE)}</p>
   <p class="lead">${answerHtml(answer, base)}</p>
-  <p class="meta">Updated <time datetime="${esc(date)}">${esc(date)}</time> &middot; ${doors.length} door${doors.length === 1 ? "" : "s"} &middot; <a href="/index.md">Markdown</a> &middot; <a href="/llms.txt">llms.txt</a> &middot; <a href="/sites.json">sites.json</a> &middot; <a href="/atlas.md">atlas</a></p>
+  <p class="meta">Updated <time datetime="${esc(date)}">${esc(date)}</time> &middot; ${doors.length} door${doors.length === 1 ? "" : "s"} &middot; <a href="/index.md">Markdown</a> &middot; <a href="/llms.txt">llms.txt</a> &middot; <a href="/sites.json">sites.json</a> &middot; <a href="/atlas.md">atlas</a> &middot; <a href="/about">about</a></p>
   <nav aria-label="Doors">
     <ol id="doors" class="doors">
 ${items || "      <li>No doors yet.</li>"}
@@ -434,7 +432,7 @@ export function homeMarkdown(slots, env, publicMap = null) {
 > ${md(TAGLINE)}
 > ${md(homeAnswer(count, base, { closed: closedN, live: list.filter((s) => s.status === "live").length }))}
 
-Updated ${date}. ${list.length} door${list.length === 1 ? "" : "s"}. HTML: ${base}/ · llms.txt: ${base}/llms.txt · records: ${base}/sites.json
+Updated ${date}. ${list.length} door${list.length === 1 ? "" : "s"}. HTML: ${base}/ · llms.txt: ${base}/llms.txt · records: ${base}/sites.json · about: ${base}/about
 
 ## Doors
 
@@ -447,7 +445,8 @@ ${doors || "- (no doors yet)"}
 - Atlas (what each site answers): ${base}/atlas.md · ${base}/atlas.json
 - Site records (sitemap, llms.txt, IndexNow key URL, languages, Wikidata): ${base}/sites.md · ${base}/sites.json
 - Knowledge graph: ${base}/jsonld.json · feeds: ${base}/feed.xml (Atom) · ${base}/rss.xml (RSS) · ${base}/feed.json
-- Sitemap: ${base}/sitemap.xml · whole network: ${base}/sitemap-index.xml
+- Sitemap: ${base}/sitemap.xml (pages) · ${base}/sitemap-md.xml (Markdown twins and machine files)
+- Catalog of machine interfaces: ${base}/.well-known/ard.json · MCP server card: ${base}/mcp/server-card
 
 Cite the live URL, not a paraphrase. Cite as: ${md(SITE_NAME)}, retrieved ${date}, ${base}/
 `;
