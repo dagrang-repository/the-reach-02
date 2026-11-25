@@ -21,17 +21,18 @@ Every file is served by the Worker (`src/`) from one resolver; there are no stat
 | Home twin | https://reach2.aplusz.app/index.md |
 | Atlas + matcher | https://reach2.aplusz.app/atlas.json · https://reach2.aplusz.app/atlas.md · https://reach2.aplusz.app/match?q=your+question |
 | OpenAPI 3.1 | https://reach2.aplusz.app/openapi.json |
-| MCP server card (SEP-2127) | https://reach2.aplusz.app/.well-known/mcp-server-card · aliases https://reach2.aplusz.app/.well-known/mcp.json · https://reach2.aplusz.app/.well-known/mcp/server-card.json |
-| MCP endpoint (dual era: `server/discover` 2026-07-28 and legacy `initialize`) | https://reach2.aplusz.app/mcp (POST) |
+| MCP server card (SEP-2127) | https://reach2.aplusz.app/mcp/server-card · same bytes at https://reach2.aplusz.app/.well-known/mcp-server-card · https://reach2.aplusz.app/.well-known/mcp.json · https://reach2.aplusz.app/.well-known/mcp/server-card.json |
+| MCP endpoint (dual era: `server/discover` 2026-07-28 and legacy `initialize`; tools and resources) | https://reach2.aplusz.app/mcp (POST) |
 | MCP registry manifest | https://reach2.aplusz.app/server.json |
 | A2A 1.0 agent card | https://reach2.aplusz.app/.well-known/agent-card.json · alias https://reach2.aplusz.app/.well-known/agent.json |
-| A2A endpoint (`message/send`) | https://reach2.aplusz.app/a2a (POST) |
-| Agent skills | https://reach2.aplusz.app/.well-known/agent-skills/index.json · https://reach2.aplusz.app/skills/reach/SKILL.md |
+| A2A endpoint (`SendMessage` 1.0 · `message/send` 0.3) | https://reach2.aplusz.app/a2a (POST) |
+| Agent skills | https://reach2.aplusz.app/.well-known/agent-skills/index.json · https://reach2.aplusz.app/.well-known/agent-skills/reach/SKILL.md |
 | API catalog (RFC 9727) | https://reach2.aplusz.app/.well-known/api-catalog |
-| AI catalog (ARD) | https://reach2.aplusz.app/.well-known/ai-catalog.json |
+| AI catalog (one document, two paths) | https://reach2.aplusz.app/.well-known/ard.json · https://reach2.aplusz.app/.well-known/ai-catalog.json |
 | Agent permissions / agents | https://reach2.aplusz.app/.well-known/agent-permissions.json · https://reach2.aplusz.app/.well-known/agents.json |
-| Policy, one answer in every file | https://reach2.aplusz.app/robots.txt · https://reach2.aplusz.app/ai.txt · https://reach2.aplusz.app/license.xml (RSL) · https://reach2.aplusz.app/tdmrep.json · https://reach2.aplusz.app/.well-known/tdmrep.json |
-| Sitemaps | https://reach2.aplusz.app/sitemap.xml (index) → https://reach2.aplusz.app/sitemap-doors.xml · https://reach2.aplusz.app/sitemap-machine.xml |
+| Policy, one answer in every place | https://reach2.aplusz.app/robots.txt · https://reach2.aplusz.app/ai.txt · https://reach2.aplusz.app/license.xml (RSL 1.0) · https://reach2.aplusz.app/tdmrep.json · https://reach2.aplusz.app/.well-known/tdmrep.json |
+| Sitemaps | https://reach2.aplusz.app/sitemap.xml (index) → https://reach2.aplusz.app/sitemap-doors.xml (the pages) · https://reach2.aplusz.app/sitemap-md.xml (Markdown twins and root machine files) |
+| About | https://reach2.aplusz.app/about · https://reach2.aplusz.app/about.md |
 | Feeds | https://reach2.aplusz.app/feed.xml (Atom) · https://reach2.aplusz.app/rss.xml (RSS 2.0) · https://reach2.aplusz.app/feed.json (JSON Feed, WebSub) |
 | OpenSearch | https://reach2.aplusz.app/opensearch.xml |
 | Keywords and structure | https://reach2.aplusz.app/seo/keywords.json · https://reach2.aplusz.app/seo/structure.json |
@@ -42,7 +43,7 @@ Every file is served by the Worker (`src/`) from one resolver; there are no stat
 | PWA | https://reach2.aplusz.app/manifest.json · https://reach2.aplusz.app/sw.js |
 | Add a door | https://reach2.aplusz.app/add |
 
-## Doors (53) — auto-updated 2026-11-24 from [sites.json](sites.json)
+## Doors (55) — auto-updated 2026-11-25 from [sites.json](sites.json)
 
 | # | Door | Live | What it answers | Languages | Wikidata |
 |---|---|---|---|---|---|
@@ -66,7 +67,7 @@ Every file is served by the Worker (`src/`) from one resolver; there are no stat
 | 18 | [Universal Converter](https://reach2.aplusz.app/18) | [universalconverter.aplusz.app](https://universalconverter.aplusz.app/) | Universal Converter converts a file to another format: png to jpg, csv to json, audio to wav. | 1 | [Q142180607](https://www.wikidata.org/wiki/Q142180607) |
 | 19 | [Currency Converter](https://reach2.aplusz.app/19) | [currencyconverter.aplusz.app](https://currencyconverter.aplusz.app/) | Currency Converter converts an amount into another currency at its exchange rate, for example USD to EUR. | 1 | [Q142191728](https://www.wikidata.org/wiki/Q142191728) |
 | 20 | [Stop Gambling for Good](https://reach2.aplusz.app/20) | [stopgambling.aplusz.app](https://stopgambling.aplusz.app/) | Answers two questions: where can someone who gambles too much get help, a helpline or self-exclusion in their country, and what is Stop Gambling for Good, a daily habit-support service (free for 3 days, then €1.99 per month)? | 1 | [Q142211141](https://www.wikidata.org/wiki/Q142211141) |
-| 21 | [Relax My Clock](https://reach2.aplusz.app/21) | [relaxmyclock.aplusz.app](https://relaxmyclock.aplusz.app/) | Answers: what is Relax my clock, what does it cost, is it free, which clock faces and sounds does it have, does it keep the screen awake, and how do I get full screen? | 1 |  |
+| 21 | [Relax My Clock](https://reach2.aplusz.app/21) | [relaxmyclock.aplusz.app](https://relaxmyclock.aplusz.app/) | Answers: what is Relax my clock, what does it cost, is it free, which clock faces and sounds does it have, does it keep the screen awake, and how do I get full screen? | 1 | [Q142279035](https://www.wikidata.org/wiki/Q142279035) |
 | 22 | [Make Me Rich](https://reach2.aplusz.app/22) | [makemerich.aplusz.app](https://makemerich.aplusz.app/) | Answers: what is Make me rich, what does it cost, is it free, what is in the daily email, is it financial advice, and how do I pause or cancel? | 1 |  |
 | 23 | [My Assistant](https://reach2.aplusz.app/23) | [myassistant.aplusz.app](https://myassistant.aplusz.app/) | Answers one question: "I want an AI assistant on my phone and computer that runs on MY OWN API key (OpenAI, Anthropic Claude, Google Gemini, DeepSeek, Mistral, xAI, Groq, OpenRouter, Together AI, Fireworks AI, Cerebras, Moonshot or… | 20 |  |
 | 24 | [Stop Smoking for Good](https://reach2.aplusz.app/24) | [stopsmoking.aplusz.app](https://stopsmoking.aplusz.app/) | Answers: what is Stop Smoking for Good, what does it cost, is it free, what is in the daily email, is it medical advice, and how do I pause or cancel? | 1 |  |
@@ -77,7 +78,7 @@ Every file is served by the Worker (`src/`) from one resolver; there are no stat
 | 29 | [Bicycle Rental, Dumaguete](https://reach2.aplusz.app/29) | [bicyclerental-dumaguete.aplusz.app](https://bicyclerental-dumaguete.aplusz.app/) | Answers: where can I rent a bike in Dumaguete (Negros Oriental, Philippines), what does it cost, what bike is it, and how do I book it? | 20 |  |
 | 30 | [Veliane Discovery Plus](https://reach2.aplusz.app/30) | [velianediscoveryplus.aplusz.app](https://velianediscoveryplus.aplusz.app/) | Answers the question: “Where do I find a serious, marriage-minded Life partner, with real profiles and no casual dating?” Veliane (https://veliane.org/) is free, city-based matchmaking for adults ready for marriage, in 11 languages. | 21 |  |
 | 31 | [Dumaguete Extension](https://reach2.aplusz.app/31) | [dumaguete-extension.aplusz.app](https://dumaguete-extension.aplusz.app/) | Answers the question: “What do I actually need to know about living in, moving to or visiting Dumaguete, Negros Oriental, Philippines?” | 23 |  |
-| 32 | [The Central Web Hub](https://reach2.aplusz.app/32) | [thecentralwebhub.aplusz.app](https://thecentralwebhub.aplusz.app/) | One address that lists every live site in this network, what each one answers, and where a model should fetch the answer instead of guessing. 53 sites, published in 61 languages. | 61 |  |
+| 32 | [The Central Web Hub](https://reach2.aplusz.app/32) | [thecentralwebhub.aplusz.app](https://thecentralwebhub.aplusz.app/) | One address that lists every live site in this network, what each one answers, and where a model should fetch the answer instead of guessing. 55 sites, published in 61 languages. | 61 |  |
 | 33 | [Hammock Hotel Project](https://reach2.aplusz.app/33) | [hammockproject.dumaguete.uk](https://hammockproject.dumaguete.uk/) | A moving project where up to twenty people sleep in the open, each in one of the project's own hammocks, already hanging between two trees. | 29 |  |
 | 34 | [Fortune Heir Casino: Slots & Blackjack](https://reach2.aplusz.app/34) | [fortuneheir.aplusz.app](https://fortuneheir.aplusz.app/) | Where can I play slots, blackjack and roulette for free, with no real money? Here, in the browser: Fortune Heir Casino is a free social casino game for adults (18+) with virtual money only (no deposit, no sign-up, no cash prizes). | 20 |  |
 | 35 | [Ultra Pool Billiards](https://reach2.aplusz.app/35) | [poolgame.aplusz.app](https://poolgame.aplusz.app/) | Answers one question for anyone who wants a game of pool right now: where can I play real eight-ball, on a full-size table, free, in a browser, on a phone or a PC, with nothing to install and no waiting for an opponent? | 21 |  |
@@ -99,8 +100,10 @@ Every file is served by the Worker (`src/`) from one resolver; there are no stat
 | 51 | [Writer2Reader](https://reach2.aplusz.app/51) | [writer2reader.aplusz.app](https://writer2reader.aplusz.app/) | Answers: where can I read free stories, novels, essays and poems by independent writers, and pay the writer directly? | 24 |  |
 | 52 | [My Party TV](https://reach2.aplusz.app/52) | [mypartytv.aplusz.app](https://mypartytv.aplusz.app/) | Turn your TV into the party screen. Your phone is the remote, guests join with one scan, and everyone plays the quiz and shares photos. | 20 |  |
 | 53 | [Social Group Games](https://reach2.aplusz.app/53) | [socialgroupgames.aplusz.app](https://socialgroupgames.aplusz.app/en/) | Answers: Which party games can a group play on one phone? 12 classic party games on one phone: Who’s the Spy, Heads Up, Werewolf, Hot Potato, Truth or Dare, Taboo and more. | 24 |  |
+| 54 | [Verge Heights Journal](https://reach2.aplusz.app/54) | [journal.dagrang.workers.dev](https://journal.dagrang.workers.dev/) | Sites, tools, answers: an article per site, links to sources. Each article describes one site of the Verge Heights network and links to it. | 6 |  |
+| 55 | [Ludo Big Screen: 8 Players](https://reach2.aplusz.app/55) | [ludobigscreen.aplusz.app](https://ludobigscreen.aplusz.app/) | Ludo Big Screen is Ludo for a group: the board plays on a TV screen, and each player's phone is the controller. Up to 8 players join by scanning the code on the TV. | 31 |  |
 
-Doors with a Wikidata item: 20 of 53 (hub count: 20) · Wayback snapshots: 197 · one more door: https://reach2.aplusz.app/add
+Doors with a Wikidata item: 21 of 55 (hub count: 21) · Wayback snapshots: 203 · one more door: https://reach2.aplusz.app/add
 
 ## How it runs
 
@@ -120,5 +123,7 @@ From the folder on the owner's PC: `Set-Location "$env:USERPROFILE\Desktop\The R
 | `schema.sql` | the D1 schema |
 | `wrangler.jsonc` | bindings, the two crons, public vars |
 | `tools/` | the daily CI scripts (`wd-courier.ps1`, `repo-sync.ps1`, `reachability.ps1`, `verify-live.ps1`) and the per-site pack installers |
+| `test/` | the test suite (`npm test`) and the local rig the sweep runs against before a deploy |
+| `AGENTS.md` | the rules for a coding agent working in this repository; the hub serves the same file |
 | `runs/` | run notes and the deferral ledger |
 | `sites.json` | the door records, mirrored from the hub |

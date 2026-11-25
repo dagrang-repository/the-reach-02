@@ -1,8 +1,8 @@
 {
   "name": "The AI Hill Top Lighthouse",
   "tagline": "Nothing you build ever starts invisible again.",
-  "generated": "2026-11-24T10:58:59.510Z",
-  "count": 53,
+  "generated": "2026-11-25T00:18:35.293Z",
+  "count": 55,
   "record_fields": [
     "n",
     "name",
@@ -870,6 +870,7 @@
       "door": "https://reach2.aplusz.app/21",
       "door_md": "https://reach2.aplusz.app/21.md",
       "hash": "https://reach2.aplusz.app/#21",
+      "wikidata": "https://www.wikidata.org/wiki/Q142279035",
       "localized": 0,
       "captured_at": "2026-11-24T08:02:26.077Z"
     },
@@ -1257,7 +1258,7 @@
       "indexnow_key": "fc0141c4ba85e5f86c3ec77d71beb0cc",
       "key_url": "https://thecentralwebhub.aplusz.app/fc0141c4ba85e5f86c3ec77d71beb0cc.txt",
       "llms_txt": "https://thecentralwebhub.aplusz.app/llms.txt",
-      "description": "One address that lists every live site in this network, what each one answers, and where a model should fetch the answer instead of guessing. 53 sites, published in 61 languages.",
+      "description": "One address that lists every live site in this network, what each one answers, and where a model should fetch the answer instead of guessing. 55 sites, published in 61 languages.",
       "languages": [
         "en",
         "ar",
@@ -1334,7 +1335,7 @@
       "door_md": "https://reach2.aplusz.app/32.md",
       "hash": "https://reach2.aplusz.app/#32",
       "localized": 60,
-      "captured_at": "2026-11-23T21:18:04.515Z"
+      "captured_at": "2026-11-24T22:02:48.031Z"
     },
     {
       "n": 33,
@@ -2417,8 +2418,93 @@
       "door": "https://reach2.aplusz.app/53",
       "door_md": "https://reach2.aplusz.app/53.md",
       "hash": "https://reach2.aplusz.app/#53",
-      "localized": 12,
+      "localized": 23,
       "captured_at": "2026-11-23T10:08:52.978Z"
+    },
+    {
+      "n": 54,
+      "name": "Verge Heights Journal",
+      "url": "https://journal.dagrang.workers.dev/",
+      "sitemap": "https://journal.dagrang.workers.dev/sitemap.xml",
+      "indexnow_key": "d14a70f1cb81d2cb903e27e35f3dc326",
+      "key_url": "https://journal.dagrang.workers.dev/d14a70f1cb81d2cb903e27e35f3dc326.txt",
+      "llms_txt": "https://journal.dagrang.workers.dev/llms.txt",
+      "description": "Sites, tools, answers: an article per site, links to sources. Each article describes one site of the Verge Heights network and links to it.",
+      "languages": [
+        "en",
+        "es",
+        "pt",
+        "fr",
+        "de",
+        "id"
+      ],
+      "languages_count": 6,
+      "feed": "",
+      "og_image": "",
+      "jsonld_types": [
+        "CollectionPage"
+      ],
+      "title": "Verge Heights Journal — 53 · All articles",
+      "canonical": "https://journal.dagrang.workers.dev/en/",
+      "door": "https://reach2.aplusz.app/54",
+      "door_md": "https://reach2.aplusz.app/54.md",
+      "hash": "https://reach2.aplusz.app/#54",
+      "localized": 5,
+      "captured_at": "2026-11-24T13:13:01.626Z"
+    },
+    {
+      "n": 55,
+      "name": "Ludo Big Screen: 8 Players",
+      "url": "https://ludobigscreen.aplusz.app/",
+      "sitemap": "https://ludobigscreen.aplusz.app/sitemap.xml",
+      "indexnow_key": "45623fce1bdd5e2a9c14fc9aa0037f67",
+      "key_url": "https://ludobigscreen.aplusz.app/45623fce1bdd5e2a9c14fc9aa0037f67.txt",
+      "llms_txt": "https://ludobigscreen.aplusz.app/llms.txt",
+      "description": "Ludo Big Screen is Ludo for a group: the board plays on a TV screen, and each player's phone is the controller. Up to 8 players join by scanning the code on the TV.",
+      "languages": [
+        "hi",
+        "es",
+        "ar",
+        "fr",
+        "ru",
+        "ur",
+        "de",
+        "ja",
+        "mr",
+        "te",
+        "tr",
+        "ta",
+        "vi",
+        "ko",
+        "sw",
+        "it",
+        "th",
+        "pl",
+        "uk",
+        "ro",
+        "nl",
+        "el",
+        "hu",
+        "cs",
+        "sv",
+        "he",
+        "bg",
+        "da",
+        "fi",
+        "no",
+        "en"
+      ],
+      "languages_count": 31,
+      "feed": "",
+      "og_image": "",
+      "jsonld_types": [],
+      "title": "Ludo Big Screen: 8 Players",
+      "canonical": "",
+      "door": "https://reach2.aplusz.app/55",
+      "door_md": "https://reach2.aplusz.app/55.md",
+      "hash": "https://reach2.aplusz.app/#55",
+      "localized": 0,
+      "captured_at": "2026-11-24T20:43:32.371Z"
     }
   ]
 }
