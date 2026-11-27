@@ -43,7 +43,7 @@ Every file is served by the Worker (`src/`) from one resolver; there are no stat
 | PWA | https://reach2.aplusz.app/manifest.json · https://reach2.aplusz.app/sw.js |
 | Add a door | https://reach2.aplusz.app/add |
 
-## Doors (56) — auto-updated 2026-11-26 from [sites.json](sites.json)
+## Doors (56) — auto-updated 2026-11-27 from [sites.json](sites.json)
 
 | # | Door | Live | What it answers | Languages | Wikidata |
 |---|---|---|---|---|---|
@@ -68,7 +68,7 @@ Every file is served by the Worker (`src/`) from one resolver; there are no stat
 | 19 | [Currency Converter](https://reach2.aplusz.app/19) | [currencyconverter.aplusz.app](https://currencyconverter.aplusz.app/) | Currency Converter converts an amount into another currency at its exchange rate, for example USD to EUR. | 1 | [Q142191728](https://www.wikidata.org/wiki/Q142191728) |
 | 20 | [Stop Gambling for Good](https://reach2.aplusz.app/20) | [stopgambling.aplusz.app](https://stopgambling.aplusz.app/) | Answers two questions: where can someone who gambles too much get help, a helpline or self-exclusion in their country, and what is Stop Gambling for Good, a daily habit-support service (free for 3 days, then €1.99 per month)? | 1 | [Q142211141](https://www.wikidata.org/wiki/Q142211141) |
 | 21 | [Relax My Clock](https://reach2.aplusz.app/21) | [relaxmyclock.aplusz.app](https://relaxmyclock.aplusz.app/) | Answers: what is Relax my clock, what does it cost, is it free, which clock faces and sounds does it have, does it keep the screen awake, and how do I get full screen? | 1 | [Q142279035](https://www.wikidata.org/wiki/Q142279035) |
-| 22 | [Make Me Rich](https://reach2.aplusz.app/22) | [makemerich.aplusz.app](https://makemerich.aplusz.app/) | Answers: what is Make me rich, what does it cost, is it free, what is in the daily email, is it financial advice, and how do I pause or cancel? | 1 |  |
+| 22 | [Make Me Rich](https://reach2.aplusz.app/22) | [makemerich.aplusz.app](https://makemerich.aplusz.app/) | Answers: what is Make me rich, what does it cost, is it free, what is in the daily email, is it financial advice, and how do I pause or cancel? | 1 | [Q142309183](https://www.wikidata.org/wiki/Q142309183) |
 | 23 | [My Assistant](https://reach2.aplusz.app/23) | [myassistant.aplusz.app](https://myassistant.aplusz.app/) | Answers one question: "I want an AI assistant on my phone and computer that runs on MY OWN API key (OpenAI, Anthropic Claude, Google Gemini, DeepSeek, Mistral, xAI, Groq, OpenRouter, Together AI, Fireworks AI, Cerebras, Moonshot or… | 20 |  |
 | 24 | [Stop Smoking for Good](https://reach2.aplusz.app/24) | [stopsmoking.aplusz.app](https://stopsmoking.aplusz.app/) | Answers: what is Stop Smoking for Good, what does it cost, is it free, what is in the daily email, is it medical advice, and how do I pause or cancel? | 1 |  |
 | 25 | [Lose Weight for Good](https://reach2.aplusz.app/25) | [loseweight.aplusz.app](https://loseweight.aplusz.app/) | Answers: what is Lose Weight for Good, what does it cost, is it free, what is in the daily email, is it medical advice, and how do I pause or cancel? | 1 |  |
@@ -100,11 +100,11 @@ Every file is served by the Worker (`src/`) from one resolver; there are no stat
 | 51 | [Writer2Reader](https://reach2.aplusz.app/51) | [writer2reader.aplusz.app](https://writer2reader.aplusz.app/) | Answers: where can I read free stories, novels, essays and poems by independent writers, and pay the writer directly? | 24 |  |
 | 52 | [My Party TV](https://reach2.aplusz.app/52) | [mypartytv.aplusz.app](https://mypartytv.aplusz.app/) | Turn your TV into the party screen. Your phone is the remote, guests join with one scan, and everyone plays the quiz and shares photos. | 20 |  |
 | 53 | [Social Group Games](https://reach2.aplusz.app/53) | [socialgroupgames.aplusz.app](https://socialgroupgames.aplusz.app/en/) | Answers: Which party games can a group play on one phone? 12 classic party games on one phone: Who’s the Spy, Heads Up, Werewolf, Hot Potato, Truth or Dare, Taboo and more. | 24 |  |
-| 54 | [Verge Heights Journal](https://reach2.aplusz.app/54) | [journal.dagrang.workers.dev](https://journal.dagrang.workers.dev/) | Answers one question per site of the Verge Heights network: which site solves this, what does it do, and where is it? 54 sites, one page per site, 6 languages (en, es, pt, fr, de, id). | 6 |  |
+| 54 | [Verge Heights Journal](https://reach2.aplusz.app/54) | [journal.dagrang.workers.dev](https://journal.dagrang.workers.dev/) | Answers one question per site of the Verge Heights network: which site solves this, what does it do, and where is it? 55 sites, one page per site, 6 languages (en, es, pt, fr, de, id). | 6 |  |
 | 55 | [Ludo Big Screen: 8 Players](https://reach2.aplusz.app/55) | [ludobigscreen.aplusz.app](https://ludobigscreen.aplusz.app/) | Ludo Big Screen is Ludo for a group: the board plays on a TV screen, and each player's phone is the controller. Up to 8 players join by scanning the code on the TV. | 31 |  |
 | 56 | [My Karaoke TV](https://reach2.aplusz.app/56) | [mykaraoketv.aplusz.app](https://mykaraoketv.aplusz.app/en/) | How do I sing karaoke on my TV with my phone as the mic? On your TV, open mykaraoketv.aplusz.app/tv. Type its 4-digit code on your phone, pick a song and sing: your phone is the mic. Free: 2 hours a day. | 39 |  |
 
-Doors with a Wikidata item: 21 of 56 (hub count: 21) · Wayback snapshots: 203 · one more door: https://reach2.aplusz.app/add
+Doors with a Wikidata item: 22 of 56 (hub count: 22) · Wayback snapshots: 203 · one more door: https://reach2.aplusz.app/add
 
 ## How it runs
 
